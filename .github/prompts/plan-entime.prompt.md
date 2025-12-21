@@ -47,7 +47,7 @@
 - [ ] Обработка ошибок
 
 ### **Фаза 5: Коммуникация**
-- [ ] Serial (UART1) команды
+- [ ] Serial (UART0) команды
 - [ ] BluetoothSerial
 - [ ] Парсер команд (JSON)
 
@@ -95,7 +95,7 @@ test/
 | Интерфейс | Назначение | Пины |
 |-----------|-----------|------|
 | UART0 | Serial (логирование) | USB встроенный ESP32 |
-| UART1 | GPS NEO-6M | RX:37, TX:36, PPS:21 |
+| UART1 | GPS NEO-6M | RX:44, TX:43, PPS:21 |
 | I2C | RTC DS3231 | SDA:8, SCL:9 |
 | SPI | TFT ILI9341 | CS:5, DC:6, MOSI:13, MISO:12, SCK:14, RST:15 |
 | GPIO | Ext interrupt | PIN:2 |
@@ -124,7 +124,7 @@ test_deps = unity
 {"cmd": "time"}                                  // Текущее время
 {"cmd": "status"}                                // Статус синхронизации
 {"cmd": "gps", "enable": true}                   // Вкл/выкл GPS
-{"cmd": "calibrate", "offset": 0.5}              // Калибровка RTC
+{"cmd": "calibrate", "offset": 0.5}              // RTC offset compensation
 {"cmd": "save_config", "data": {...}}            // Сохранить конфиг
 {"cmd": "load_config"}                           // Загрузить конфиг
 {"cmd": "factory_reset"}                         // Сброс
