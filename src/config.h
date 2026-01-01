@@ -5,6 +5,8 @@
 // ENTime Firmware Configuration
 // ============================================================================
 
+#define VERSION "0.1.0"
+
 // --- TFT Display (ILI9341) ---
 // Пины определены в platformio.ini через build_flags для TFT_eSPI
 // TFT_CS=10, TFT_DC=18, TFT_RST=14
