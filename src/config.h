@@ -7,7 +7,7 @@
 
 // --- TFT Display (ILI9341) ---
 // Пины определены в platformio.ini через build_flags для TFT_eSPI
-// TFT_CS=10, TFT_DC=18, TFT_RST=21
+// TFT_CS=10, TFT_DC=18, TFT_RST=14
 // TFT_MOSI=11, TFT_MISO=13, TFT_SCLK=12
 // TOUCH_CS=17
 

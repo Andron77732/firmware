@@ -90,7 +90,7 @@ test/
 | UART0 | Serial (логирование) | USB встроенный ESP32 |
 | UART1 | GPS NEO-6M | RX:44, TX:43, PPS:21 |
 | I2C | RTC DS3231 | SDA:8, SCL:9 |
-| SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:21, T_CS:17 |
+| SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:14, T_CS:17 |
 | GPIO | Ext interrupt | PIN:2 |
 | BLE | GATT | встроенный |
 
