@@ -22,8 +22,9 @@
 
 ### **Фаза 1: Базовая инфраструктура**
 - [ ] PlatformIO setup, зависимости
-- [ ] Драйвер NEO-6M (парсинг NMEA)
-- [ ] Драйвер DS3231 (I2C)
+- [ ] Инициализация NEO-6M (парсинг NMEA)
+- [ ] Инициализация DS3231 (I2C)
+- [ ] Инициализация BLE (GATT)
 - [ ] Логирование
 
 ### **Фаза 2: Захват времени**
@@ -48,21 +49,13 @@
 
 ### **Фаза 5: Коммуникация**
 - [ ] Serial (UART0) команды
-- [ ] BluetoothSerial
+- [ ] BLE (Nordic UART Service)
 - [ ] Парсер команд (JSON)
 
 ### **Фаза 6: Интерфейс**
 - [ ] TFT ILI9341 драйвер
 - [ ] UI (время, статус)
 - [ ] Мониторинг синхронизации
-
-### **Фаза 7: Тестирование**
-- [ ] **[КРИТИЧНО] Измерение latency ISR** (<100µs)
-- [ ] **[КРИТИЧНО] Профилирование jitter** (±50µs макс)
-- [ ] Unit-тесты (NMEA, команды, time_sync)
-- [ ] Integration-тесты (прерывание, переключение)
-- [ ] Нагрузочное тестирование (1000+ событий)
-- [ ] **Финальная проверка: ±1мс точность**
 
 ---
 
@@ -97,9 +90,9 @@ test/
 | UART0 | Serial (логирование) | USB встроенный ESP32 |
 | UART1 | GPS NEO-6M | RX:44, TX:43, PPS:21 |
 | I2C | RTC DS3231 | SDA:8, SCL:9 |
-| SPI | TFT ILI9341 | CS:5, DC:6, MOSI:13, MISO:12, SCK:14, RST:15 |
+| SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:21 |
 | GPIO | Ext interrupt | PIN:2 |
-| BLE | BluetoothSerial | встроенный |
+| BLE | GATT | встроенный |
 
 ---
 
@@ -108,11 +101,9 @@ test/
 ```ini
 lib_deps =
     adafruit/Adafruit DS3231 Library
-    adafruit/Adafruit ILI9341
-    ArduinoJson
-    BluetoothSerial
-
-test_deps = unity
+    bodmer/TFT_eSPI
+    h2zero/NimBLE-Arduino
+    stevemarple/MicroNMEA
 ```
 
 ---
