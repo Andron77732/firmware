@@ -1,9 +1,6 @@
 Import("env")
 
-# Генерировать compile_commands.json после каждой сборки
-env.AddPostAction(
-    "$BUILD_DIR/${PROGNAME}.elf",
-    env.VerboseAction(" ".join([
-        "pio", "run", "-t", "compiledb", "-e", env["PIOENV"], "-s"
-    ]), "Generating compile_commands.json")
-)
+def generate_compiledb(source, target, env):
+    env.Execute("$PYTHONEXE -m platformio run -t compiledb -e $PIOENV -s")
+
+env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", generate_compiledb)
