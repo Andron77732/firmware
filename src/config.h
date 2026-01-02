@@ -14,9 +14,11 @@
 // TOUCH_CS=17
 
 // --- GPS NEO-6M (UART1) ---
-#define GPS_RX_PIN      44
-#define GPS_TX_PIN      43
-#define GPS_PPS_PIN     21
+// Внимание: GPIO 19/20 заняты USB! Используем 4/5/6
+#define GPS_RX_PIN      4
+#define GPS_TX_PIN      5
+#define GPS_PPS_PIN     6
+#define GPS_BAUD        9600
 
 // --- RTC DS3231 (I2C) ---
 #define RTC_SDA_PIN     8

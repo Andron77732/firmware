@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include "config.h"
 #include "hal/tft/tft.h"
+#include "hal/gps/gps.h"
 
 static const char* TAG = "MAIN";
 
@@ -12,16 +13,24 @@ void setup() {
     
     // Инициализация дисплея
     display.begin();
-    ESP_LOGI(TAG, "Display initialized");
     
-    // Тестовое сообщение на экране
+    // Заголовок
     display.tft().setCursor(0, 0);
-      display.tft().printf("ENTime v%s\n", VERSION);
-      display.tft().println("TFT OK");
+    display.tft().setTextSize(2);
+    display.tft().setTextColor(TFT_WHITE, TFT_BLACK);
+    display.tft().printf("ENTime v%s", VERSION);
+    
+    display.tft().setCursor(0, 25);
+    display.tft().setTextSize(1);
+    display.tft().setTextColor(TFT_DARKGREY, TFT_BLACK);
+    display.tft().print("GPS Time Sync");
+    
+    // Инициализация GPS
+    gps.begin();
     
     ESP_LOGI(TAG, "Setup complete");
 }
 
 void loop() {
-    // TODO: основной цикл
+    gps.update();
 }
