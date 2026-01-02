@@ -68,11 +68,11 @@ void StatusBar::forceRedrawTime() {
 }
 
 void StatusBar::drawIconPlaceholders() {
-    // Рисуем 4 placeholder'а для будущих иконок
-    drawIconPlaceholder(ICON_BATTERY_X,   ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
+    // Рисуем 4 placeholder'а для будущих иконок (слева направо)
     drawIconPlaceholder(ICON_GPS_X,       ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
-    drawIconPlaceholder(ICON_WIFI_X,      ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
     drawIconPlaceholder(ICON_BLUETOOTH_X, ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
+    drawIconPlaceholder(ICON_WIFI_X,      ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
+    drawIconPlaceholder(ICON_BATTERY_X,   ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
 }
 
 void StatusBar::drawIconPlaceholder(uint16_t x, uint16_t y, uint16_t size, uint16_t color) {

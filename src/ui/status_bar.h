@@ -19,24 +19,25 @@ class StatusBar {
 public:
     // Размеры и позиции
     static constexpr uint16_t WIDTH = 240;
-    static constexpr uint16_t HEIGHT = 28;
+    static constexpr uint16_t HEIGHT = 24;  // 4 + 16 + 4
     static constexpr uint16_t Y_POS = 0;
     
-    // Зона часов
+    // Зона часов (TextSize 2 = 16px height)
     static constexpr uint16_t CLOCK_X = 4;
     static constexpr uint16_t CLOCK_Y = 4;
-    static constexpr uint8_t  CLOCK_TEXT_SIZE = 2;  // ~12x16 per char, "HH:MM:SS" = 96px
+    static constexpr uint8_t  CLOCK_TEXT_SIZE = 2;  // 12x16 per char, "HH:MM:SS" = 96px
+    static constexpr uint16_t CLOCK_HEIGHT = 16;    // 8 * CLOCK_TEXT_SIZE
     
     // Зона иконок (справа налево, от правого края)
-    static constexpr uint16_t ICON_SIZE = 20;
+    static constexpr uint16_t ICON_SIZE = CLOCK_HEIGHT;  // 16px — равно высоте часов
     static constexpr uint16_t ICON_PADDING = 4;
-    static constexpr uint16_t ICON_Y = 4;
+    static constexpr uint16_t ICON_Y = CLOCK_Y;  // выровнено с часами
     
-    // Позиции иконок (X координата левого края)
-    static constexpr uint16_t ICON_BATTERY_X   = WIDTH - ICON_PADDING - ICON_SIZE;              // 216
-    static constexpr uint16_t ICON_GPS_X       = ICON_BATTERY_X - ICON_PADDING - ICON_SIZE;     // 192
-    static constexpr uint16_t ICON_WIFI_X      = ICON_GPS_X - ICON_PADDING - ICON_SIZE;         // 168
-    static constexpr uint16_t ICON_BLUETOOTH_X = ICON_WIFI_X - ICON_PADDING - ICON_SIZE;        // 144
+    // Позиции иконок (X координата левого края, справа налево)
+    static constexpr uint16_t ICON_BATTERY_X   = WIDTH - ICON_PADDING - ICON_SIZE;              // 220
+    static constexpr uint16_t ICON_WIFI_X      = ICON_BATTERY_X - ICON_PADDING - ICON_SIZE;     // 200
+    static constexpr uint16_t ICON_BLUETOOTH_X = ICON_WIFI_X - ICON_PADDING - ICON_SIZE;        // 180
+    static constexpr uint16_t ICON_GPS_X       = ICON_BLUETOOTH_X - ICON_PADDING - ICON_SIZE;   // 160
     
     // Цвета
     static constexpr uint16_t COLOR_BACKGROUND = TFT_BLACK;
