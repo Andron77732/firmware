@@ -42,7 +42,8 @@ public:
     // Цвета
     static constexpr uint16_t COLOR_BACKGROUND = TFT_BLACK;
     static constexpr uint16_t COLOR_CLOCK = TFT_WHITE;
-    static constexpr uint16_t COLOR_ICON_PLACEHOLDER = TFT_DARKGREY;
+    static constexpr uint16_t COLOR_ICON_ACTIVE = TFT_WHITE;
+    static constexpr uint16_t COLOR_ICON_INACTIVE = TFT_DARKGREY;
 
     /**
      * @brief Инициализация статус-бара
@@ -77,14 +78,19 @@ private:
     uint8_t _lastSecond = 255;
     
     /**
-     * @brief Отрисовка placeholder'ов для иконок
+     * @brief Отрисовка всех иконок
      */
-    void drawIconPlaceholders();
+    void drawIcons();
+    
+    void drawIconGPS(uint16_t color);
+    void drawIconBluetooth(uint16_t color);
+    void drawIconWiFi(uint16_t color);
+    void drawIconBattery(uint16_t color);
     
     /**
-     * @brief Отрисовка одного placeholder'а иконки
+     * @brief Отрисовка bitmap 16x16
      */
-    void drawIconPlaceholder(uint16_t x, uint16_t y, uint16_t size, uint16_t color);
+    void drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color);
 };
 
 // Глобальный объект статус-бара

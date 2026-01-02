@@ -1,4 +1,5 @@
 #include "status_bar.h"
+#include "icons.h"
 
 // Глобальный объект статус-бара
 StatusBar statusBar;
@@ -18,8 +19,8 @@ void StatusBar::draw() {
     // Фон статус-бара
     _tft->fillRect(0, Y_POS, WIDTH, HEIGHT, COLOR_BACKGROUND);
     
-    // Placeholder'ы иконок
-    drawIconPlaceholders();
+    // Иконки
+    drawIcons();
     
     // Принудительная отрисовка времени
     forceRedrawTime();
@@ -67,16 +68,42 @@ void StatusBar::forceRedrawTime() {
     }
 }
 
-void StatusBar::drawIconPlaceholders() {
-    // Рисуем 4 placeholder'а для будущих иконок (слева направо)
-    drawIconPlaceholder(ICON_GPS_X,       ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
-    drawIconPlaceholder(ICON_BLUETOOTH_X, ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
-    drawIconPlaceholder(ICON_WIFI_X,      ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
-    drawIconPlaceholder(ICON_BATTERY_X,   ICON_Y, ICON_SIZE, COLOR_ICON_PLACEHOLDER);
+void StatusBar::drawIcons() {
+    // Пока все иконки неактивны (серые)
+    drawIconGPS(COLOR_ICON_INACTIVE);
+    drawIconBluetooth(COLOR_ICON_INACTIVE);
+    drawIconWiFi(COLOR_ICON_INACTIVE);
+    drawIconBattery(COLOR_ICON_INACTIVE);
 }
 
-void StatusBar::drawIconPlaceholder(uint16_t x, uint16_t y, uint16_t size, uint16_t color) {
-    // Рисуем пустой прямоугольник как placeholder
-    _tft->drawRect(x, y, size, size, color);
+void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color) {
+    for (int row = 0; row < 16; row++) {
+        uint8_t b1 = bitmap[row * 2];
+        uint8_t b2 = bitmap[row * 2 + 1];
+        
+        for (int col = 0; col < 8; col++) {
+            if (b1 & (0x80 >> col)) {
+                _tft->drawPixel(x + col, y + row, color);
+            }
+            if (b2 & (0x80 >> col)) {
+                _tft->drawPixel(x + 8 + col, y + row, color);
+            }
+        }
+    }
 }
 
+void StatusBar::drawIconGPS(uint16_t color) {
+    drawBitmap16(ICON_GPS_X, ICON_Y, ICON_GPS, color);
+}
+
+void StatusBar::drawIconBluetooth(uint16_t color) {
+    drawBitmap16(ICON_BLUETOOTH_X, ICON_Y, ICON_BT, color);
+}
+
+void StatusBar::drawIconWiFi(uint16_t color) {
+    drawBitmap16(ICON_WIFI_X, ICON_Y, ICON_WIFI_0, color);
+}
+
+void StatusBar::drawIconBattery(uint16_t color) {
+    drawBitmap16(ICON_BATTERY_X, ICON_Y, ICON_BAT_FULL, color);
+}
