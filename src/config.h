@@ -23,6 +23,7 @@
 // --- RTC DS3231 (I2C) ---
 #define RTC_SDA_PIN     8
 #define RTC_SCL_PIN     9
+#define RTC_SQW_PIN     7
 
 // --- External Interrupt ---
 #define EXT_INT_PIN     2

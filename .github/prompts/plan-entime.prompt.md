@@ -23,7 +23,7 @@
 ### **Фаза 1: Базовая инфраструктура**
 - [x] PlatformIO setup, зависимости
 - [ ] Инициализация NEO-6M (парсинг NMEA)
-- [ ] Инициализация DS3231 (I2C)
+- [x] Инициализация DS3231 (I2C)
 - [ ] Инициализация BLE (GATT)
 - [x] Логирование
 
@@ -89,7 +89,7 @@ test/
 |-----------|-----------|------|
 | UART0 | Serial (логирование) | USB встроенный ESP32 |
 | UART2 | GPS NEO-6M | RX:4, TX:5, PPS:6 |
-| I2C | RTC DS3231 | SDA:8, SCL:9 |
+| I2C | RTC DS3231 | SDA:8, SCL:9, SQW:7 |
 | SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:14, T_CS:17 |
 | GPIO | Ext interrupt | PIN:2 |
 | BLE | GATT | встроенный |
