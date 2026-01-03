@@ -11,6 +11,8 @@ void StatusBar::begin(TFT_eSPI& tft) {
     _lastHour = 255;
     _lastMinute = 255;
     _lastSecond = 255;
+    _lastBtAdvertising = false;
+    _lastBtConnected = false;
 }
 
 void StatusBar::draw() {
@@ -71,12 +73,46 @@ void StatusBar::forceRedrawTime() {
 void StatusBar::drawIcons() {
     // Пока все иконки неактивны (серые)
     drawIconGPS(COLOR_ICON_INACTIVE);
-    drawIconBluetooth(COLOR_ICON_INACTIVE);
+    drawIconBluetooth(ICON_BT_OFF, COLOR_ICON_INACTIVE);
     drawIconWiFi(COLOR_ICON_INACTIVE);
     drawIconBattery(COLOR_ICON_INACTIVE);
 }
 
-void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color) {
+void StatusBar::updateBluetoothIcon(bool advertising, bool connected) {
+    if (!_tft) return;
+    
+    // Проверяем, изменилось ли состояние
+    if (advertising == _lastBtAdvertising && connected == _lastBtConnected) {
+        return;  // Ничего не изменилось
+    }
+    
+    // Сохраняем текущие значения
+    _lastBtAdvertising = advertising;
+    _lastBtConnected = connected;
+    
+    // Выбираем иконку и цвет в зависимости от состояния
+    const uint8_t* bitmap;
+    uint16_t color;
+    
+    if (connected) {
+        // Подключено - используем иконку с подключением, синий цвет
+        bitmap = ICON_BT_CONNECTED;
+        color = COLOR_ICON_BLUETOOTH_ACTIVE;
+    } else if (advertising) {
+        // Реклама активна, но нет подключения - обычная иконка, синий цвет
+        bitmap = ICON_BT;
+        color = COLOR_ICON_BLUETOOTH_ACTIVE;
+    } else {
+        // Реклама не активна - иконка выключена, серый цвет
+        bitmap = ICON_BT_OFF;
+        color = COLOR_ICON_INACTIVE;
+    }
+    
+    // Отрисовка иконки с фоном за один проход
+    drawIconBluetooth(bitmap, color, COLOR_BACKGROUND);
+}
+
+void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
     for (int row = 0; row < 16; row++) {
         uint8_t b1 = bitmap[row * 2];
         uint8_t b2 = bitmap[row * 2 + 1];
@@ -84,9 +120,13 @@ void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint
         for (int col = 0; col < 8; col++) {
             if (b1 & (0x80 >> col)) {
                 _tft->drawPixel(x + col, y + row, color);
+            } else {
+                _tft->drawPixel(x + col, y + row, bgColor);
             }
             if (b2 & (0x80 >> col)) {
                 _tft->drawPixel(x + 8 + col, y + row, color);
+            } else {
+                _tft->drawPixel(x + 8 + col, y + row, bgColor);
             }
         }
     }
@@ -96,8 +136,8 @@ void StatusBar::drawIconGPS(uint16_t color) {
     drawBitmap16(ICON_GPS_X, ICON_Y, ICON_GPS, color);
 }
 
-void StatusBar::drawIconBluetooth(uint16_t color) {
-    drawBitmap16(ICON_BLUETOOTH_X, ICON_Y, ICON_BT, color);
+void StatusBar::drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
+    drawBitmap16(ICON_BLUETOOTH_X, ICON_Y, bitmap, color, bgColor);
 }
 
 void StatusBar::drawIconWiFi(uint16_t color) {

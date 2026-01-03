@@ -126,6 +126,12 @@ bool BLESerial::isConnected() {
     return _connected;
 }
 
+bool BLESerial::isAdvertising() {
+    if (!_server) return false;
+    NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+    return pAdvertising ? pAdvertising->isAdvertising() : false;
+}
+
 // ============================================================================
 // Stream Interface
 // ============================================================================

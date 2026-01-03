@@ -22,6 +22,7 @@ public:
     void end();
     
     bool isConnected();
+    bool isAdvertising();
     
     // Stream interface
     int available() override;

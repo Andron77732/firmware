@@ -9,6 +9,32 @@
 
 static const char* TAG = "MAIN";
 
+/**
+ * @brief Обновление статус-бара и связанных элементов (каждую секунду)
+ */
+void updateStatusBar() {
+    static uint32_t lastUpdate = 0;
+    uint32_t now = millis();
+    
+    // Обновляем каждую секунду
+    if (now - lastUpdate >= 1000) {
+        lastUpdate = now;
+        DateTime dt = rtc.now();
+        
+        // Время в статус-баре
+        statusBar.updateTime(dt.hour(), dt.minute(), dt.second());
+        
+        // Обновление иконки Bluetooth
+        statusBar.updateBluetoothIcon(bleSerial.isAdvertising(), bleSerial.isConnected());
+        
+        // Дата под статус-баром
+        display.tft().setCursor(0, StatusBar::HEIGHT + 60);
+        display.tft().setTextSize(2);
+        display.tft().setTextColor(TFT_CYAN, TFT_BLACK);
+        display.tft().printf("%04d-%02d-%02d", dt.year(), dt.month(), dt.day());
+    }
+}
+
 void setup() {
     Serial.begin(SERIAL_BAUD);
     
@@ -53,20 +79,6 @@ void loop() {
         ESP_LOGI(TAG, "BLE RX: %s", data.c_str());
     }
     
-    // Обновление статус-бара каждую секунду
-    static uint32_t lastUpdate = 0;
-    uint32_t now = millis();
-    if (now - lastUpdate >= 1000) {
-        lastUpdate = now;
-        DateTime dt = rtc.now();
-        
-        // Время в статус-баре
-        statusBar.updateTime(dt.hour(), dt.minute(), dt.second());
-        
-        // Дата под статус-баром
-        display.tft().setCursor(0, StatusBar::HEIGHT + 60);
-        display.tft().setTextSize(2);
-        display.tft().setTextColor(TFT_CYAN, TFT_BLACK);
-        display.tft().printf("%04d-%02d-%02d", dt.year(), dt.month(), dt.day());
-    }
+    // Обновление статус-бара
+    updateStatusBar();
 }

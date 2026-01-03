@@ -8,9 +8,9 @@
  * @brief Статус-бар в верхней части экрана
  * 
  * Layout (240px width):
- * ┌──────────────────────────────────────┐
- * │ HH:MM:SS           [BT][WiFi][GPS][Bat]│
- * └──────────────────────────────────────┘
+ * ┌────────────────────────────────────────┐
+ *  HH:MM:SS           [BT][WiFi][GPS][Bat]│
+ * └────────────────────────────────────────┘
  * 
  * Левая половина (0-119): часы
  * Правая половина (120-239): иконки справа налево
@@ -44,6 +44,7 @@ public:
     static constexpr uint16_t COLOR_CLOCK = TFT_WHITE;
     static constexpr uint16_t COLOR_ICON_ACTIVE = TFT_WHITE;
     static constexpr uint16_t COLOR_ICON_INACTIVE = TFT_DARKGREY;
+    static constexpr uint16_t COLOR_ICON_BLUETOOTH_ACTIVE = TFT_BLUE;
 
     /**
      * @brief Инициализация статус-бара
@@ -68,6 +69,13 @@ public:
      * @brief Принудительная перерисовка времени (даже если не изменилось)
      */
     void forceRedrawTime();
+    
+    /**
+     * @brief Обновить иконку Bluetooth в зависимости от состояния
+     * @param advertising Запущена ли реклама BLE
+     * @param connected Есть ли активное подключение
+     */
+    void updateBluetoothIcon(bool advertising, bool connected);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -77,20 +85,25 @@ private:
     uint8_t _lastMinute = 255;
     uint8_t _lastSecond = 255;
     
+    // Кэш состояния Bluetooth для оптимизации перерисовки
+    bool _lastBtAdvertising = false;
+    bool _lastBtConnected = false;
+    
     /**
      * @brief Отрисовка всех иконок
      */
     void drawIcons();
     
     void drawIconGPS(uint16_t color);
-    void drawIconBluetooth(uint16_t color);
+    void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = COLOR_BACKGROUND);
     void drawIconWiFi(uint16_t color);
     void drawIconBattery(uint16_t color);
     
     /**
      * @brief Отрисовка bitmap 16x16
+     * @param bgColor Цвет фона
      */
-    void drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color);
+    void drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor = COLOR_BACKGROUND);
 };
 
 // Глобальный объект статус-бара
