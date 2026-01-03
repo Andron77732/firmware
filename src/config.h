@@ -31,5 +31,8 @@
 // --- Serial ---
 #define SERIAL_BAUD     115200
 
+// --- BLE ---
+#define BLE_DEVICE_NAME "ENTime"
+
 #endif // CONFIG_H
 

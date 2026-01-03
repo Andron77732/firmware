@@ -102,7 +102,7 @@ test/
 lib_deps =
     adafruit/Adafruit DS3231 Library
     bodmer/TFT_eSPI
-    afpineda/NuS-NimBLE-Serial
+    h2zero/NimBLE-Arduino
     stevemarple/MicroNMEA
 ```
 

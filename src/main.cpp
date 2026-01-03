@@ -4,6 +4,7 @@
 #include "hal/tft/tft.h"
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
+#include "hal/comm/ble.h"
 #include "ui/status_bar.h"
 
 static const char* TAG = "MAIN";
@@ -37,11 +38,20 @@ void setup() {
     // Инициализация RTC
     rtc.begin();
     
+    // Инициализация BLE (Nordic UART Service)
+    bleSerial.begin("ENTime");
+    
     ESP_LOGI(TAG, "Setup complete");
 }
 
 void loop() {
     gps.update();
+    
+    // Обработка BLE данных
+    if (bleSerial.available()) {
+        String data = bleSerial.readString();
+        ESP_LOGI(TAG, "BLE RX: %s", data.c_str());
+    }
     
     // Обновление статус-бара каждую секунду
     static uint32_t lastUpdate = 0;
