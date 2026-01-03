@@ -11,9 +11,9 @@ GPS gps;
 // GPS Serial (UART2)
 static HardwareSerial gpsSerial(2);
 
-// Буфер для debug вывода NMEA строки
-static char debugLine[128];
-static uint8_t debugIdx = 0;
+// Буфер для verbose вывода NMEA строки
+static char verboseLine[128];
+static uint8_t verboseIdx = 0;
 
 void GPS::begin() {
     if (_initialized) return;
@@ -28,18 +28,18 @@ void GPS::update() {
     while (gpsSerial.available()) {
         char c = gpsSerial.read();
         
-        // Собираем строку для debug лога
+        // Собираем строку для verbose лога
         if (c == '\n' || c == '\r') {
-            if (debugIdx > 0) {
-                debugLine[debugIdx] = '\0';
-                ESP_LOGD(TAG_NMEA, "%s", debugLine);
-                debugIdx = 0;
+            if (verboseIdx > 0) {
+                verboseLine[verboseIdx] = '\0';
+                ESP_LOGV(TAG_NMEA, "%s", verboseLine);
+                verboseIdx = 0;
             }
-        } else if (debugIdx < sizeof(debugLine) - 1) {
-            debugLine[debugIdx++] = c;
+        } else if (verboseIdx < sizeof(verboseLine) - 1) {
+            verboseLine[verboseIdx++] = c;
         } else {
             // Переполнение — сбрасываем
-            debugIdx = 0;
+            verboseIdx = 0;
         }
         
         // Парсинг NMEA
