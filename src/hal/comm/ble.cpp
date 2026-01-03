@@ -15,6 +15,12 @@ class ServerCallbacks : public NimBLEServerCallbacks {
         uint16_t mtu = connInfo.getMTU();
         ESP_LOGI(TAG, "Client connected: %s, MTU: %d", connInfo.getAddress().toString().c_str(), mtu);
         bleSerial.onConnect(mtu);
+        
+        // Настройка connection interval для низкой latency (быстрое соединение)
+        // min_interval: 6 = 7.5ms, max_interval: 12 = 15ms
+        // latency: 0 = без пропусков, timeout: 500 = 5 секунд
+        pServer->updateConnParams(connInfo.getConnHandle(), 6, 12, 0, 500);
+        ESP_LOGI(TAG, "Connection parameters requested: min=7.5ms, max=15ms");
     }
     
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
@@ -22,6 +28,11 @@ class ServerCallbacks : public NimBLEServerCallbacks {
         bleSerial.onDisconnect();
         // Перезапуск рекламы
         NimBLEDevice::getAdvertising()->start();
+    }
+    
+    void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
+        ESP_LOGI(TAG, "MTU updated: %d", mtu);
+        bleSerial.onConnect(mtu);  // Обновить MTU в BLESerial
     }
 };
 
@@ -59,7 +70,7 @@ void BLESerial::begin(const char* deviceName) {
     
     // Инициализация NimBLE
     NimBLEDevice::init(deviceName);
-    NimBLEDevice::setMTU(247);
+    NimBLEDevice::setMTU(517);
     
     // Создание сервера
     _server = NimBLEDevice::createServer();
