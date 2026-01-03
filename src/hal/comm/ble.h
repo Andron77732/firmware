@@ -16,6 +16,16 @@
 // 32KB буфер в PSRAM для больших пакетов настроек
 #define BLE_RX_BUFFER_SIZE 32768
 
+// Состояния Bluetooth
+enum class BLEState {
+    DISCONNECTED,   // Реклама не активна
+    ADVERTISING,    // Реклама активна, но нет подключения
+    CONNECTED       // Есть активное подключение
+};
+
+// Callback для уведомления об изменении состояния подключения
+typedef void (*BLEStateCallback)(BLEState state);
+
 class BLESerial : public Stream {
 public:
     void begin(const char* deviceName = BLE_DEVICE_NAME);
@@ -23,6 +33,18 @@ public:
     
     bool isConnected();
     bool isAdvertising();
+    
+    /**
+     * @brief Получить текущее состояние Bluetooth
+     * @return BLEState Текущее состояние
+     */
+    BLEState getState();
+    
+    /**
+     * @brief Установить callback для уведомления об изменении состояния подключения
+     * @param callback Функция, которая будет вызвана при подключении/отключении с текущим состоянием
+     */
+    void setStateCallback(BLEStateCallback callback);
     
     // Stream interface
     int available() override;
@@ -38,6 +60,9 @@ public:
     void onConnect(uint16_t mtu);
     void onDisconnect();
     void onNotifyStateChanged(bool enabled);
+    
+    // Публичный метод для уведомления об изменении состояния (вызывается из колбеков)
+    void notifyStateChanged();
     
 private:
     NimBLEServer* _server = nullptr;
@@ -55,6 +80,9 @@ private:
     bool _connected = false;
     bool _notifyEnabled = false;  // Клиент подписан на notify
     uint16_t _mtu = 23;  // Минимальный BLE MTU по умолчанию
+    
+    // Callback для уведомления об изменении состояния
+    BLEStateCallback _stateCallback = nullptr;
 };
 
 extern BLESerial bleSerial;

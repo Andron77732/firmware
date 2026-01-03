@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <TFT_eSPI.h>
+#include "hal/comm/ble.h"
 
 /**
  * @brief Статус-бар в верхней части экрана
@@ -72,10 +73,9 @@ public:
     
     /**
      * @brief Обновить иконку Bluetooth в зависимости от состояния
-     * @param advertising Запущена ли реклама BLE
-     * @param connected Есть ли активное подключение
+     * @param state Текущее состояние Bluetooth
      */
-    void updateBluetoothIcon(bool advertising, bool connected);
+    void updateBluetoothIcon(BLEState state);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -86,8 +86,7 @@ private:
     uint8_t _lastSecond = 255;
     
     // Кэш состояния Bluetooth для оптимизации перерисовки
-    bool _lastBtAdvertising = false;
-    bool _lastBtConnected = false;
+    BLEState _lastBtState = BLEState::DISCONNECTED;
     
     /**
      * @brief Отрисовка всех иконок

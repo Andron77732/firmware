@@ -11,8 +11,7 @@ void StatusBar::begin(TFT_eSPI& tft) {
     _lastHour = 255;
     _lastMinute = 255;
     _lastSecond = 255;
-    _lastBtAdvertising = false;
-    _lastBtConnected = false;
+    _lastBtState = BLEState::DISCONNECTED;
 }
 
 void StatusBar::draw() {
@@ -78,34 +77,40 @@ void StatusBar::drawIcons() {
     drawIconBattery(COLOR_ICON_INACTIVE);
 }
 
-void StatusBar::updateBluetoothIcon(bool advertising, bool connected) {
+void StatusBar::updateBluetoothIcon(BLEState state) {
     if (!_tft) return;
     
     // Проверяем, изменилось ли состояние
-    if (advertising == _lastBtAdvertising && connected == _lastBtConnected) {
+    if (state == _lastBtState) {
         return;  // Ничего не изменилось
     }
     
-    // Сохраняем текущие значения
-    _lastBtAdvertising = advertising;
-    _lastBtConnected = connected;
+    // Сохраняем текущее значение
+    _lastBtState = state;
     
     // Выбираем иконку и цвет в зависимости от состояния
     const uint8_t* bitmap;
     uint16_t color;
     
-    if (connected) {
-        // Подключено - используем иконку с подключением, синий цвет
-        bitmap = ICON_BT_CONNECTED;
-        color = COLOR_ICON_BLUETOOTH_ACTIVE;
-    } else if (advertising) {
-        // Реклама активна, но нет подключения - обычная иконка, синий цвет
-        bitmap = ICON_BT;
-        color = COLOR_ICON_BLUETOOTH_ACTIVE;
-    } else {
-        // Реклама не активна - иконка выключена, серый цвет
-        bitmap = ICON_BT_OFF;
-        color = COLOR_ICON_INACTIVE;
+    switch (state) {
+        case BLEState::CONNECTED:
+            // Подключено - используем иконку с подключением, синий цвет
+            bitmap = ICON_BT_CONNECTED;
+            color = COLOR_ICON_BLUETOOTH_ACTIVE;
+            break;
+            
+        case BLEState::ADVERTISING:
+            // Реклама активна, но нет подключения - обычная иконка, синий цвет
+            bitmap = ICON_BT;
+            color = COLOR_ICON_BLUETOOTH_ACTIVE;
+            break;
+            
+        case BLEState::DISCONNECTED:
+        default:
+            // Реклама не активна - иконка выключена, серый цвет
+            bitmap = ICON_BT_OFF;
+            color = COLOR_ICON_INACTIVE;
+            break;
     }
     
     // Отрисовка иконки с фоном за один проход

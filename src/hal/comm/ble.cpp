@@ -28,6 +28,10 @@ class ServerCallbacks : public NimBLEServerCallbacks {
         bleSerial.onDisconnect();
         // Перезапуск рекламы
         NimBLEDevice::getAdvertising()->start();
+        // Небольшая задержка для того, чтобы реклама успела запуститься
+        vTaskDelay(pdMS_TO_TICKS(10));
+        // Уведомляем об изменении состояния после запуска рекламы
+        bleSerial.notifyStateChanged();
     }
     
     void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
@@ -101,7 +105,7 @@ void BLESerial::begin(const char* deviceName) {
     pAdvertising->setName(deviceName);
     pAdvertising->addServiceUUID(NUS_SERVICE_UUID);
     pAdvertising->start();
-    
+
     ESP_LOGI(TAG, "NUS started, advertising...");
 }
 
@@ -130,6 +134,20 @@ bool BLESerial::isAdvertising() {
     if (!_server) return false;
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
     return pAdvertising ? pAdvertising->isAdvertising() : false;
+}
+
+BLEState BLESerial::getState() {
+    if (_connected) {
+        return BLEState::CONNECTED;
+    } else if (isAdvertising()) {
+        return BLEState::ADVERTISING;
+    } else {
+        return BLEState::DISCONNECTED;
+    }
+}
+
+void BLESerial::setStateCallback(BLEStateCallback callback) {
+    _stateCallback = callback;
 }
 
 // ============================================================================
@@ -252,11 +270,21 @@ void BLESerial::onReceive(const uint8_t* data, size_t len) {
 void BLESerial::onConnect(uint16_t mtu) {
     _connected = true;
     _mtu = mtu;
+    
+    // Уведомляем об изменении состояния
+    notifyStateChanged();
 }
 
 void BLESerial::onDisconnect() {
     _connected = false;
     _notifyEnabled = false;
+}
+
+void BLESerial::notifyStateChanged() {
+    // Уведомляем об изменении состояния с текущим состоянием
+    if (_stateCallback) {
+        _stateCallback(getState());
+    }
 }
 
 void BLESerial::onNotifyStateChanged(bool enabled) {

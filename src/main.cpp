@@ -10,6 +10,14 @@
 static const char* TAG = "MAIN";
 
 /**
+ * @brief Callback для обновления иконки Bluetooth при изменении состояния BLE
+ * @param state Текущее состояние Bluetooth
+ */
+void onBLEStateChanged(BLEState state) {
+    statusBar.updateBluetoothIcon(state);
+}
+
+/**
  * @brief Обновление статус-бара и связанных элементов (каждую секунду)
  */
 void updateStatusBar() {
@@ -24,8 +32,8 @@ void updateStatusBar() {
         // Время в статус-баре
         statusBar.updateTime(dt.hour(), dt.minute(), dt.second());
         
-        // Обновление иконки Bluetooth
-        statusBar.updateBluetoothIcon(bleSerial.isAdvertising(), bleSerial.isConnected());
+        // Обновление иконки Bluetooth (fallback проверка)
+        // statusBar.updateBluetoothIcon(bleSerial.getState());
         
         // Дата под статус-баром
         display.tft().setCursor(0, StatusBar::HEIGHT + 60);
@@ -66,6 +74,15 @@ void setup() {
     
     // Инициализация BLE (Nordic UART Service)
     bleSerial.begin("ENTime");
+    
+    // Установка callback для мгновенного обновления иконки Bluetooth при изменении состояния
+    bleSerial.setStateCallback(onBLEStateChanged);
+    
+    // Небольшая задержка для того, чтобы реклама успела запуститься
+    delay(50);
+    
+    // Обновляем иконку Bluetooth до текущего состояния (реклама уже запущена)
+    bleSerial.notifyStateChanged();
     
     ESP_LOGI(TAG, "Setup complete");
 }
