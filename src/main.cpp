@@ -22,47 +22,36 @@ static const char *TAG = "MAIN";
 void onBLEStateChanged(BLEState state) { statusBar.updateBluetoothIcon(state); }
 
 /**
- * @brief Обновление статус-бара и связанных элементов (каждую секунду)
+ * @brief Обновление статус-бара и связанных элементов (когда меняется секунда в системном времени)
  */
 void updateStatusBar()
 {
-  static uint32_t lastUpdate = 0;
-  uint32_t now = millis();
+  static uint8_t lastSecond = 255;
 
-  // Обновляем каждую секунду
-  if (now - lastUpdate >= 1000)
+  // Предпочитаем системное время (синхронизируется по GPS PPS)
+  time_t nowSec = time(nullptr);
+
+  if (nowSec <= 0)
+    return; // Время ещё не установлено
+
+  // Получаем таймзону из настроек и применяем смещение к UTC времени
+  int8_t timezone = settings.getDevice().timezone;
+  time_t local_time = nowSec + (timezone * 3600);
+
+  struct tm tm{};
+  gmtime_r(&local_time, &tm);
+  uint8_t second = static_cast<uint8_t>(tm.tm_sec);
+
+  // Обновляем только когда секунда изменилась в системном времени
+  if (second != lastSecond)
   {
-    lastUpdate = now;
+    lastSecond = second;
 
-    // Предпочитаем системное время (синхронизируется по GPS PPS)
-    time_t nowSec = time(nullptr);
-
-    uint8_t hour = 0, minute = 0, second = 0;
-    uint16_t year = 1970;
-    uint8_t month = 1, day = 1;
-
-    if (nowSec > 0)
-    {
-      // Получаем таймзону из настроек и применяем смещение к UTC времени
-      int8_t timezone = settings.getDevice().timezone;
-      time_t local_time = nowSec + (timezone * 3600);
-
-      struct tm tm{};
-      gmtime_r(&local_time, &tm);
-      year = static_cast<uint16_t>(tm.tm_year + 1900);
-      month = static_cast<uint8_t>(tm.tm_mon + 1);
-      day = static_cast<uint8_t>(tm.tm_mday);
-      hour = static_cast<uint8_t>(tm.tm_hour);
-      minute = static_cast<uint8_t>(tm.tm_min);
-      second = static_cast<uint8_t>(tm.tm_sec);
-    }
+    uint8_t hour = static_cast<uint8_t>(tm.tm_hour);
+    uint8_t minute = static_cast<uint8_t>(tm.tm_min);
 
     // Время в статус-баре
     statusBar.updateTime(hour, minute, second);
-    // ESP_LOGD(TAG, "Time: %04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
-
-    // Обновление иконки Bluetooth (fallback проверка)
-    // statusBar.updateBluetoothIcon(bleSerial.getState());
 
     // Статус под статус-баром: спутники + источник времени
     uint8_t sats = gps.isReady() ? gps.nmea().getNumSatellites() : 0;
