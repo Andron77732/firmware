@@ -89,7 +89,7 @@
 #### `device.timezone`
 - **Путь в JSON:** `data.device.timezone`
 - **Тип:** `integer` (signed)
-- **По умолчанию:** `0`
+- **По умолчанию:** `3`
 - **Описание:** Смещение часового пояса относительно UTC в часах. Положительное значение — восточнее UTC, отрицательное — западнее UTC.
 - **Ограничения:**
   - Диапазон: `-12` до `12` часов
@@ -184,7 +184,7 @@
 | `device.name` | `data.device.name` | string | `"ENTime"` | 1-16 символов, ASCII | Устройство |
 | `device.number` | `data.device.number` | integer | `1` | 1..255 | Устройство |
 | `device.type` | `data.device.type` | string | `"start"` | "start"/"finish" | Устройство |
-| `device.timezone` | `data.device.timezone` | integer | `0` | -12..12 часов | Устройство |
+| `device.timezone` | `data.device.timezone` | integer | `3` | -12..12 часов | Устройство |
 | `sync.auto` | `data.sync.auto` | boolean | `true` | true/false | Синхронизация |
 | `sync.source` | `data.sync.source` | string | `"auto"` | "auto"/"gps"/"rtc" | Синхронизация |
 | `wifi.active` | `data.wifi.active` | boolean | `false` | true/false | WiFi |
@@ -325,7 +325,7 @@
 | `data.device.name` | `"ENTime"` |
 | `data.device.number` | `1` |
 | `data.device.type` | `"start"` |
-| `data.device.timezone` | `0` |
+| `data.device.timezone` | `3` |
 | `data.sync.auto` | `true` |
 | `data.sync.source` | `"auto"` |
 | `data.wifi.active` | `false` |
@@ -345,7 +345,6 @@
 4. **Размер:** NVS namespace ограничен 4000 байт. Текущие настройки занимают:
    - Минимум (заводские значения): ~230 байт
    - Максимум (при заполнении всех строковых полей): ~380 байт
-5. **Атомарность:** Сохранение выполняется атомарно — либо все настройки сохраняются, либо ни одна
 
 ---
 
