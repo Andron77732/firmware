@@ -2,22 +2,28 @@
 #include <Arduino.h>
 #include <esp_timer.h>
 
-#define EVENT_DEADTIME_US 100000 // 100ms
+#define EVENT_DEADTIME_US 100000 // 100 ms
 
-static volatile bool     s_event_pending = false;
-static volatile int64_t  s_event_time_us = 0;
-static volatile int64_t  s_last_event_us = 0;
+static volatile bool     s_event_captured = false;
+static volatile int64_t  s_event_time_us  = 0;
+static volatile int64_t  s_last_event_us  = 0;
 
 static void IRAM_ATTR event_isr_handler() {
   int64_t now = esp_timer_get_time();
 
+  // Если первое событие ещё не обработано — игнорируем всё
+  if (s_event_captured) {
+    return;
+  }
+
+  // Dead-time
   if ((now - s_last_event_us) < EVENT_DEADTIME_US) {
     return;
   }
 
-  s_last_event_us = now;
-  s_event_time_us = now;
-  s_event_pending = true;
+  s_last_event_us  = now;
+  s_event_time_us  = now;
+  s_event_captured = true;
 }
 
 void event_isr_init(int gpio_pin) {
@@ -25,14 +31,14 @@ void event_isr_init(int gpio_pin) {
   attachInterrupt(gpio_pin, event_isr_handler, FALLING);
 }
 
-bool event_isr_has_event() {
-  return s_event_pending;
-}
+bool event_isr_get(int64_t &timestamp_us) {
+  if (!s_event_captured)
+    return false;
 
-int64_t event_isr_get_timestamp_us() {
   noInterrupts();
-  s_event_pending = false;
-  int64_t t = s_event_time_us;
+  timestamp_us = s_event_time_us;
+  s_event_captured = false;
   interrupts();
-  return t;
+
+  return true;
 }

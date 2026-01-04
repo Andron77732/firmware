@@ -4,8 +4,4 @@
 
 void event_isr_init(int gpio_pin);
 
-// Проверка наличия события
-bool event_isr_has_event();
-
-// Получить timestamp (us)
-int64_t event_isr_get_timestamp_us();
+bool event_isr_get(int64_t &timestamp_us);
