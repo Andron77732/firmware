@@ -26,7 +26,7 @@
 #define RTC_SQW_PIN     7
 
 // --- External Interrupt ---
-#define EXT_INT_PIN     2
+#define EXT_INT_PIN     3
 
 // --- Serial ---
 #define SERIAL_BAUD     115200

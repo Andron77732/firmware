@@ -6,6 +6,7 @@
 #include "hal/rtc/rtc.h"
 #include "hal/comm/ble.h"
 #include "ui/status_bar.h"
+#include "timing/event_isr.h"
 
 static const char* TAG = "MAIN";
 
@@ -47,7 +48,10 @@ void setup() {
     Serial.begin(SERIAL_BAUD);
     
     ESP_LOGI(TAG, "ENTime v%s starting...", VERSION);
-    
+
+    // Инициализация прерывания на событие
+    event_isr_init(EXT_INT_PIN);
+
     // Инициализация дисплея
     display.begin();
     
@@ -95,6 +99,13 @@ void loop() {
         String data = bleSerial.readString();
         ESP_LOGI(TAG, "BLE RX: %s", data.c_str());
     }
+
+    // Обработка события прерывания
+    if (event_isr_has_event()) {
+        int64_t t_us = event_isr_get_timestamp_us();
+        // обработка
+        ESP_LOGI(TAG, "EXT INT: %lld", t_us);
+      }
     
     // Обновление статус-бара
     updateStatusBar();
