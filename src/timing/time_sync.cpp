@@ -14,14 +14,23 @@ static TimeSyncStatus s_status{};
 static int64_t        s_last_synced_pps_us = 0;
 static bool           s_rtc_synced = false;
 
-static constexpr int64_t kJitterAdjustThresholdUs = 500;         // игнорируем мелкие колебания до 500 мкс
-static constexpr int64_t kMaxHoldoffUs            = 30000000;  // обязательная коррекция раз в 30 с
-static constexpr int64_t kPhaseWindowUs           = 900000;     // окно доверия NMEA↔PPS (±0.9s)
+// Порог: игнорируем мелкий дрейф системных часов (до 1 мс)
+static constexpr int64_t kJitterAdjustThresholdUs = 1000;
+
+// Обязательная коррекция системного времени раз в N секунд (если включён settimeofday)
+static constexpr int64_t kMaxHoldoffUs = 30000000;
+
+// Phase alignment: окно доверия (±0.9s)
+static constexpr int64_t kPhaseWindowUs = 900000;
+
+// RTC fallback: как часто подправлять якорь по RTC (чтобы не уплывать)
+static constexpr int64_t kRtcResyncPeriodUs = 10000000; // 10 секунд
+static int64_t s_last_rtc_resync_us = 0;
 
 // Для определения “новый PPS или старый”
 static uint32_t s_last_pps_count = 0;
 
-// Последняя валидная NMEA секунда и время её получения (в esp_us)
+// Последняя валидная NMEA секунда и момент её получения (esp_us)
 static bool     s_have_nmea = false;
 static uint32_t s_last_nmea_utc_sec = 0;
 static int64_t  s_last_nmea_esp_us  = 0;
@@ -49,6 +58,12 @@ static bool gps_time_to_unix(uint32_t &unix_sec) {
   return unix_sec > 0;
 }
 
+static void set_anchor(TimeSource src, int64_t anchor_utc_us, int64_t anchor_esp_us) {
+  s_status.source = src;
+  s_status.anchor_utc_us = anchor_utc_us;
+  s_status.anchor_esp_us = anchor_esp_us;
+}
+
 /**
  * Определяем, какая UTC секунда соответствует данному PPS.
  *
@@ -59,21 +74,28 @@ static bool gps_time_to_unix(uint32_t &unix_sec) {
  * Порог по модулю delta нужен, чтобы не привязаться к очень старому/задержанному NMEA.
  */
 static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t &phase_delta_us_out) {
-  if (!s_have_nmea) return false;
+  if (!s_have_nmea)
+    return false;
 
   int64_t delta = pps_esp_us - s_last_nmea_esp_us;
   phase_delta_us_out = delta;
 
-  if (delta <= -kPhaseWindowUs || delta >= kPhaseWindowUs) {
+  if (delta <= -kPhaseWindowUs || delta >= kPhaseWindowUs)
     return false;
-  }
 
   if (delta >= 0) {
     pps_utc_sec_out = s_last_nmea_utc_sec + 1;
   } else {
     pps_utc_sec_out = s_last_nmea_utc_sec;
   }
+  return true;
+}
 
+bool time_sync_esp_to_utc_us(int64_t esp_us, int64_t &utc_us_out) {
+  if (s_status.source == TimeSource::NONE || s_status.anchor_esp_us == 0 || s_status.anchor_utc_us == 0)
+    return false;
+
+  utc_us_out = s_status.anchor_utc_us + (esp_us - s_status.anchor_esp_us);
   return true;
 }
 
@@ -86,40 +108,107 @@ void time_sync_begin() {
   s_have_nmea = false;
   s_last_nmea_utc_sec = 0;
   s_last_nmea_esp_us = 0;
+
+  s_last_rtc_resync_us = 0;
 }
 
 void time_sync_update() {
-  // --- 1) Обновляем NMEA (UTC секунду) + фиксируем момент её получения ---
+  // --- 1) NMEA: обновляем секунду и фиксируем момент её получения ---
   uint32_t gps_utc = 0;
   if (gps_time_to_unix(gps_utc)) {
     s_status.gps_time_valid = true;
 
-    // Момент обработки валидного NMEA (в esp_us)
     int64_t nmea_arrival_us = esp_timer_get_time();
 
-    // Обновляем, если секунда изменилась или NMEA впервые стало валидным
+    // Обновляем статус для диагностики всегда
+    s_status.last_nmea_utc_sec = gps_utc;
+
+    // Запоминаем “последнюю секунду” и момент, когда мы её получили (для phase alignment)
     if (!s_have_nmea || gps_utc != s_last_nmea_utc_sec) {
       s_have_nmea = true;
       s_last_nmea_utc_sec = gps_utc;
       s_last_nmea_esp_us  = nmea_arrival_us;
 
-      s_status.last_nmea_utc_sec = gps_utc;
-
-      // Для диагностики (не для вычислений): сохраняем “последнюю секунду из GPS”
+      // Для диагностики (не для вычисления PPS секунды)
       pps_set_gps_utc_second(gps_utc);
     }
   } else {
     s_status.gps_time_valid = false;
   }
 
-  // --- 2) Проверяем PPS lock ---
+  // --- 2) PPS lock? ---
   s_status.pps_locked = pps_is_locked();
+
+  // --- 3) Если PPS нет — fallback на RTC ---
   if (!s_status.pps_locked) {
     s_status.phase_aligned = false;
+
+    if (!rtc.isReady()) {
+      // RTC не готов — источника времени нет
+      s_status.source = TimeSource::NONE;
+      return;
+    }
+
+    int64_t now_us = esp_timer_get_time();
+
+    // Первый вход в RTC режим: якорим по RTC
+    if (s_status.source != TimeSource::RTC) {
+      uint32_t rtc_sec = rtc.unixTime();
+      set_anchor(TimeSource::RTC, (int64_t)rtc_sec * 1000000LL, now_us);
+      s_last_rtc_resync_us = now_us;
+
+      ESP_LOGW(TAG, "GPS/PPS lost -> RTC fallback. rtc=%lu", (unsigned long)rtc_sec);
+
+      // (опционально) можно один раз выставить системное время по RTC
+      timeval tv{ .tv_sec = (time_t)rtc_sec, .tv_usec = 0 };
+      settimeofday(&tv, nullptr);
+
+      s_status.synced = true;
+      s_status.last_sync_us = now_us;
+      s_status.last_offset_us = 0;
+      return;
+    }
+
+    // Уже в RTC режиме: периодически подтягиваем якорь, чтобы не уплывать
+    if ((now_us - s_last_rtc_resync_us) > kRtcResyncPeriodUs) {
+      uint32_t rtc_sec = rtc.unixTime();
+      int64_t rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
+
+      int64_t est_utc_us = 0;
+      if (time_sync_esp_to_utc_us(now_us, est_utc_us)) {
+        int64_t err_us = rtc_utc_us - est_utc_us;
+
+        // Сдвигаем UTC-якорь так, чтобы "сейчас" совпало с RTC
+        s_status.anchor_utc_us += err_us;
+
+        s_last_rtc_resync_us = now_us;
+
+        ESP_LOGI(TAG, "RTC resync: err=%lld us (anchor adjusted)", (long long)err_us);
+
+        // (опционально) поддерживаем системное время близким к RTC
+        timeval current_tv{};
+        gettimeofday(&current_tv, nullptr);
+        int64_t current_us = (int64_t)current_tv.tv_sec * 1000000LL + (int64_t)current_tv.tv_usec;
+        int64_t delta_us = rtc_utc_us - current_us;
+
+        if (delta_us < -kJitterAdjustThresholdUs || delta_us > kJitterAdjustThresholdUs) {
+          timeval tv{};
+          tv.tv_sec  = (time_t)(rtc_utc_us / 1000000LL);
+          tv.tv_usec = (suseconds_t)(rtc_utc_us % 1000000LL);
+          settimeofday(&tv, nullptr);
+        }
+      } else {
+        // На всякий случай переякорим
+        set_anchor(TimeSource::RTC, rtc_utc_us, now_us);
+        s_last_rtc_resync_us = now_us;
+      }
+    }
+
+    s_status.synced = true;
     return;
   }
 
-  // --- 3) Берём raw PPS (время + счётчик) и реагируем только на новый импульс ---
+  // --- 4) PPS есть: берём raw PPS ---
   int64_t  pps_time_us = 0;
   uint32_t pps_count   = 0;
   if (!pps_get_raw(pps_time_us, pps_count)) {
@@ -127,17 +216,16 @@ void time_sync_update() {
     return;
   }
 
-  if (pps_count == s_last_pps_count) {
-    // PPS тот же, не делаем работу повторно
+  // Реагируем только на новый импульс
+  if (pps_count == s_last_pps_count)
     return;
-  }
   s_last_pps_count = pps_count;
 
-  // Уже синхронизировали именно этот PPS (по времени) — доп. защита
+  // Уже синхронизировали этот PPS (доп. защита)
   if (pps_time_us == s_last_synced_pps_us)
     return;
 
-  // --- 4) PPS↔NMEA phase alignment: определяем utc_second на этом PPS ---
+  // --- 5) PPS↔NMEA phase alignment ---
   uint32_t utc_second = 0;
   int64_t  phase_delta_us = 0;
   if (!align_pps_utc(pps_time_us, utc_second, phase_delta_us) || utc_second == 0) {
@@ -152,13 +240,14 @@ void time_sync_update() {
   s_status.phase_aligned = true;
   s_status.last_phase_delta_us = phase_delta_us;
 
-  // --- 5) Рассчитываем target wall-clock по PPS и текущему времени ---
+  // GPS режим: якорь = точный PPS
+  set_anchor(TimeSource::GPS_PPS, (int64_t)utc_second * 1000000LL, pps_time_us);
+
+  // --- 6) (Опционально) дисциплинируем системные часы через settimeofday ---
   int64_t now_us = esp_timer_get_time();
   int64_t age_us = now_us - pps_time_us;
   if (age_us < 0) age_us = 0;
 
-  // Целевое системное время (UTC) на текущий момент:
-  // PPS соответствует utc_second*1e6, плюс прошедшее время age_us
   int64_t target_us = (int64_t)utc_second * 1000000LL + age_us;
 
   timeval current_tv{};
@@ -195,7 +284,7 @@ void time_sync_update() {
              (long long)pps_time_us,
              (unsigned long)pps_count);
 
-    // Обновляем RTC один раз после первой успешной синхронизации
+    // RTC обновляем один раз после первой успешной GPS синхронизации
     if (!s_rtc_synced && rtc.isReady()) {
       rtc.setTime((uint32_t)tv.tv_sec);
       s_rtc_synced = true;
@@ -205,6 +294,7 @@ void time_sync_update() {
   s_status.synced                = true;
   s_status.last_pps_timestamp_us = pps_time_us;
   s_status.last_offset_us        = delta_us;
+  s_status.last_utc_second       = utc_second;
 }
 
 TimeSyncStatus time_sync_status() { return s_status; }
