@@ -17,3 +17,8 @@ bool pps_is_locked();
  * @return true — данные получены
  */
 bool pps_get(int64_t &pps_time_us, uint32_t &utc_second);
+
+/**
+ * Установить текущую UTC секунду из GPS
+ */
+void pps_set_utc_second(uint32_t utc_sec);

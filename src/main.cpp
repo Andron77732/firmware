@@ -5,6 +5,8 @@
 #include "hal/rtc/rtc.h"
 #include "hal/tft/tft.h"
 #include "timing/event_isr.h"
+#include "timing/pps_isr.h"
+#include "timing/time_sync.h"
 #include "ui/status_bar.h"
 #include <Arduino.h>
 
@@ -51,6 +53,10 @@ void setup() {
   event_isr_init(EXT_INT_PIN);
   ESP_LOGI(TAG, "Event ISR initialized");
 
+  // PPS синхронизация от GPS
+  pps_init(GPS_PPS_PIN);
+  time_sync_begin();
+
   // Инициализация дисплея
   display.begin();
 
@@ -93,6 +99,7 @@ void setup() {
 
 void loop() {
   gps.update();
+  time_sync_update();
 
   // Обработка BLE данных
   if (bleSerial.available()) {
