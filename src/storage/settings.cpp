@@ -1,5 +1,6 @@
 #include "settings.h"
 #include "esp_log.h"
+#include "nvs.h"
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -415,23 +416,33 @@ bool SettingsManager::getStorageStats(size_t &used_bytes,
     return false;
   }
 
-  // Preferences API не предоставляет прямого способа получить статистику.
-  // Для точной статистики нужно использовать nvs_get_stats (nvs.h).
-  used_bytes = 0;
-  total_bytes = 4000; // приблизительно, для namespace
+  // Получаем статистику NVS раздела
+  nvs_stats_t nvs_stats;
+  esp_err_t err = nvs_get_stats("nvs", &nvs_stats);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to get NVS stats: %s", esp_err_to_name(err));
+    return false;
+  }
 
-  // Приблизительный подсчёт
-  used_bytes += settings_.device.name.length() + 1;
-  used_bytes += 1; // number
-  used_bytes += settings_.device.type.length() + 1;
-  used_bytes += 1; // timezone
-  used_bytes += 1; // sync.auto
-  used_bytes += settings_.sync.source.length() + 1;
-  used_bytes += 1; // wifi.active
-  used_bytes += settings_.wifi.ssid.length() + 1;
-  used_bytes += settings_.wifi.passwd.length() + 1;
-  used_bytes += 4;  // float
-  used_bytes += 10; // примерный overhead
+  // nvs_stats содержит статистику по записям (entries), а не по байтам
+  // Каждая запись в NVS имеет фиксированный размер: 32 байта (ключ + значение + метаданные)
+  // Но размер может варьироваться в зависимости от типа данных
+  const size_t nvs_entry_size = 32; // стандартный размер одной записи NVS в байтах
+
+  // Общий размер раздела = общее количество записей * размер записи
+  total_bytes = nvs_stats.total_entries * nvs_entry_size;
+  
+  // Использованное пространство = использованные записи * размер записи
+  used_bytes = nvs_stats.used_entries * nvs_entry_size;
+
+  ESP_LOGD(TAG, "NVS stats: used_entries=%lu, free_entries=%lu, "
+                "total_entries=%lu, namespace_count=%lu, "
+                "used_bytes=%zu, total_bytes=%zu",
+           (unsigned long)nvs_stats.used_entries,
+           (unsigned long)nvs_stats.free_entries,
+           (unsigned long)nvs_stats.total_entries,
+           (unsigned long)nvs_stats.namespace_count,
+           used_bytes, total_bytes);
 
   return true;
 }

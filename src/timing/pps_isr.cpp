@@ -30,7 +30,7 @@ void pps_init(int gpio_pin) {
 
 void pps_set_gps_utc_second(uint32_t gps_utc_sec) {
   s_last_gps_utc_sec = gps_utc_sec;
-  ESP_LOGD(TAG, "GPS UTC second set to %lu", (unsigned long)gps_utc_sec);
+  ESP_LOGV(TAG, "GPS UTC second set to %lu", (unsigned long)gps_utc_sec);
 }
 
 uint32_t pps_get_last_gps_utc_second() {

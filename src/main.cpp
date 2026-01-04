@@ -4,6 +4,7 @@
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
 #include "hal/tft/tft.h"
+#include "storage/settings.h"
 #include "timing/event_isr.h"
 #include "timing/pps_isr.h"
 #include "timing/time_sync.h"
@@ -42,8 +43,12 @@ void updateStatusBar()
 
     if (nowSec > 0)
     {
+      // Получаем таймзону из настроек и применяем смещение к UTC времени
+      int8_t timezone = settings.getDevice().timezone;
+      time_t local_time = nowSec + (timezone * 3600);
+
       struct tm tm{};
-      gmtime_r(&nowSec, &tm);
+      gmtime_r(&local_time, &tm);
       year = static_cast<uint16_t>(tm.tm_year + 1900);
       month = static_cast<uint8_t>(tm.tm_mon + 1);
       day = static_cast<uint8_t>(tm.tm_mday);
@@ -80,6 +85,12 @@ void setup()
   Serial.begin(SERIAL_BAUD);
 
   ESP_LOGI(TAG, "ENTime v%s starting...", VERSION);
+
+  // Инициализация настроек (загрузка из NVS)
+  if (!settings.begin()) {
+    ESP_LOGE(TAG, "Failed to initialize settings manager");
+    // Продолжаем работу с настройками по умолчанию
+  }
 
   // Инициализация прерывания на событие
   event_isr_init(EXT_INT_PIN);
