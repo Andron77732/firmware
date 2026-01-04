@@ -8,17 +8,22 @@
 void pps_init(int gpio_pin);
 
 /**
- * Есть ли валидный PPS
+ * PPS lock: был ли PPS в последние ~1.5 сек
  */
 bool pps_is_locked();
 
 /**
- * Получить последний PPS timestamp
- * @return true — данные получены
+ * Raw PPS: esp_timer timestamp + счётчик PPS
+ * Возвращает false если PPS ещё не приходил.
  */
-bool pps_get(int64_t &pps_time_us, uint32_t &utc_second);
+bool pps_get_raw(int64_t &pps_time_us, uint32_t &pps_count);
 
 /**
- * Установить текущую UTC секунду из GPS
+ * (Опционально) сохранить последнюю секунду из GPS (unix seconds) для диагностики
  */
-void pps_set_utc_second(uint32_t utc_sec);
+void pps_set_gps_utc_second(uint32_t gps_utc_sec);
+
+/**
+ * (Опционально) прочитать последнюю секунду из GPS (unix seconds)
+ */
+uint32_t pps_get_last_gps_utc_second();
