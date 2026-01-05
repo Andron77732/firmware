@@ -34,6 +34,15 @@
 // --- BLE ---
 #define BLE_DEVICE_NAME "ENTime"
 
+// --- SNTP/NTP ---
+#define SNTP_SERVER_1           "ru.pool.ntp.org"
+#define SNTP_SERVER_2           "time.google.com"
+#define SNTP_SYNC_TIMEOUT_MS    15000
+#define SNTP_EDGE_TIMEOUT_MS    2500
+#define SNTP_EDGE_WINDOW_US     1500
+#define SNTP_POLL_DELAY_MS      50
+#define SNTP_EDGE_POLL_DELAY_MS 1
+
 // --- Module Type ---
 // Тип модуля устройства
 enum class ModuleType {
