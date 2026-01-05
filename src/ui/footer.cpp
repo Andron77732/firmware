@@ -7,7 +7,7 @@ void Footer::begin(TFT_eSPI& tft) {
     _tft = &tft;
 }
 
-void Footer::draw(ModuleType moduleType, const char* version) {
+void Footer::draw(ModuleType moduleType, const String& version) {
     if (!_tft) return;
     
     // Отрисовка фона footer
@@ -22,6 +22,6 @@ void Footer::draw(ModuleType moduleType, const char* version) {
     _tft->setCursor(UI_FOOTER_TEXT_X, UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y);
     
     // Вывод текста: "START v0.1.0" или "FINISH v0.1.0"
-    _tft->printf("%s v%s", moduleTypeStr, version);
+    _tft->printf("%s v%s", moduleTypeStr, version.c_str());
 }
 

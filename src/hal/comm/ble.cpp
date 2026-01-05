@@ -61,8 +61,8 @@ class TxCallbacks : public NimBLECharacteristicCallbacks {
 // BLESerial Implementation
 // ============================================================================
 
-void BLESerial::begin(const char* deviceName) {
-    ESP_LOGI(TAG, "Initializing NUS as '%s'...", deviceName);
+void BLESerial::begin(const String& deviceName) {
+    ESP_LOGI(TAG, "Initializing NUS as '%s'...", deviceName.c_str());
     
     // Создание StreamBuffer для RX (thread-safe)
     _rxStream = xStreamBufferCreate(BLE_RX_BUFFER_SIZE, 1);
@@ -73,7 +73,7 @@ void BLESerial::begin(const char* deviceName) {
     ESP_LOGI(TAG, "RX StreamBuffer created: %d bytes", BLE_RX_BUFFER_SIZE);
     
     // Инициализация NimBLE
-    NimBLEDevice::init(deviceName);
+    NimBLEDevice::init(deviceName.c_str());
     NimBLEDevice::setMTU(517);
     
     // Создание сервера
@@ -102,7 +102,7 @@ void BLESerial::begin(const char* deviceName) {
     
     // Настройка и запуск рекламы
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
-    pAdvertising->setName(deviceName);
+    pAdvertising->setName(deviceName.c_str());
     pAdvertising->addServiceUUID(NUS_SERVICE_UUID);
     pAdvertising->start();
 

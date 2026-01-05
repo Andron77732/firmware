@@ -30,7 +30,7 @@ public:
      * @param moduleType Тип модуля (START/FINISH)
      * @param version Версия прошивки (например, "0.1.0")
      */
-    void draw(ModuleType moduleType, const char* version);
+    void draw(ModuleType moduleType, const String& version);
 
 private:
     TFT_eSPI* _tft = nullptr;

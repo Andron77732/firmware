@@ -117,8 +117,6 @@ void setup() {
   }
 
   // Инициализация типа модуля из настроек и формирование имени устройства
-  char deviceName[32]; // Имя устройства для BLE (формат: "Имя-Номер")
-
   const DeviceSettings &device = settings.getDevice();
   if (device.type == 1) {
     module_type = ModuleType::START;
@@ -130,9 +128,7 @@ void setup() {
   }
   ESP_LOGI(TAG, "Module type: %u (%s)", device.type,
            module_type == ModuleType::START ? "START" : "FINISH");
-  char moduleTypeStr[40];
-  snprintf(moduleTypeStr, sizeof(moduleTypeStr), "Module type: %s",
-           module_type == ModuleType::START ? "START" : "FINISH");
+  String moduleTypeStr = "Module type: " + String(module_type == ModuleType::START ? "START" : "FINISH");
   mainArea.addLogLine(moduleTypeStr);
 
   // Инициализация прерывания на событие
@@ -175,15 +171,13 @@ void setup() {
   mainArea.addLogLine("Initializing BLE...");
 
   // Формирование имени устройства: "Имя-Номер"
-  snprintf(deviceName, sizeof(deviceName), "%s-%u", device.name.c_str(),
-           device.number);
-  ESP_LOGI(TAG, "Device name: %s", deviceName);
-  char deviceNameStr[40];
-  snprintf(deviceNameStr, sizeof(deviceNameStr), "Device: %s", deviceName);
+  String deviceName = device.name + "-" + String(device.number);
+  ESP_LOGI(TAG, "Device name: %s", deviceName.c_str());
+  String deviceNameStr = "Device: " + deviceName;
   mainArea.addLogLine(deviceNameStr);
 
   bleSerial.begin(deviceName);
-  ESP_LOGI(TAG, "BLE initialized as: %s", deviceName);
+  ESP_LOGI(TAG, "BLE initialized as: %s", deviceName.c_str());
 
   // Установка callback для мгновенного обновления иконки Bluetooth при
   // изменении состояния
@@ -205,7 +199,7 @@ void setup() {
     wifiManager.setStateCallback(onWiFiStateChanged);
     
     // Подключение к WiFi сети
-    if (wifiManager.connect(wifi.ssid.c_str(), wifi.passwd.c_str())) {
+    if (wifiManager.connect(wifi.ssid, wifi.passwd)) {
       ESP_LOGI(TAG, "WiFi connecting to: %s", wifi.ssid.c_str());
       mainArea.addLogLine("WiFi connecting...");
     } else {
@@ -219,7 +213,7 @@ void setup() {
   }
 
   // Отрисовка footer с типом модуля
-  footer.draw(module_type, VERSION);
+  footer.draw(module_type, String(VERSION));
 
   ESP_LOGI(TAG, "Setup complete");
   mainArea.addLogLine("Setup complete");

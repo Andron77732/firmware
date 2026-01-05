@@ -3,7 +3,6 @@
 #include "nvs.h"
 #include <cctype>
 #include <cmath>
-#include <cstring>
 
 static const char *TAG = "Settings";
 
@@ -25,12 +24,13 @@ SettingsManager settings;
 // Валидация
 // ============================================================================
 
-bool SettingsManager::isValidAsciiName(const std::string &name) const {
-  if (name.empty() || name.length() > 16) {
+bool SettingsManager::isValidAsciiName(const String &name) const {
+  if (name.length() == 0 || name.length() > 16) {
     return false;
   }
 
-  for (char c : name) {
+  for (uint16_t i = 0; i < name.length(); i++) {
+    char c = name.charAt(i);
     // важно: cast в unsigned char, иначе возможен UB на signed char
     if (!std::isalnum((unsigned char)c) && c != '-' && c != '_') {
       return false;
@@ -61,7 +61,8 @@ bool SettingsManager::validateDevice(const DeviceSettings &device) const {
   }
 
   if (!isValidDeviceType(device.type)) {
-    ESP_LOGE(TAG, "Invalid device.type: must be 1 (start) or 2 (finish), got %u",
+    ESP_LOGE(TAG,
+             "Invalid device.type: must be 1 (start) or 2 (finish), got %u",
              device.type);
     return false;
   }
@@ -77,9 +78,10 @@ bool SettingsManager::validateDevice(const DeviceSettings &device) const {
 
 bool SettingsManager::validateSync(const SyncSettings &sync) const {
   if (!isValidSyncSource(sync.source)) {
-    ESP_LOGE(TAG,
-             "Invalid sync.source: must be 0 (auto), 1 (gps), or 2 (rtc), got %u",
-             sync.source);
+    ESP_LOGE(
+        TAG,
+        "Invalid sync.source: must be 0 (auto), 1 (gps), or 2 (rtc), got %u",
+        sync.source);
     return false;
   }
 
@@ -88,13 +90,13 @@ bool SettingsManager::validateSync(const SyncSettings &sync) const {
 
 bool SettingsManager::validateWifi(const WifiSettings &wifi) const {
   if (wifi.ssid.length() > 32) {
-    ESP_LOGE(TAG, "Invalid wifi.ssid: must be <= 32 characters, got %zu",
+    ESP_LOGE(TAG, "Invalid wifi.ssid: must be <= 32 characters, got %u",
              wifi.ssid.length());
     return false;
   }
 
   if (wifi.passwd.length() > 64) {
-    ESP_LOGE(TAG, "Invalid wifi.passwd: must be <= 64 characters, got %zu",
+    ESP_LOGE(TAG, "Invalid wifi.passwd: must be <= 64 characters, got %u",
              wifi.passwd.length());
     return false;
   }
@@ -140,15 +142,15 @@ void SettingsManager::setDefaults() {
 // Write-if-changed helpers (уменьшают износ NVS + debug лог)
 // ============================================================================
 
-bool SettingsManager::putStringIfChanged_(const char *key, const std::string &v,
+bool SettingsManager::putStringIfChanged_(const char *key, const String &v,
                                           const char *def, bool secret) {
   String cur = prefs_.getString(key, def);
-  if (cur == v.c_str()) {
+  if (cur == v) {
     SETTINGS_LOG_NVS_SKIP(key);
     return false;
   }
 
-  prefs_.putString(key, v.c_str());
+  prefs_.putString(key, v);
 
   if (secret) {
     SETTINGS_LOG_NVS_SECRET(key);
@@ -198,7 +200,7 @@ bool SettingsManager::putCharIfChanged_(const char *key, int8_t v, int8_t def) {
 bool SettingsManager::putFloatIfChanged_(const char *key, float v, float def,
                                          float eps) {
   float cur = prefs_.getFloat(key, def);
-  if (std::fabs(cur - v) <= eps){
+  if (std::fabs(cur - v) <= eps) {
     SETTINGS_LOG_NVS_SKIP(key);
     return false;
   }
@@ -217,16 +219,14 @@ void SettingsManager::saveDevice() {
                       DEFAULT_DEVICE_NAME);
   putUCharIfChanged_("device.number", settings_.device.number,
                      DEFAULT_DEVICE_NUMBER);
-  putUCharIfChanged_("device.type", settings_.device.type,
-                     DEFAULT_DEVICE_TYPE);
+  putUCharIfChanged_("device.type", settings_.device.type, DEFAULT_DEVICE_TYPE);
   putCharIfChanged_("device.timezone", settings_.device.timezone,
                     DEFAULT_DEVICE_TIMEZONE);
 }
 
 void SettingsManager::saveSync() {
   putBoolIfChanged_("sync.auto", settings_.sync.auto_sync, DEFAULT_SYNC_AUTO);
-  putUCharIfChanged_("sync.source", settings_.sync.source,
-                     DEFAULT_SYNC_SOURCE);
+  putUCharIfChanged_("sync.source", settings_.sync.source, DEFAULT_SYNC_SOURCE);
 }
 
 void SettingsManager::saveWifi() {
@@ -244,14 +244,12 @@ void SettingsManager::saveCalibration() {
 }
 
 void SettingsManager::loadDevice() {
-  String name = prefs_.getString("device.name", DEFAULT_DEVICE_NAME);
-  settings_.device.name = name.c_str();
+  settings_.device.name = prefs_.getString("device.name", DEFAULT_DEVICE_NAME);
 
   settings_.device.number =
       prefs_.getUChar("device.number", DEFAULT_DEVICE_NUMBER);
 
-  settings_.device.type =
-      prefs_.getUChar("device.type", DEFAULT_DEVICE_TYPE);
+  settings_.device.type = prefs_.getUChar("device.type", DEFAULT_DEVICE_TYPE);
 
   settings_.device.timezone =
       prefs_.getChar("device.timezone", DEFAULT_DEVICE_TIMEZONE);
@@ -260,18 +258,15 @@ void SettingsManager::loadDevice() {
 void SettingsManager::loadSync() {
   settings_.sync.auto_sync = prefs_.getBool("sync.auto", DEFAULT_SYNC_AUTO);
 
-  settings_.sync.source =
-      prefs_.getUChar("sync.source", DEFAULT_SYNC_SOURCE);
+  settings_.sync.source = prefs_.getUChar("sync.source", DEFAULT_SYNC_SOURCE);
 }
 
 void SettingsManager::loadWifi() {
   settings_.wifi.active = prefs_.getBool("wifi.active", DEFAULT_WIFI_ACTIVE);
 
-  String ssid = prefs_.getString("wifi.ssid", DEFAULT_WIFI_SSID);
-  settings_.wifi.ssid = ssid.c_str();
+  settings_.wifi.ssid = prefs_.getString("wifi.ssid", DEFAULT_WIFI_SSID);
 
-  String passwd = prefs_.getString("wifi.passwd", DEFAULT_WIFI_PASSWD);
-  settings_.wifi.passwd = passwd.c_str();
+  settings_.wifi.passwd = prefs_.getString("wifi.passwd", DEFAULT_WIFI_PASSWD);
 }
 
 void SettingsManager::loadCalibration() {
@@ -425,24 +420,25 @@ bool SettingsManager::getStorageStats(size_t &used_bytes,
   }
 
   // nvs_stats содержит статистику по записям (entries), а не по байтам
-  // Каждая запись в NVS имеет фиксированный размер: 32 байта (ключ + значение + метаданные)
-  // Но размер может варьироваться в зависимости от типа данных
-  const size_t nvs_entry_size = 32; // стандартный размер одной записи NVS в байтах
+  // Каждая запись в NVS имеет фиксированный размер: 32 байта (ключ + значение +
+  // метаданные) Но размер может варьироваться в зависимости от типа данных
+  const size_t nvs_entry_size =
+      32; // стандартный размер одной записи NVS в байтах
 
   // Общий размер раздела = общее количество записей * размер записи
   total_bytes = nvs_stats.total_entries * nvs_entry_size;
-  
+
   // Использованное пространство = использованные записи * размер записи
   used_bytes = nvs_stats.used_entries * nvs_entry_size;
 
-  ESP_LOGD(TAG, "NVS stats: used_entries=%lu, free_entries=%lu, "
-                "total_entries=%lu, namespace_count=%lu, "
-                "used_bytes=%zu, total_bytes=%zu",
+  ESP_LOGD(TAG,
+           "NVS stats: used_entries=%lu, free_entries=%lu, "
+           "total_entries=%lu, namespace_count=%lu, "
+           "used_bytes=%zu, total_bytes=%zu",
            (unsigned long)nvs_stats.used_entries,
            (unsigned long)nvs_stats.free_entries,
            (unsigned long)nvs_stats.total_entries,
-           (unsigned long)nvs_stats.namespace_count,
-           used_bytes, total_bytes);
+           (unsigned long)nvs_stats.namespace_count, used_bytes, total_bytes);
 
   return true;
 }

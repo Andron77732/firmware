@@ -28,7 +28,7 @@ typedef void (*BLEStateCallback)(BLEState state);
 
 class BLESerial : public Stream {
 public:
-    void begin(const char* deviceName = BLE_DEVICE_NAME);
+    void begin(const String& deviceName = String(BLE_DEVICE_NAME));
     void end();
     
     bool isConnected();

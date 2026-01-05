@@ -2,7 +2,7 @@
 #define SETTINGS_H
 
 #include <Preferences.h>
-#include <string>
+#include <Arduino.h>
 
 // ============================================================================
 // Значения по умолчанию
@@ -30,7 +30,7 @@
  * @brief Настройки устройства
  */
 struct DeviceSettings {
-  std::string name = DEFAULT_DEVICE_NAME;    // 1-16 символов, ASCII
+  String name = DEFAULT_DEVICE_NAME;    // 1-16 символов, ASCII
   uint8_t number = DEFAULT_DEVICE_NUMBER;    // 1-255
   uint8_t type = DEFAULT_DEVICE_TYPE;        // 1 = стартовый, 2 = финишный
   int8_t timezone = DEFAULT_DEVICE_TIMEZONE; // -12 до 12
@@ -49,8 +49,8 @@ struct SyncSettings {
  */
 struct WifiSettings {
   bool active = DEFAULT_WIFI_ACTIVE;        // включен ли WiFi
-  std::string ssid = DEFAULT_WIFI_SSID;     // до 32 символов
-  std::string passwd = DEFAULT_WIFI_PASSWD; // до 64 символов
+  String ssid = DEFAULT_WIFI_SSID;     // до 32 символов
+  String passwd = DEFAULT_WIFI_PASSWD; // до 64 символов
 };
 
 /**
@@ -159,7 +159,7 @@ private:
   bool initialized_ = false;
 
   // Хелперы для записи только при изменении (уменьшение износа NVS + единый формат логирования)
-  bool putStringIfChanged_(const char *key, const std::string &v,
+  bool putStringIfChanged_(const char *key, const String &v,
                            const char *def, bool secret = false);
   bool putBoolIfChanged_(const char *key, bool v, bool def);
   bool putUCharIfChanged_(const char *key, uint8_t v, uint8_t def);
@@ -174,7 +174,7 @@ private:
   bool validateCalibration(const CalibrationSettings &calibration) const;
 
   // Вспомогательные функции валидации
-  bool isValidAsciiName(const std::string &name) const;
+  bool isValidAsciiName(const String &name) const;
   bool isValidDeviceType(uint8_t type) const;
   bool isValidSyncSource(uint8_t source) const;
 

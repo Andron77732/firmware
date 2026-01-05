@@ -59,19 +59,19 @@ void WiFiManager::end() {
     ESP_LOGI(TAG, "WiFi disabled");
 }
 
-bool WiFiManager::connect(const char* ssid, const char* password) {
+bool WiFiManager::connect(const String& ssid, const String& password) {
     if (!_enabled) {
         ESP_LOGE(TAG, "WiFi not initialized, call begin() first");
         return false;
     }
     
-    if (ssid == nullptr || strlen(ssid) == 0) {
+    if (ssid.length() == 0) {
         ESP_LOGE(TAG, "Invalid SSID");
         return false;
     }
     
-    _ssid = String(ssid);
-    _password = String(password ? password : "");
+    _ssid = ssid;
+    _password = password;
     
     ESP_LOGI(TAG, "Connecting to WiFi: %s", _ssid.c_str());
     

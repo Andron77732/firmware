@@ -1,5 +1,4 @@
 #include "main_area.h"
-#include <string.h>
 
 // Глобальный объект mainArea
 MainArea mainArea;
@@ -13,21 +12,23 @@ void MainArea::setType(MainAreaType type) {
     _currentType = type;
 }
 
-void MainArea::addLogLine(const char* line) {
-    if (!line) return;
+void MainArea::addLogLine(const String& line) {
+    if (line.length() == 0) return;
     
     // Если буфер заполнен, сдвигаем строки вверх
     if (_logLineCount >= UI_MAIN_AREA_MAX_LOG_LINES) {
         for (uint8_t i = 0; i < UI_MAIN_AREA_MAX_LOG_LINES - 1; i++) {
-            strncpy(_logLines[i], _logLines[i + 1], UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
-            _logLines[i][UI_MAIN_AREA_LOG_LINE_LENGTH - 1] = '\0';
+            _logLines[i] = _logLines[i + 1];
         }
         _logLineCount = UI_MAIN_AREA_MAX_LOG_LINES - 1;
     }
     
-    // Добавляем новую строку
-    strncpy(_logLines[_logLineCount], line, UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
-    _logLines[_logLineCount][UI_MAIN_AREA_LOG_LINE_LENGTH - 1] = '\0';
+    // Добавляем новую строку (обрезаем если слишком длинная)
+    if (line.length() > UI_MAIN_AREA_LOG_LINE_LENGTH - 1) {
+        _logLines[_logLineCount] = line.substring(0, UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
+    } else {
+        _logLines[_logLineCount] = line;
+    }
     _logLineCount++;
     
     // Если тип LOADING, перерисовываем
@@ -85,11 +86,11 @@ void MainArea::drawLoading() {
         
         // Определяем цвет в зависимости от содержимого
         uint16_t color = UI_MAIN_AREA_LOG_COLOR;
-        if (strstr(_logLines[i], "ERROR") || strstr(_logLines[i], "error") || 
-            strstr(_logLines[i], "Error") || strstr(_logLines[i], "FAILED")) {
+        String upperLine = _logLines[i];
+        upperLine.toUpperCase();
+        if (upperLine.indexOf("ERROR") >= 0 || upperLine.indexOf("FAILED") >= 0) {
             color = UI_MAIN_AREA_LOG_COLOR_ERROR;
-        } else if (strstr(_logLines[i], "WARN") || strstr(_logLines[i], "warn") || 
-                   strstr(_logLines[i], "Warn")) {
+        } else if (upperLine.indexOf("WARN") >= 0) {
             color = UI_MAIN_AREA_LOG_COLOR_WARNING;
         }
         

@@ -48,9 +48,9 @@ public:
     
     /**
      * @brief Добавить строку в лог загрузки
-     * @param line Текст строки (максимум 39 символов)
+     * @param line Текст строки
      */
-    void addLogLine(const char* line);
+    void addLogLine(const String& line);
     
     /**
      * @brief Очистить лог загрузки
@@ -62,7 +62,7 @@ private:
     MainAreaType _currentType = MainAreaType::LOADING;
     
     // Буфер для логов загрузки
-    char _logLines[UI_MAIN_AREA_MAX_LOG_LINES][UI_MAIN_AREA_LOG_LINE_LENGTH];
+    String _logLines[UI_MAIN_AREA_MAX_LOG_LINES];
     uint8_t _logLineCount = 0;
     
     /**

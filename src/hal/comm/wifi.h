@@ -37,7 +37,7 @@ public:
      * @param password Пароль сети (может быть пустым для открытых сетей)
      * @return true если подключение начато, false при ошибке
      */
-    bool connect(const char* ssid, const char* password = "");
+    bool connect(const String& ssid, const String& password = "");
     
     /**
      * @brief Отключение от WiFi сети
