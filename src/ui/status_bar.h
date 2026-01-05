@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "hal/comm/ble.h"
+#include "ui_config.h"
 
 /**
  * @brief Статус-бар в верхней части экрана
@@ -18,34 +19,6 @@
  */
 class StatusBar {
 public:
-    // Размеры и позиции
-    static constexpr uint16_t WIDTH = 240;
-    static constexpr uint16_t HEIGHT = 24;  // 4 + 16 + 4
-    static constexpr uint16_t Y_POS = 0;
-    
-    // Зона часов (TextSize 2 = 16px height)
-    static constexpr uint16_t CLOCK_X = 4;
-    static constexpr uint16_t CLOCK_Y = 4;
-    static constexpr uint8_t  CLOCK_TEXT_SIZE = 2;  // 12x16 per char, "HH:MM:SS" = 96px
-    static constexpr uint16_t CLOCK_HEIGHT = 16;    // 8 * CLOCK_TEXT_SIZE
-    
-    // Зона иконок (справа налево, от правого края)
-    static constexpr uint16_t ICON_SIZE = CLOCK_HEIGHT;  // 16px — равно высоте часов
-    static constexpr uint16_t ICON_PADDING = 4;
-    static constexpr uint16_t ICON_Y = CLOCK_Y;  // выровнено с часами
-    
-    // Позиции иконок (X координата левого края, справа налево)
-    static constexpr uint16_t ICON_BATTERY_X   = WIDTH - ICON_PADDING - ICON_SIZE;              // 220
-    static constexpr uint16_t ICON_WIFI_X      = ICON_BATTERY_X - ICON_PADDING - ICON_SIZE;     // 200
-    static constexpr uint16_t ICON_BLUETOOTH_X = ICON_WIFI_X - ICON_PADDING - ICON_SIZE;        // 180
-    static constexpr uint16_t ICON_GPS_X       = ICON_BLUETOOTH_X - ICON_PADDING - ICON_SIZE;   // 160
-    
-    // Цвета
-    static constexpr uint16_t COLOR_BACKGROUND = TFT_BLACK;
-    static constexpr uint16_t COLOR_CLOCK = TFT_WHITE;
-    static constexpr uint16_t COLOR_ICON_ACTIVE = TFT_WHITE;
-    static constexpr uint16_t COLOR_ICON_INACTIVE = TFT_DARKGREY;
-    static constexpr uint16_t COLOR_ICON_BLUETOOTH_ACTIVE = TFT_BLUE;
 
     /**
      * @brief Инициализация статус-бара
@@ -94,7 +67,7 @@ private:
     void drawIcons();
     
     void drawIconGPS(uint16_t color);
-    void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = COLOR_BACKGROUND);
+    void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconWiFi(uint16_t color);
     void drawIconBattery(uint16_t color);
     
@@ -102,7 +75,7 @@ private:
      * @brief Отрисовка bitmap 16x16
      * @param bgColor Цвет фона
      */
-    void drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor = COLOR_BACKGROUND);
+    void drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
 };
 
 // Глобальный объект статус-бара

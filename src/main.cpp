@@ -11,6 +11,7 @@
 #include "ui/footer.h"
 #include "ui/main_area.h"
 #include "ui/status_bar.h"
+#include "ui/ui_config.h"
 #include <Arduino.h>
 #include <esp_timer.h>
 #include <time.h>
@@ -65,7 +66,7 @@ void updateStatusBar() {
     else if (ts.source == TimeSource::RTC)
       src = "RTC   ";
 
-    display.tft().setCursor(0, StatusBar::HEIGHT + 60);
+    display.tft().setCursor(0, UI_STATUS_BAR_HEIGHT + 60);
     display.tft().setTextSize(2);
     display.tft().setTextColor(TFT_CYAN, TFT_BLACK);
     display.tft().printf("Sats:%02u  Sync:%s", sats, src);
@@ -193,7 +194,7 @@ void setup() {
   mainArea.addLogLine("Setup complete");
 
   // Пауза для чтения лога загрузки (3 секунды)
-  delay(300000000);
+  delay(5000);
 
   // Установка типа в зависимости от типа модуля
   if (module_type == ModuleType::START) {

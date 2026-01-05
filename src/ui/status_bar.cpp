@@ -18,7 +18,7 @@ void StatusBar::draw() {
     if (!_tft) return;
     
     // Фон статус-бара
-    _tft->fillRect(0, Y_POS, WIDTH, HEIGHT, COLOR_BACKGROUND);
+    _tft->fillRect(0, UI_STATUS_BAR_Y_POS, UI_STATUS_BAR_WIDTH, UI_STATUS_BAR_HEIGHT, UI_STATUS_BAR_COLOR_BACKGROUND);
     
     // Иконки
     drawIcons();
@@ -41,9 +41,9 @@ void StatusBar::updateTime(uint8_t hour, uint8_t minute, uint8_t second) {
     _lastSecond = second;
     
     // Отрисовка времени
-    _tft->setTextSize(CLOCK_TEXT_SIZE);
-    _tft->setTextColor(COLOR_CLOCK, COLOR_BACKGROUND);
-    _tft->setCursor(CLOCK_X, CLOCK_Y);
+    _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
+    _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
+    _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
     _tft->printf("%02d:%02d:%02d", hour, minute, second);
 }
 
@@ -62,19 +62,19 @@ void StatusBar::forceRedrawTime() {
         updateTime(h, m, s);
     } else {
         // Иначе рисуем placeholder
-        _tft->setTextSize(CLOCK_TEXT_SIZE);
-        _tft->setTextColor(COLOR_CLOCK, COLOR_BACKGROUND);
-        _tft->setCursor(CLOCK_X, CLOCK_Y);
+        _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
+        _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
+        _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
         _tft->print("--:--:--");
     }
 }
 
 void StatusBar::drawIcons() {
     // Пока все иконки неактивны (серые)
-    drawIconGPS(COLOR_ICON_INACTIVE);
-    drawIconBluetooth(ICON_BT_OFF, COLOR_ICON_INACTIVE);
-    drawIconWiFi(COLOR_ICON_INACTIVE);
-    drawIconBattery(COLOR_ICON_INACTIVE);
+    drawIconGPS(UI_STATUS_BAR_COLOR_ICON_INACTIVE);
+    drawIconBluetooth(ICON_BT_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE);
+    drawIconWiFi(UI_STATUS_BAR_COLOR_ICON_INACTIVE);
+    drawIconBattery(UI_STATUS_BAR_COLOR_ICON_INACTIVE);
 }
 
 void StatusBar::updateBluetoothIcon(BLEState state) {
@@ -96,25 +96,25 @@ void StatusBar::updateBluetoothIcon(BLEState state) {
         case BLEState::CONNECTED:
             // Подключено - используем иконку с подключением, синий цвет
             bitmap = ICON_BT_CONNECTED;
-            color = COLOR_ICON_BLUETOOTH_ACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_BLUETOOTH_ACTIVE;
             break;
             
         case BLEState::ADVERTISING:
             // Реклама активна, но нет подключения - обычная иконка, синий цвет
             bitmap = ICON_BT;
-            color = COLOR_ICON_BLUETOOTH_ACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_BLUETOOTH_ACTIVE;
             break;
             
         case BLEState::DISCONNECTED:
         default:
             // Реклама не активна - иконка выключена, серый цвет
             bitmap = ICON_BT_OFF;
-            color = COLOR_ICON_INACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
             break;
     }
     
     // Отрисовка иконки с фоном за один проход
-    drawIconBluetooth(bitmap, color, COLOR_BACKGROUND);
+    drawIconBluetooth(bitmap, color, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
 void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
@@ -138,17 +138,17 @@ void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint
 }
 
 void StatusBar::drawIconGPS(uint16_t color) {
-    drawBitmap16(ICON_GPS_X, ICON_Y, ICON_GPS, color);
+    drawBitmap16(UI_STATUS_BAR_ICON_GPS_X, UI_STATUS_BAR_ICON_Y, ICON_GPS, color);
 }
 
 void StatusBar::drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
-    drawBitmap16(ICON_BLUETOOTH_X, ICON_Y, bitmap, color, bgColor);
+    drawBitmap16(UI_STATUS_BAR_ICON_BLUETOOTH_X, UI_STATUS_BAR_ICON_Y, bitmap, color, bgColor);
 }
 
 void StatusBar::drawIconWiFi(uint16_t color) {
-    drawBitmap16(ICON_WIFI_X, ICON_Y, ICON_WIFI_0, color);
+    drawBitmap16(UI_STATUS_BAR_ICON_WIFI_X, UI_STATUS_BAR_ICON_Y, ICON_WIFI_0, color);
 }
 
 void StatusBar::drawIconBattery(uint16_t color) {
-    drawBitmap16(ICON_BATTERY_X, ICON_Y, ICON_BAT_FULL, color);
+    drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, ICON_BAT_FULL, color);
 }

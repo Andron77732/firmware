@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "config.h"
+#include "ui_config.h"
 
 /**
  * @brief Footer в нижней части экрана
@@ -17,19 +18,6 @@
  */
 class Footer {
 public:
-    // Размеры и позиции
-    static constexpr uint16_t WIDTH = 240;
-    static constexpr uint16_t HEIGHT = 12;
-    static constexpr uint16_t Y_POS = 308;  // 320 - 12
-    
-    // Позиция текста
-    static constexpr uint16_t TEXT_X = 4;
-    static constexpr uint16_t TEXT_Y = 2;  // Центрирование: (12-8)/2 = 2
-    static constexpr uint8_t TEXT_SIZE = 1;  // 8px height per line
-    
-    // Цвета
-    static constexpr uint16_t COLOR_BACKGROUND = TFT_BLACK;
-    static constexpr uint16_t COLOR_TEXT = TFT_WHITE;
 
     /**
      * @brief Инициализация footer

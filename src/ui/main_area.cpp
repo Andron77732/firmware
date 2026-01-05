@@ -17,17 +17,17 @@ void MainArea::addLogLine(const char* line) {
     if (!line) return;
     
     // Если буфер заполнен, сдвигаем строки вверх
-    if (_logLineCount >= MAX_LOG_LINES) {
-        for (uint8_t i = 0; i < MAX_LOG_LINES - 1; i++) {
-            strncpy(_logLines[i], _logLines[i + 1], LOG_LINE_LENGTH - 1);
-            _logLines[i][LOG_LINE_LENGTH - 1] = '\0';
+    if (_logLineCount >= UI_MAIN_AREA_MAX_LOG_LINES) {
+        for (uint8_t i = 0; i < UI_MAIN_AREA_MAX_LOG_LINES - 1; i++) {
+            strncpy(_logLines[i], _logLines[i + 1], UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
+            _logLines[i][UI_MAIN_AREA_LOG_LINE_LENGTH - 1] = '\0';
         }
-        _logLineCount = MAX_LOG_LINES - 1;
+        _logLineCount = UI_MAIN_AREA_MAX_LOG_LINES - 1;
     }
     
     // Добавляем новую строку
-    strncpy(_logLines[_logLineCount], line, LOG_LINE_LENGTH - 1);
-    _logLines[_logLineCount][LOG_LINE_LENGTH - 1] = '\0';
+    strncpy(_logLines[_logLineCount], line, UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
+    _logLines[_logLineCount][UI_MAIN_AREA_LOG_LINE_LENGTH - 1] = '\0';
     _logLineCount++;
     
     // Если тип LOADING, перерисовываем
@@ -47,7 +47,7 @@ void MainArea::draw() {
     if (!_tft) return;
     
     // Очистка области mainArea
-    _tft->fillRect(0, Y_POS, WIDTH, HEIGHT, COLOR_BACKGROUND);
+    _tft->fillRect(0, UI_MAIN_AREA_Y_POS, UI_MAIN_AREA_WIDTH, UI_MAIN_AREA_HEIGHT, UI_MAIN_AREA_COLOR_BACKGROUND);
     
     // Отрисовка в зависимости от типа
     switch (_currentType) {
@@ -67,11 +67,11 @@ void MainArea::drawLoading() {
     if (!_tft) return;
     
     // Настройка текста
-    _tft->setTextSize(LOG_TEXT_SIZE);
-    _tft->setTextColor(LOG_COLOR, COLOR_BACKGROUND);
+    _tft->setTextSize(UI_MAIN_AREA_LOG_TEXT_SIZE);
+    _tft->setTextColor(UI_MAIN_AREA_LOG_COLOR, UI_MAIN_AREA_COLOR_BACKGROUND);
     
     // Используем предвычисленные константы для определения количества видимых строк
-    uint16_t maxVisibleLines = MAX_LOG_LINES;
+    uint16_t maxVisibleLines = UI_MAIN_AREA_MAX_LOG_LINES;
     
     // Определяем начальную строку для отображения (прокрутка снизу)
     uint8_t startLine = 0;
@@ -81,20 +81,20 @@ void MainArea::drawLoading() {
     
     // Отрисовка строк лога
     for (uint8_t i = startLine; i < _logLineCount; i++) {
-        uint16_t y = Y_POS + LOG_Y + (i - startLine) * LOG_LINE_HEIGHT;
+        uint16_t y = UI_MAIN_AREA_Y_POS + UI_MAIN_AREA_LOG_Y + (i - startLine) * UI_MAIN_AREA_LOG_LINE_HEIGHT;
         
         // Определяем цвет в зависимости от содержимого
-        uint16_t color = LOG_COLOR;
+        uint16_t color = UI_MAIN_AREA_LOG_COLOR;
         if (strstr(_logLines[i], "ERROR") || strstr(_logLines[i], "error") || 
             strstr(_logLines[i], "Error") || strstr(_logLines[i], "FAILED")) {
-            color = LOG_COLOR_ERROR;
+            color = UI_MAIN_AREA_LOG_COLOR_ERROR;
         } else if (strstr(_logLines[i], "WARN") || strstr(_logLines[i], "warn") || 
                    strstr(_logLines[i], "Warn")) {
-            color = LOG_COLOR_WARNING;
+            color = UI_MAIN_AREA_LOG_COLOR_WARNING;
         }
         
-        _tft->setTextColor(color, COLOR_BACKGROUND);
-        _tft->setCursor(LOG_X, y);
+        _tft->setTextColor(color, UI_MAIN_AREA_COLOR_BACKGROUND);
+        _tft->setCursor(UI_MAIN_AREA_LOG_X, y);
         _tft->print(_logLines[i]);
     }
 }
