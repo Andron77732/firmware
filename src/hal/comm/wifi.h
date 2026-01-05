@@ -8,7 +8,8 @@
 
 // Состояния WiFi
 enum class WiFiState {
-    OFF,           // WiFi выключен
+    UNINITIALIZED, // WiFiManager не инициализирован
+    OFF,           // WiFi выключен (после begin/end)
     CONNECTING,    // Идет подключение
     CONNECTED,     // Подключено к сети
     DISCONNECTED,  // Не подключено (но WiFi включен)
@@ -86,11 +87,10 @@ public:
     void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info);
     
 private:
-    WiFiState _state = WiFiState::OFF;
-    bool _enabled = false;
+    WiFiState _state = WiFiState::UNINITIALIZED;
     bool _autoReconnect = true;
     uint32_t _lastReconnectAttempt = 0;
-    uint32_t _reconnectInterval = 30000; // 30 секунд между попытками
+    uint32_t _reconnectInterval = 5000; // 5 секунд между попытками
     uint8_t _reconnectAttempts = 0;
     const uint8_t _maxReconnectAttempts = 10;
     

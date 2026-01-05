@@ -12,7 +12,7 @@ void StatusBar::begin(TFT_eSPI& tft) {
     _lastMinute = 255;
     _lastSecond = 255;
     _lastBtState = BLEState::DISCONNECTED;
-    _lastWiFiState = WiFiState::OFF;
+    _lastWiFiState = WiFiState::UNINITIALIZED;
     _lastWiFiSignalLevel = 255;
 }
 
@@ -73,10 +73,10 @@ void StatusBar::forceRedrawTime() {
 
 void StatusBar::drawIcons() {
     // Пока все иконки неактивны (серые)
-    drawIconGPS(UI_STATUS_BAR_COLOR_ICON_INACTIVE);
-    drawIconBluetooth(ICON_BT_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE);
-    drawIconWiFi(ICON_WIFI_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE);
-    drawIconBattery(UI_STATUS_BAR_COLOR_ICON_INACTIVE);
+    drawIconGPS(UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
+    drawIconBluetooth(ICON_BT_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
+    drawIconWiFi(ICON_WIFI_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
+    drawIconBattery(UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
 void StatusBar::updateBluetoothIcon(BLEState state) {
@@ -153,6 +153,12 @@ void StatusBar::updateWiFiIcon(WiFiState state, int8_t rssi) {
     uint16_t color;
     
     switch (state) {
+        case WiFiState::UNINITIALIZED:
+            // WiFiManager не инициализирован - иконка выключена, серый цвет
+            bitmap = ICON_WIFI_OFF;
+            color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+            break;
+            
         case WiFiState::OFF:
             // WiFi выключен - иконка выключена, серый цвет
             bitmap = ICON_WIFI_OFF;
@@ -191,7 +197,7 @@ void StatusBar::updateWiFiIcon(WiFiState state, int8_t rssi) {
                     bitmap = ICON_WIFI_0;  // Очень слабый сигнал
                     break;
             }
-            color = UI_STATUS_BAR_COLOR_ICON_ACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_ACTIVE;
             break;
             
         case WiFiState::DISCONNECTED:
@@ -226,8 +232,8 @@ void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint
     }
 }
 
-void StatusBar::drawIconGPS(uint16_t color) {
-    drawBitmap16(UI_STATUS_BAR_ICON_GPS_X, UI_STATUS_BAR_ICON_Y, ICON_GPS, color);
+void StatusBar::drawIconGPS(uint16_t color, uint16_t bgColor) {
+    drawBitmap16(UI_STATUS_BAR_ICON_GPS_X, UI_STATUS_BAR_ICON_Y, ICON_GPS, color, bgColor);
 }
 
 void StatusBar::drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
@@ -238,6 +244,6 @@ void StatusBar::drawIconWiFi(const uint8_t* bitmap, uint16_t color, uint16_t bgC
     drawBitmap16(UI_STATUS_BAR_ICON_WIFI_X, UI_STATUS_BAR_ICON_Y, bitmap, color, bgColor);
 }
 
-void StatusBar::drawIconBattery(uint16_t color) {
-    drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, ICON_BAT_FULL, color);
+void StatusBar::drawIconBattery(uint16_t color, uint16_t bgColor) {
+    drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, ICON_BAT_FULL, color, bgColor);
 }

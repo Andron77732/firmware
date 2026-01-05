@@ -70,7 +70,7 @@ private:
     BLEState _lastBtState = BLEState::DISCONNECTED;
     
     // Кэш состояния WiFi для оптимизации перерисовки
-    WiFiState _lastWiFiState = WiFiState::OFF;
+    WiFiState _lastWiFiState = WiFiState::UNINITIALIZED;
     uint8_t _lastWiFiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
     
     /**
@@ -78,10 +78,10 @@ private:
      */
     void drawIcons();
     
-    void drawIconGPS(uint16_t color);
+    void drawIconGPS(uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconWiFi(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
-    void drawIconBattery(uint16_t color);
+    void drawIconBattery(uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     
     /**
      * @brief Отрисовка bitmap 16x16

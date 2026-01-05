@@ -8,6 +8,7 @@
 #include "storage/settings.h"
 #include "timing/event_isr.h"
 #include "timing/pps_isr.h"
+#include "timing/sntp.h"
 #include "timing/time_sync.h"
 #include "ui/footer.h"
 #include "ui/main_area.h"
@@ -128,7 +129,9 @@ void setup() {
   }
   ESP_LOGI(TAG, "Module type: %u (%s)", device.type,
            module_type == ModuleType::START ? "START" : "FINISH");
-  String moduleTypeStr = "Module type: " + String(module_type == ModuleType::START ? "START" : "FINISH");
+  String moduleTypeStr =
+      "Module type: " +
+      String(module_type == ModuleType::START ? "START" : "FINISH");
   mainArea.addLogLine(moduleTypeStr);
 
   // Инициализация прерывания на событие
@@ -197,7 +200,7 @@ void setup() {
     mainArea.addLogLine("Initializing WiFi...");
     wifiManager.begin();
     wifiManager.setStateCallback(onWiFiStateChanged);
-    
+
     // Подключение к WiFi сети
     if (wifiManager.connect(wifi.ssid, wifi.passwd)) {
       ESP_LOGI(TAG, "WiFi connecting to: %s", wifi.ssid.c_str());
@@ -231,9 +234,15 @@ void setup() {
 }
 
 void loop() {
+  // Обновление статус-бара
+  updateStatusBar();
+
+  // Обновление GPS
   gps.update();
+
+  // Обновление синхронизации времени
   time_sync_update();
-  
+
   // Обновление WiFi (обработка событий, обновление RSSI)
   wifiManager.update();
 
@@ -294,7 +303,4 @@ void loop() {
       }
     }
   }
-
-  // Обновление статус-бара
-  updateStatusBar();
 }

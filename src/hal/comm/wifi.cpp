@@ -19,7 +19,7 @@ void WiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
 // ============================================================================
 
 void WiFiManager::begin() {
-    if (_enabled) {
+    if (_state != WiFiState::UNINITIALIZED) {
         ESP_LOGW(TAG, "WiFi already initialized");
         return;
     }
@@ -32,35 +32,44 @@ void WiFiManager::begin() {
     // Регистрация обработчика событий (после установки режима)
     WiFi.onEvent(WiFiEvent);
     
-    _enabled = true;
+    // Устанавливаем состояние OFF после успешного завершения всех операций инициализации
     setState(WiFiState::OFF);
     
     ESP_LOGI(TAG, "WiFi initialized");
 }
 
 void WiFiManager::end() {
-    if (!_enabled) {
+    if (_state == WiFiState::UNINITIALIZED) {
         return;
     }
     
     ESP_LOGI(TAG, "Disabling WiFi...");
     
-    disconnect();
-    WiFi.mode(WIFI_OFF);
-    // Обработчик событий остается зарегистрированным, но WiFi выключен
+    // Отключаем автопереподключение перед отключением
+    _autoReconnect = false;
     
-    _enabled = false;
+    // Отключаемся от сети
+    disconnect();
+    
+    // Выключаем WiFi
+    WiFi.mode(WIFI_OFF);
+    
+    // Очищаем состояние перед установкой UNINITIALIZED
+    // Это предотвращает обработку событий после установки UNINITIALIZED
     _ssid = "";
     _password = "";
     _rssi = 0;
     _reconnectAttempts = 0;
-    setState(WiFiState::OFF);
+    
+    // Устанавливаем UNINITIALIZED в самом конце, после всех операций
+    // Обработчик событий остается зарегистрированным, но onWiFiEvent() будет игнорировать события
+    setState(WiFiState::UNINITIALIZED);
     
     ESP_LOGI(TAG, "WiFi disabled");
 }
 
 bool WiFiManager::connect(const String& ssid, const String& password) {
-    if (!_enabled) {
+    if (_state == WiFiState::UNINITIALIZED) {
         ESP_LOGE(TAG, "WiFi not initialized, call begin() first");
         return false;
     }
@@ -89,7 +98,7 @@ bool WiFiManager::connect(const String& ssid, const String& password) {
 }
 
 void WiFiManager::disconnect() {
-    if (!_enabled) {
+    if (_state == WiFiState::UNINITIALIZED) {
         return;
     }
     
@@ -106,7 +115,8 @@ void WiFiManager::disconnect() {
 }
 
 bool WiFiManager::isConnected() {
-    return _enabled && WiFi.status() == WL_CONNECTED && _state == WiFiState::CONNECTED;
+    ESP_LOGI(TAG, "WiFi status: %d, state: %d", WiFi.status(), (int)_state);
+    return _state != WiFiState::UNINITIALIZED && WiFi.status() == WL_CONNECTED && _state == WiFiState::CONNECTED;
 }
 
 WiFiState WiFiManager::getState() {
@@ -118,7 +128,7 @@ void WiFiManager::setStateCallback(WiFiStateCallback callback) {
 }
 
 void WiFiManager::update() {
-    if (!_enabled) {
+    if (_state == WiFiState::UNINITIALIZED) {
         return;
     }
     
@@ -159,6 +169,13 @@ String WiFiManager::getIP() {
 }
 
 void WiFiManager::onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
+    // Ранний выход если WiFiManager не инициализирован
+    // Это защищает от обработки событий после вызова end() или до begin()
+    if (_state == WiFiState::UNINITIALIZED) {
+        ESP_LOGD(TAG, "Ignoring WiFi event %d: WiFiManager not initialized", event);
+        return;
+    }
+    
     switch (event) {
         case ARDUINO_EVENT_WIFI_STA_START:
             ESP_LOGI(TAG, "WiFi STA started");
@@ -185,8 +202,9 @@ void WiFiManager::onWiFiEvent(arduino_event_id_t event, arduino_event_info_t inf
             ESP_LOGW(TAG, "WiFi disconnected, reason: %d", info.wifi_sta_disconnected.reason);
             _rssi = 0;
             
-            // Если WiFi был включен и мы пытались подключиться
-            if (_enabled && _ssid.length() > 0) {
+            // Если мы пытались подключиться
+            // Дополнительная проверка UNINITIALIZED здесь не нужна, так как она уже в начале функции
+            if (_ssid.length() > 0) {
                 setState(WiFiState::DISCONNECTED);
                 _lastReconnectAttempt = millis();
             } else {
