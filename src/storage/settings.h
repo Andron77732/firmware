@@ -10,7 +10,7 @@
 
 #define DEFAULT_DEVICE_NAME "ENTime"
 #define DEFAULT_DEVICE_NUMBER 1
-#define DEFAULT_DEVICE_TYPE "start"
+#define DEFAULT_DEVICE_TYPE 1
 #define DEFAULT_DEVICE_TIMEZONE 3
 
 #define DEFAULT_SYNC_AUTO true
@@ -32,7 +32,7 @@
 struct DeviceSettings {
   std::string name = DEFAULT_DEVICE_NAME;    // 1-16 символов, ASCII
   uint8_t number = DEFAULT_DEVICE_NUMBER;    // 1-255
-  std::string type = DEFAULT_DEVICE_TYPE;    // "start" или "finish"
+  uint8_t type = DEFAULT_DEVICE_TYPE;        // 1 = стартовый, 2 = финишный
   int8_t timezone = DEFAULT_DEVICE_TIMEZONE; // -12 до 12
 };
 
@@ -175,7 +175,7 @@ private:
 
   // Вспомогательные функции валидации
   bool isValidAsciiName(const std::string &name) const;
-  bool isValidDeviceType(const std::string &type) const;
+  bool isValidDeviceType(uint8_t type) const;
   bool isValidSyncSource(const std::string &source) const;
 
   // Сохранение/загрузка отдельных групп

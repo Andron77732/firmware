@@ -88,16 +88,16 @@ void setup()
   // Инициализация типа модуля из настроек
   {
     const DeviceSettings& device = settings.getDevice();
-    const char* device_type_cstr = device.type.c_str();
-    if (strcmp(device_type_cstr, "start") == 0) {
+    if (device.type == 1) {
       module_type = ModuleType::START;
-    } else if (strcmp(device_type_cstr, "finish") == 0) {
+    } else if (device.type == 2) {
       module_type = ModuleType::FINISH;
     } else {
-      ESP_LOGW(TAG, "Unknown device type '%s', defaulting to START", device_type_cstr);
+      ESP_LOGW(TAG, "Unknown device type %u, defaulting to START", device.type);
       module_type = ModuleType::START;
     }
-    ESP_LOGI(TAG, "Module type: %s", device_type_cstr);
+    ESP_LOGI(TAG, "Module type: %u (%s)", device.type, 
+             module_type == ModuleType::START ? "START" : "FINISH");
   }
 
   // Инициализация прерывания на событие

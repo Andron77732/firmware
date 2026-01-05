@@ -18,7 +18,7 @@
     "device": {
       "name": "...",
       "number": ...,
-      "type": "...",
+      "type": ...,
       "timezone": ...
     },
     "sync": {
@@ -75,16 +75,16 @@
 
 #### `device.type`
 - **Путь в JSON:** `data.device.type`
-- **Тип:** `string`
-- **По умолчанию:** `"start"`
-- **Описание:** Тип устройства для определения роли в системе синхронизации времени. Устройство может быть либо стартовым (start), либо финишным (finish).
+- **Тип:** `integer`
+- **По умолчанию:** `1`
+- **Описание:** Тип устройства для определения роли в системе синхронизации времени. Устройство может быть либо стартовым (1), либо финишным (2).
 - **Допустимые значения:**
-  - `"start"` — стартовое устройство (по умолчанию)
-  - `"finish"` — финишное устройство
-- **Ограничения:** Только одно из двух допустимых значений
+  - `1` — стартовое устройство (по умолчанию)
+  - `2` — финишное устройство
+- **Ограничения:** Только одно из двух допустимых значений (1 или 2)
 - **Примеры:**
-  - `"start"` — устройство для старта измерения времени
-  - `"finish"` — устройство для финиша измерения времени
+  - `1` — устройство для старта измерения времени
+  - `2` — устройство для финиша измерения времени
 
 #### `device.timezone`
 - **Путь в JSON:** `data.device.timezone`
@@ -183,7 +183,7 @@
 |----------|-------------|-----|--------------|---------------------|--------|
 | `device.name` | `data.device.name` | string | `"ENTime"` | 1-16 символов, ASCII | Устройство |
 | `device.number` | `data.device.number` | integer | `1` | 1..255 | Устройство |
-| `device.type` | `data.device.type` | string | `"start"` | "start"/"finish" | Устройство |
+| `device.type` | `data.device.type` | integer | `1` | 1/2 | Устройство |
 | `device.timezone` | `data.device.timezone` | integer | `3` | -12..12 часов | Устройство |
 | `sync.auto` | `data.sync.auto` | boolean | `true` | true/false | Синхронизация |
 | `sync.source` | `data.sync.source` | string | `"auto"` | "auto"/"gps"/"rtc" | Синхронизация |
@@ -206,7 +206,7 @@
     "device": {
       "name": "ENTime-Lab",
       "number": 1,
-      "type": "start",
+      "type": 1,
       "timezone": 3
     },
     "sync": {
@@ -250,7 +250,7 @@
     "device": {
       "name": "ENTime-Lab",
       "number": 1,
-      "type": "start",
+      "type": 1,
       "timezone": 3
     },
     "sync": {
@@ -324,7 +324,7 @@
 |-------------|----------------------|
 | `data.device.name` | `"ENTime"` |
 | `data.device.number` | `1` |
-| `data.device.type` | `"start"` |
+| `data.device.type` | `1` |
 | `data.device.timezone` | `3` |
 | `data.sync.auto` | `true` |
 | `data.sync.source` | `"auto"` |

@@ -39,8 +39,8 @@ bool SettingsManager::isValidAsciiName(const std::string &name) const {
   return true;
 }
 
-bool SettingsManager::isValidDeviceType(const std::string &type) const {
-  return type == "start" || type == "finish";
+bool SettingsManager::isValidDeviceType(uint8_t type) const {
+  return type == 1 || type == 2;
 }
 
 bool SettingsManager::isValidSyncSource(const std::string &source) const {
@@ -61,8 +61,8 @@ bool SettingsManager::validateDevice(const DeviceSettings &device) const {
   }
 
   if (!isValidDeviceType(device.type)) {
-    ESP_LOGE(TAG, "Invalid device.type: must be 'start' or 'finish', got '%s'",
-             device.type.c_str());
+    ESP_LOGE(TAG, "Invalid device.type: must be 1 (start) or 2 (finish), got %u",
+             device.type);
     return false;
   }
 
@@ -217,8 +217,8 @@ void SettingsManager::saveDevice() {
                       DEFAULT_DEVICE_NAME);
   putUCharIfChanged_("device.number", settings_.device.number,
                      DEFAULT_DEVICE_NUMBER);
-  putStringIfChanged_("device.type", settings_.device.type,
-                      DEFAULT_DEVICE_TYPE);
+  putUCharIfChanged_("device.type", settings_.device.type,
+                     DEFAULT_DEVICE_TYPE);
   putCharIfChanged_("device.timezone", settings_.device.timezone,
                     DEFAULT_DEVICE_TIMEZONE);
 }
@@ -250,8 +250,8 @@ void SettingsManager::loadDevice() {
   settings_.device.number =
       prefs_.getUChar("device.number", DEFAULT_DEVICE_NUMBER);
 
-  String type = prefs_.getString("device.type", DEFAULT_DEVICE_TYPE);
-  settings_.device.type = type.c_str();
+  settings_.device.type =
+      prefs_.getUChar("device.type", DEFAULT_DEVICE_TYPE);
 
   settings_.device.timezone =
       prefs_.getChar("device.timezone", DEFAULT_DEVICE_TIMEZONE);
