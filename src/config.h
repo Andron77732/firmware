@@ -34,5 +34,12 @@
 // --- BLE ---
 #define BLE_DEVICE_NAME "ENTime"
 
+// --- Module Type ---
+// Тип модуля устройства
+enum class ModuleType {
+  START,
+  FINISH
+};
+
 #endif // CONFIG_H
 

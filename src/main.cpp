@@ -12,8 +12,12 @@
 #include <Arduino.h>
 #include <esp_timer.h>
 #include <time.h>
+#include <string>
+#include <cstring>
 
 static const char *TAG = "MAIN";
+
+static ModuleType module_type = ModuleType::START; // значение по умолчанию
 
 /**
  * @brief Callback для обновления иконки Bluetooth при изменении состояния BLE
@@ -79,6 +83,21 @@ void setup()
   if (!settings.begin()) {
     ESP_LOGE(TAG, "Failed to initialize settings manager");
     // Продолжаем работу с настройками по умолчанию
+  }
+
+  // Инициализация типа модуля из настроек
+  {
+    const DeviceSettings& device = settings.getDevice();
+    const char* device_type_cstr = device.type.c_str();
+    if (strcmp(device_type_cstr, "start") == 0) {
+      module_type = ModuleType::START;
+    } else if (strcmp(device_type_cstr, "finish") == 0) {
+      module_type = ModuleType::FINISH;
+    } else {
+      ESP_LOGW(TAG, "Unknown device type '%s', defaulting to START", device_type_cstr);
+      module_type = ModuleType::START;
+    }
+    ESP_LOGI(TAG, "Module type: %s", device_type_cstr);
   }
 
   // Инициализация прерывания на событие
@@ -151,7 +170,12 @@ void loop()
     int64_t t_utc_us = 0;
     if (time_sync_esp_to_utc_us(t_esp_us, t_utc_us))
     {
-      ESP_LOGI(TAG, "EVENT UTC = %lld us", (long long)t_utc_us);
+      // Вывод UTC времени в зависимости от типа модуля
+      if (module_type == ModuleType::START) {
+        ESP_LOGI(TAG, "START EVENT UTC = %lld us", (long long)t_utc_us);
+      } else {
+        ESP_LOGI(TAG, "FINISH EVENT UTC = %lld us", (long long)t_utc_us);
+      }
 
       // Вывод локального времени в формате hh:mm:ss,sss
       int8_t timezone = settings.getDevice().timezone;
@@ -172,12 +196,21 @@ void loop()
       uint8_t minute = static_cast<uint8_t>(tm.tm_min);
       uint8_t second = static_cast<uint8_t>(tm.tm_sec);
 
-      ESP_LOGI(TAG, "EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute, second, local_msec);
+      // Вывод локального времени в зависимости от типа модуля
+      if (module_type == ModuleType::START) {
+        ESP_LOGI(TAG, "START EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute, second, local_msec);
+      } else {
+        ESP_LOGI(TAG, "FINISH EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute, second, local_msec);
+      }
     }
     else
     {
       // GPS и RTC ещё не готовы
-      ESP_LOGW(TAG, "EVENT esp = %lld us (no time source)", (long long)t_esp_us);
+      if (module_type == ModuleType::START) {
+        ESP_LOGW(TAG, "START EVENT esp = %lld us (no time source)", (long long)t_esp_us);
+      } else {
+        ESP_LOGW(TAG, "FINISH EVENT esp = %lld us (no time source)", (long long)t_esp_us);
+      }
     }
   }
 
