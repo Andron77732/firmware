@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "hal/comm/ble.h"
+#include "hal/comm/wifi.h"
 #include "ui_config.h"
 
 /**
@@ -49,6 +50,13 @@ public:
      * @param state Текущее состояние Bluetooth
      */
     void updateBluetoothIcon(BLEState state);
+    
+    /**
+     * @brief Обновить иконку WiFi в зависимости от состояния и уровня сигнала
+     * @param state Текущее состояние WiFi
+     * @param rssi Уровень сигнала в dBm (используется для выбора иконки при подключении)
+     */
+    void updateWiFiIcon(WiFiState state, int8_t rssi = 0);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -61,6 +69,10 @@ private:
     // Кэш состояния Bluetooth для оптимизации перерисовки
     BLEState _lastBtState = BLEState::DISCONNECTED;
     
+    // Кэш состояния WiFi для оптимизации перерисовки
+    WiFiState _lastWiFiState = WiFiState::OFF;
+    uint8_t _lastWiFiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
+    
     /**
      * @brief Отрисовка всех иконок
      */
@@ -68,7 +80,7 @@ private:
     
     void drawIconGPS(uint16_t color);
     void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
-    void drawIconWiFi(uint16_t color);
+    void drawIconWiFi(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconBattery(uint16_t color);
     
     /**

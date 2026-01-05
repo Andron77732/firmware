@@ -42,6 +42,17 @@
 #define UI_STATUS_BAR_COLOR_ICON_INACTIVE       TFT_DARKGREY
 #define UI_STATUS_BAR_COLOR_ICON_BLUETOOTH_ACTIVE TFT_BLUE
 
+// Пороговые значения RSSI для определения уровня сигнала WiFi (в dBm)
+// Уровень 4 (отличный): > UI_WIFI_RSSI_LEVEL_4
+// Уровень 3 (хороший):  > UI_WIFI_RSSI_LEVEL_3
+// Уровень 2 (средний):  > UI_WIFI_RSSI_LEVEL_2
+// Уровень 1 (слабый):   > UI_WIFI_RSSI_LEVEL_1
+// Уровень 0 (очень слабый): <= UI_WIFI_RSSI_LEVEL_1
+#define UI_WIFI_RSSI_LEVEL_4  -50  // Отличный сигнал
+#define UI_WIFI_RSSI_LEVEL_3  -60  // Хороший сигнал
+#define UI_WIFI_RSSI_LEVEL_2  -70  // Средний сигнал
+#define UI_WIFI_RSSI_LEVEL_1  -80  // Слабый сигнал
+
 // ============================================================================
 // MainArea Settings
 // ============================================================================

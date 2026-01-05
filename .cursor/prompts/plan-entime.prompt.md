@@ -49,6 +49,7 @@
 ### **Фаза 5: Коммуникация**
 - [ ] Serial (UART0) команды
 - [x] BLE (Nordic UART Service)
+- [ ] WiFi STA (клиент): включение/выключение, подключение к SSID
 - [ ] Парсер команд (JSON)
 
 ### **Фаза 6: Интерфейс**
@@ -67,7 +68,8 @@ src/
 │   ├── gps/              # NEO-6M driver
 │   ├── rtc/              # DS3231 driver  
 │   ├── tft/              # ILI9341 driver
-│   └── comm/             # Serial + Bluetooth
+│   ├── comm/             # Serial + Bluetooth
+│   └── wifi/             # WiFi STA (клиент)
 ├── timing/               # Time sync + ISR
 ├── commands/             # Command parser
 ├── storage/              # Preferences manager
@@ -92,6 +94,7 @@ test/
 | SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:14, T_CS:17 |
 | GPIO | Ext interrupt | PIN:3 |
 | BLE | GATT | встроенный |
+| WiFi | STA (клиент) | встроенный |
 
 ---
 
@@ -114,6 +117,8 @@ lib_deps =
 {"cmd": "time"}                                  // Текущее время
 {"cmd": "status"}                                // Статус синхронизации
 {"cmd": "gps", "enable": true}                   // Вкл/выкл GPS
+{"cmd": "wifi", "enable": true}                  // Вкл/выкл WiFi
+{"cmd": "wifi", "connect": {"ssid": "Network", "password": "pass"}}  // Подключение к WiFi
 {"cmd": "calibrate", "offset": 0.5}              // RTC offset compensation
 {"cmd": "save_config", "data": {...}}            // Сохранить конфиг
 {"cmd": "load_config"}                           // Загрузить конфиг

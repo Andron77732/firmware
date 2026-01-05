@@ -1,6 +1,7 @@
 #include "config.h"
 #include "esp_log.h"
 #include "hal/comm/ble.h"
+#include "hal/comm/wifi.h"
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
 #include "hal/tft/tft.h"
@@ -25,6 +26,15 @@ static ModuleType module_type = ModuleType::START; // значение по ум
  * @param state Текущее состояние Bluetooth
  */
 void onBLEStateChanged(BLEState state) { statusBar.updateBluetoothIcon(state); }
+
+/**
+ * @brief Callback для обновления иконки WiFi при изменении состояния WiFi
+ * @param state Текущее состояние WiFi
+ * @param rssi Уровень сигнала в dBm
+ */
+void onWiFiStateChanged(WiFiState state, int8_t rssi) {
+  statusBar.updateWiFiIcon(state, rssi);
+}
 
 /**
  * @brief Обновление статус-бара и связанных элементов (когда меняется секунда в
@@ -187,6 +197,27 @@ void setup() {
   ESP_LOGI(TAG, "BLE ready");
   mainArea.addLogLine("BLE ready");
 
+  // Инициализация WiFi (если включен в настройках)
+  const WifiSettings &wifi = settings.getWifi();
+  if (wifi.active && wifi.ssid.length() > 0) {
+    mainArea.addLogLine("Initializing WiFi...");
+    wifiManager.begin();
+    wifiManager.setStateCallback(onWiFiStateChanged);
+    
+    // Подключение к WiFi сети
+    if (wifiManager.connect(wifi.ssid.c_str(), wifi.passwd.c_str())) {
+      ESP_LOGI(TAG, "WiFi connecting to: %s", wifi.ssid.c_str());
+      mainArea.addLogLine("WiFi connecting...");
+    } else {
+      ESP_LOGE(TAG, "WiFi connect failed");
+      mainArea.addLogLine("ERROR: WiFi connect failed");
+    }
+  } else {
+    ESP_LOGI(TAG, "WiFi disabled in settings");
+    // Обновляем иконку WiFi до состояния OFF
+    statusBar.updateWiFiIcon(WiFiState::OFF, 0);
+  }
+
   // Отрисовка footer с типом модуля
   footer.draw(module_type, VERSION);
 
@@ -208,6 +239,9 @@ void setup() {
 void loop() {
   gps.update();
   time_sync_update();
+  
+  // Обновление WiFi (обработка событий, обновление RSSI)
+  wifiManager.update();
 
   // Обработка BLE данных
   if (bleSerial.available()) {
