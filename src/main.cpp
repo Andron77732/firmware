@@ -9,6 +9,7 @@
 #include "timing/pps_isr.h"
 #include "timing/time_sync.h"
 #include "ui/footer.h"
+#include "ui/main_area.h"
 #include "ui/status_bar.h"
 #include <Arduino.h>
 #include <esp_timer.h>
@@ -76,44 +77,7 @@ void setup() {
 
   ESP_LOGI(TAG, "ENTime v%s starting...", VERSION);
 
-  // Инициализация настроек (загрузка из NVS)
-  if (!settings.begin()) {
-    ESP_LOGE(TAG, "Failed to initialize settings manager");
-    // Продолжаем работу с настройками по умолчанию
-  }
-
-  // Инициализация типа модуля из настроек
-  {
-    const DeviceSettings &device = settings.getDevice();
-    if (device.type == 1) {
-      module_type = ModuleType::START;
-    } else if (device.type == 2) {
-      module_type = ModuleType::FINISH;
-    } else {
-      ESP_LOGW(TAG, "Unknown device type %u, defaulting to START", device.type);
-      module_type = ModuleType::START;
-    }
-    ESP_LOGI(TAG, "Module type: %u (%s)", device.type,
-             module_type == ModuleType::START ? "START" : "FINISH");
-  }
-
-  // Инициализация прерывания на событие
-  event_isr_init(EXT_INT_PIN);
-  ESP_LOGI(TAG, "Event ISR initialized");
-
-  // Инициализация GPS
-  gps.begin();
-
-  // Инициализация RTC
-  rtc.begin();
-
-  // PPS синхронизация от GPS
-  pps_init(GPS_PPS_PIN);
-
-  // Инициализация подсистемы синхронизации времени
-  time_sync_begin();
-
-  // Инициализация дисплея
+  // Инициализация дисплея (раньше, чтобы можно было показывать логи)
   display.begin();
 
   // Инициализация статус-бара
@@ -122,21 +86,93 @@ void setup() {
 
   // Инициализация footer
   footer.begin(display.tft());
-  footer.draw(module_type, VERSION);
 
-  // Заголовок под статус-баром
-  display.tft().setCursor(0, StatusBar::HEIGHT + 10);
-  display.tft().setTextSize(2);
-  display.tft().setTextColor(TFT_WHITE, TFT_BLACK);
-  display.tft().printf("ENTime v%s", VERSION);
+  // Инициализация mainArea в режиме загрузки
+  mainArea.begin(display.tft());
+  mainArea.setType(MainAreaType::LOADING);
+  mainArea.draw();
+  mainArea.addLogLine("ENTime v" VERSION " starting...");
 
-  display.tft().setCursor(0, StatusBar::HEIGHT + 35);
-  display.tft().setTextSize(1);
-  display.tft().setTextColor(TFT_DARKGREY, TFT_BLACK);
-  display.tft().print("GPS Time Sync");
+  // Инициализация настроек (загрузка из NVS)
+  mainArea.addLogLine("Loading settings...");
+  if (!settings.begin()) {
+    ESP_LOGE(TAG, "Failed to initialize settings manager");
+    mainArea.addLogLine("ERROR: Settings init failed");
+    mainArea.addLogLine("Default settings loaded");
+    delay(2000);
+    // Продолжаем работу с настройками по умолчанию
+  } else {
+    mainArea.addLogLine("Settings loaded");
+  }
+
+  // Инициализация типа модуля из настроек и формирование имени устройства
+  char deviceName[32]; // Имя устройства для BLE (формат: "Имя-Номер")
+
+  const DeviceSettings &device = settings.getDevice();
+  if (device.type == 1) {
+    module_type = ModuleType::START;
+  } else if (device.type == 2) {
+    module_type = ModuleType::FINISH;
+  } else {
+    ESP_LOGW(TAG, "Unknown device type %u, defaulting to START", device.type);
+    module_type = ModuleType::START;
+  }
+  ESP_LOGI(TAG, "Module type: %u (%s)", device.type,
+           module_type == ModuleType::START ? "START" : "FINISH");
+  char moduleTypeStr[40];
+  snprintf(moduleTypeStr, sizeof(moduleTypeStr), "Module type: %s",
+           module_type == ModuleType::START ? "START" : "FINISH");
+  mainArea.addLogLine(moduleTypeStr);
+
+  // Инициализация прерывания на событие
+  event_isr_init(EXT_INT_PIN);
+  ESP_LOGI(TAG, "Event ISR initialized");
+
+  // Инициализация GPS
+  mainArea.addLogLine("Initializing GPS...");
+  gps.begin();
+  mainArea.addLogLine("GPS initialized");
+
+  // Инициализация RTC
+  mainArea.addLogLine("Initializing RTC...");
+  if (rtc.begin()) {
+    ESP_LOGI(TAG, "RTC initialized");
+    mainArea.addLogLine("RTC initialized");
+    // Проверка потери питания
+    if (rtc.lostPower()) {
+      ESP_LOGW(TAG, "RTC lost power");
+      mainArea.addLogLine("WARN: RTC lost power");
+      delay(2000);
+    }
+  } else {
+    ESP_LOGE(TAG, "RTC init failed");
+    mainArea.addLogLine("ERROR: RTC init failed");
+    delay(5000);
+  }
+
+  // PPS синхронизация от GPS
+  pps_init(GPS_PPS_PIN);
+  ESP_LOGI(TAG, "PPS initialized");
+
+  // Инициализация подсистемы синхронизации времени
+  mainArea.addLogLine("Starting time sync...");
+  time_sync_begin();
+  ESP_LOGI(TAG, "Time sync ready");
+  mainArea.addLogLine("Time sync ready");
 
   // Инициализация BLE (Nordic UART Service)
-  bleSerial.begin("ENTime");
+  mainArea.addLogLine("Initializing BLE...");
+
+  // Формирование имени устройства: "Имя-Номер"
+  snprintf(deviceName, sizeof(deviceName), "%s-%u", device.name.c_str(),
+           device.number);
+  ESP_LOGI(TAG, "Device name: %s", deviceName);
+  char deviceNameStr[40];
+  snprintf(deviceNameStr, sizeof(deviceNameStr), "Device: %s", deviceName);
+  mainArea.addLogLine(deviceNameStr);
+
+  bleSerial.begin(deviceName);
+  ESP_LOGI(TAG, "BLE initialized as: %s", deviceName);
 
   // Установка callback для мгновенного обновления иконки Bluetooth при
   // изменении состояния
@@ -147,8 +183,25 @@ void setup() {
 
   // Обновляем иконку Bluetooth до текущего состояния (реклама уже запущена)
   bleSerial.notifyStateChanged();
+  ESP_LOGI(TAG, "BLE ready");
+  mainArea.addLogLine("BLE ready");
+
+  // Отрисовка footer с типом модуля
+  footer.draw(module_type, VERSION);
 
   ESP_LOGI(TAG, "Setup complete");
+  mainArea.addLogLine("Setup complete");
+
+  // Пауза для чтения лога загрузки (3 секунды)
+  delay(300000000);
+
+  // Установка типа в зависимости от типа модуля
+  if (module_type == ModuleType::START) {
+    mainArea.setType(MainAreaType::START);
+  } else {
+    mainArea.setType(MainAreaType::FINISH);
+  }
+  mainArea.draw();
 }
 
 void loop() {
