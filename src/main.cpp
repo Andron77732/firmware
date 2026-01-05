@@ -7,6 +7,7 @@
 #include "hal/tft/tft.h"
 #include "storage/settings.h"
 #include "timing/event_isr.h"
+#include "timing/event_timestamp.h"
 #include "timing/pps_isr.h"
 #include "timing/sntp.h"
 #include "timing/time_sync.h"
@@ -77,7 +78,7 @@ void updateStatusBar() {
     else if (ts.source == TimeSource::RTC)
       src = "RTC   ";
 
-    display.tft().setCursor(0, UI_STATUS_BAR_HEIGHT + 60);
+    display.tft().setCursor(0, UI_STATUS_BAR_HEIGHT + 8);
     display.tft().setTextSize(2);
     display.tft().setTextColor(TFT_CYAN, TFT_BLACK);
     display.tft().printf("Sats:%02u  Sync:%s", sats, src);
@@ -252,55 +253,12 @@ void loop() {
     ESP_LOGD(TAG, "BLE RX: %s", data.c_str());
   }
 
-  // Проверка события и вывод его UTC времени
+  // Проверка события и обработка временного штампа
   int64_t t_esp_us = 0;
 
   if (event_isr_get(t_esp_us)) {
-    int64_t t_utc_us = 0;
-    if (time_sync_esp_to_utc_us(t_esp_us, t_utc_us)) {
-      // Вывод UTC времени в зависимости от типа модуля
-      if (module_type == ModuleType::START) {
-        ESP_LOGI(TAG, "START EVENT UTC = %lld us", (long long)t_utc_us);
-      } else {
-        ESP_LOGI(TAG, "FINISH EVENT UTC = %lld us", (long long)t_utc_us);
-      }
-
-      // Вывод локального времени в формате hh:mm:ss,sss
-      int8_t timezone = settings.getDevice().timezone;
-      int64_t t_local_us = t_utc_us + ((int64_t)timezone * 3600LL * 1000000LL);
-
-      time_t local_sec = (time_t)(t_local_us / 1000000LL);
-      int64_t local_usec = t_local_us % 1000000LL;
-      // Обработка отрицательного остатка
-      if (local_usec < 0) {
-        local_usec += 1000000LL;
-        local_sec -= 1;
-      }
-      int local_msec = (int)(local_usec / 1000);
-
-      struct tm tm{};
-      gmtime_r(&local_sec, &tm);
-      uint8_t hour = static_cast<uint8_t>(tm.tm_hour);
-      uint8_t minute = static_cast<uint8_t>(tm.tm_min);
-      uint8_t second = static_cast<uint8_t>(tm.tm_sec);
-
-      // Вывод локального времени в зависимости от типа модуля
-      if (module_type == ModuleType::START) {
-        ESP_LOGI(TAG, "START EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute,
-                 second, local_msec);
-      } else {
-        ESP_LOGI(TAG, "FINISH EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute,
-                 second, local_msec);
-      }
-    } else {
-      // GPS и RTC ещё не готовы
-      if (module_type == ModuleType::START) {
-        ESP_LOGW(TAG, "START EVENT esp = %lld us (no time source)",
-                 (long long)t_esp_us);
-      } else {
-        ESP_LOGW(TAG, "FINISH EVENT esp = %lld us (no time source)",
-                 (long long)t_esp_us);
-      }
-    }
+    EventTimestampData data = event_timestamp_process(t_esp_us, module_type);
+    event_timestamp_send_ble(data);  // заглушка
+    mainArea.displayEventTimestamp(data);
   }
 }

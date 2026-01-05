@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "ui_config.h"
+#include "timing/event_timestamp.h"
 
 /**
  * @brief Тип отображения mainArea
@@ -56,6 +57,12 @@ public:
      * @brief Очистить лог загрузки
      */
     void clearLog();
+    
+    /**
+     * @brief Отобразить временной штамп события на экране
+     * @param data Данные временного штампа события
+     */
+    void displayEventTimestamp(const EventTimestampData& data);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -64,6 +71,10 @@ private:
     // Буфер для логов загрузки
     String _logLines[UI_MAIN_AREA_MAX_LOG_LINES];
     uint8_t _logLineCount = 0;
+    
+    // Данные последнего события
+    EventTimestampData _lastEvent;
+    bool _hasEvent = false;
     
     /**
      * @brief Отрисовка режима загрузки (логи)

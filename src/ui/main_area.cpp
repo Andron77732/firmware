@@ -1,4 +1,5 @@
 #include "main_area.h"
+#include "storage/settings.h"
 
 // Глобальный объект mainArea
 MainArea mainArea;
@@ -6,6 +7,7 @@ MainArea mainArea;
 void MainArea::begin(TFT_eSPI& tft) {
     _tft = &tft;
     _logLineCount = 0;
+    _hasEvent = false;
 }
 
 void MainArea::setType(MainAreaType type) {
@@ -100,13 +102,67 @@ void MainArea::drawLoading() {
     }
 }
 
+void MainArea::displayEventTimestamp(const EventTimestampData& data) {
+    _lastEvent = data;
+    _hasEvent = true;
+    draw(); // Перерисовываем экран
+}
+
 void MainArea::drawStart() {
     if (!_tft) return;
-    // TODO: Реализовать отрисовку режима старт
+    
+    if (!_hasEvent) {
+        // Нет события - пустой экран
+        return;
+    }
+    
+    // Отображение локального времени события
+    // Используем крупный шрифт для лучшей читаемости
+    _tft->setTextSize(3);
+    
+    // Определяем цвет в зависимости от успешности
+    uint16_t text_color = _lastEvent.success ? TFT_GREEN : TFT_YELLOW;
+    _tft->setTextColor(text_color, UI_MAIN_AREA_COLOR_BACKGROUND);
+    
+    // Центрируем текст по горизонтали
+    // Ширина символа для размера 3: примерно 18px
+    // "HH:MM:SS,mmm" = 12 символов = ~216px
+    // Центр: (240 - 216) / 2 = 12px от левого края
+    uint16_t text_x = 12;
+    
+    // Позиция по вертикали: примерно в верхней трети экрана
+    uint16_t text_y = UI_MAIN_AREA_Y_POS + 60;
+    
+    _tft->setCursor(text_x, text_y);
+    _tft->print(_lastEvent.local_time_str);
 }
 
 void MainArea::drawFinish() {
     if (!_tft) return;
-    // TODO: Реализовать отрисовку режима финиш
+    
+    if (!_hasEvent) {
+        // Нет события - пустой экран
+        return;
+    }
+    
+    // Отображение локального времени события
+    // Используем крупный шрифт для лучшей читаемости
+    _tft->setTextSize(3);
+    
+    // Определяем цвет в зависимости от успешности
+    uint16_t text_color = _lastEvent.success ? TFT_GREEN : TFT_YELLOW;
+    _tft->setTextColor(text_color, UI_MAIN_AREA_COLOR_BACKGROUND);
+    
+    // Центрируем текст по горизонтали
+    // Ширина символа для размера 3: примерно 18px
+    // "HH:MM:SS,mmm" = 12 символов = ~216px
+    // Центр: (240 - 216) / 2 = 12px от левого края
+    uint16_t text_x = 12;
+    
+    // Позиция по вертикали: примерно в верхней трети экрана
+    uint16_t text_y = UI_MAIN_AREA_Y_POS + 60;
+    
+    _tft->setCursor(text_x, text_y);
+    _tft->print(_lastEvent.local_time_str);
 }
 
