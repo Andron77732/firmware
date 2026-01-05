@@ -43,7 +43,7 @@ void onWiFiStateChanged(WiFiState state, int8_t rssi) {
  * системном времени)
  */
 void updateStatusBar() {
-  static uint8_t lastSecond = 255;
+  static time_t lastTimeSec = 0;
 
   // Предпочитаем системное время (синхронизируется по GPS PPS)
   time_t nowSec = time(nullptr);
@@ -51,23 +51,15 @@ void updateStatusBar() {
   if (nowSec <= 0)
     return; // Время ещё не установлено
 
-  // Получаем таймзону из настроек и применяем смещение к UTC времени
-  int8_t timezone = settings.getDevice().timezone;
-  time_t local_time = nowSec + (timezone * 3600);
-
-  struct tm tm{};
-  gmtime_r(&local_time, &tm);
-  uint8_t second = static_cast<uint8_t>(tm.tm_sec);
-
   // Обновляем только когда секунда изменилась в системном времени
-  if (second != lastSecond) {
-    lastSecond = second;
+  if (nowSec != lastTimeSec) {
+    lastTimeSec = nowSec;
 
-    uint8_t hour = static_cast<uint8_t>(tm.tm_hour);
-    uint8_t minute = static_cast<uint8_t>(tm.tm_min);
+    // Получаем таймзону из настроек
+    int8_t timezone = settings.getDevice().timezone;
 
     // Время в статус-баре
-    statusBar.updateTime(hour, minute, second);
+    statusBar.updateTime(nowSec, timezone);
 
     // Статус под статус-баром: спутники + источник времени
     uint8_t sats = gps.isReady() ? gps.nmea().getNumSatellites() : 0;
@@ -147,36 +139,31 @@ void setup() {
   // Инициализация RTC
   mainArea.addLogLine("Initializing RTC...");
   if (rtc.begin()) {
-    ESP_LOGI(TAG, "RTC initialized");
     mainArea.addLogLine("RTC initialized");
     // Проверка потери питания
     if (rtc.lostPower()) {
-      ESP_LOGW(TAG, "RTC lost power");
       mainArea.addLogLine("WARN: RTC lost power");
       delay(2000);
     }
   } else {
-    ESP_LOGE(TAG, "RTC init failed");
     mainArea.addLogLine("ERROR: RTC init failed");
     delay(5000);
   }
 
   // PPS синхронизация от GPS
   pps_init(GPS_PPS_PIN);
-  ESP_LOGI(TAG, "PPS initialized");
 
   // Инициализация подсистемы синхронизации времени
   mainArea.addLogLine("Starting time sync...");
   time_sync_begin();
-  ESP_LOGI(TAG, "Time sync ready");
-  mainArea.addLogLine("Time sync ready");
+  ESP_LOGI(TAG, "Time sync initialized");
+  mainArea.addLogLine("Time sync initialized");
 
   // Инициализация BLE (Nordic UART Service)
   mainArea.addLogLine("Initializing BLE...");
 
   // Формирование имени устройства: "Имя-Номер"
   String deviceName = device.name + "-" + String(device.number);
-  ESP_LOGI(TAG, "Device name: %s", deviceName.c_str());
   String deviceNameStr = "Device: " + deviceName;
   mainArea.addLogLine(deviceNameStr);
 
@@ -219,12 +206,6 @@ void setup() {
   // Отрисовка footer с типом модуля
   footer.draw(module_type, String(VERSION));
 
-  ESP_LOGI(TAG, "Setup complete");
-  mainArea.addLogLine("Setup complete");
-
-  // Пауза для чтения лога загрузки (3 секунды)
-  delay(5000);
-
   // Установка типа в зависимости от типа модуля
   if (module_type == ModuleType::START) {
     mainArea.setType(MainAreaType::START);
@@ -232,6 +213,12 @@ void setup() {
     mainArea.setType(MainAreaType::FINISH);
   }
   mainArea.draw();
+
+  ESP_LOGI(TAG, "Setup complete");
+  mainArea.addLogLine("Setup complete");
+
+  // Пауза для чтения лога загрузки (3 секунды)
+  delay(5000);
 }
 
 void loop() {
@@ -258,7 +245,7 @@ void loop() {
 
   if (event_isr_get(t_esp_us)) {
     EventTimestampData data = event_timestamp_process(t_esp_us, module_type);
-    event_timestamp_send_ble(data);  // заглушка
+    event_timestamp_send_ble(data); // заглушка
     mainArea.displayEventTimestamp(data);
   }
 }

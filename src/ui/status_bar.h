@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <TFT_eSPI.h>
+#include <time.h>
 #include "hal/comm/ble.h"
 #include "hal/comm/wifi.h"
 #include "ui_config.h"
@@ -34,11 +35,10 @@ public:
     
     /**
      * @brief Обновить время на статус-баре
-     * @param hour Час (0-23)
-     * @param minute Минута (0-59)
-     * @param second Секунда (0-59)
+     * @param time_sec Время в секундах (time_t)
+     * @param timezone Часовой пояс (смещение в часах от UTC)
      */
-    void updateTime(uint8_t hour, uint8_t minute, uint8_t second);
+    void updateTime(time_t time_sec, int8_t timezone);
     
     /**
      * @brief Принудительная перерисовка времени (даже если не изменилось)
@@ -62,9 +62,7 @@ private:
     TFT_eSPI* _tft = nullptr;
     
     // Кэш времени для оптимизации перерисовки
-    uint8_t _lastHour = 255;
-    uint8_t _lastMinute = 255;
-    uint8_t _lastSecond = 255;
+    time_t _lastTimeSec = 0;
     
     // Кэш состояния Bluetooth для оптимизации перерисовки
     BLEState _lastBtState = BLEState::DISCONNECTED;
