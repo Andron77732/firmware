@@ -7,33 +7,13 @@
 
 static const char *TAG = "EVENT_TS";
 
-String format_time_string(const struct timeval &tv) {
-  time_t sec = tv.tv_sec;
-  int usec = tv.tv_usec;
-
-  // Обработка отрицательных значений
-  if (usec < 0) {
-    usec += 1000000;
-    sec -= 1;
-  }
-
-  int msec = usec / 1000;
-
-  struct tm tm{};
-  gmtime_r(&sec, &tm);
-
-  char time_str[13]; // "HH:MM:SS,mmm\0"
-  snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d,%03d", tm.tm_hour,
-           tm.tm_min, tm.tm_sec, msec);
-
-  return String(time_str);
-}
-
 EventTimestampData event_timestamp_process(int64_t esp_timestamp_us,
                                            ModuleType module_type) {
   EventTimestampData data{};
   data.esp_timestamp_us = esp_timestamp_us;
+  data.module_type = module_type;
   data.success = false;
+  snprintf(data.local_time_str, sizeof(data.local_time_str), "--:--:--,---");
 
   int64_t t_utc_us = 0;
 
@@ -65,14 +45,22 @@ EventTimestampData event_timestamp_process(int64_t esp_timestamp_us,
   }
   data.local_time.tv_usec = (suseconds_t)local_usec;
 
-  // Форматирование строки времени "HH:MM:SS,mmm"
-  data.local_time_str = format_time_string(data.local_time);
+  // Извлечение отдельных компонентов времени
+  struct tm tm{};
+  gmtime_r(&data.local_time.tv_sec, &tm);
+  data.hours = tm.tm_hour;
+  data.minutes = tm.tm_min;
+  data.seconds = tm.tm_sec;
+  data.milliseconds = (uint16_t)(data.local_time.tv_usec / 1000);
+
+  // Форматирование строки времени "HH:MM:SS,mmm" из компонентов
+  snprintf(data.local_time_str, sizeof(data.local_time_str), "%02d:%02d:%02d,%03d", data.hours, data.minutes, data.seconds, data.milliseconds);
 
   // Вывод локального времени в зависимости от типа модуля
-  if (module_type == ModuleType::START) {
-    ESP_LOGI(TAG, "START EVENT LOCAL = %s", data.local_time_str.c_str());
+  if (data.module_type == ModuleType::START) {
+    ESP_LOGI(TAG, "START EVENT LOCAL = %s", data.local_time_str);
   } else {
-    ESP_LOGI(TAG, "FINISH EVENT LOCAL = %s", data.local_time_str.c_str());
+    ESP_LOGI(TAG, "FINISH EVENT LOCAL = %s", data.local_time_str);
   }
 
   return data;
@@ -85,13 +73,12 @@ void event_timestamp_send_ble(const EventTimestampData &data) {
     return;
   }
 
-  // Получаем тип модуля из settings для логирования
-  uint8_t device_type = settings.getDevice().type;
-  const char *event_type = (device_type == 1) ? "START" : "FINISH";
+  // Получаем тип модуля из структуры данных
+  const char *event_type = (data.module_type == ModuleType::START) ? "START" : "FINISH";
 
   if (data.success) {
     ESP_LOGI(TAG, "[BLE STUB] %s EVENT: UTC=%lld us, LOCAL=%s", event_type,
-             (long long)data.utc_timestamp_us, data.local_time_str.c_str());
+             (long long)data.utc_timestamp_us, data.local_time_str);
   } else {
     ESP_LOGI(TAG, "[BLE STUB] %s EVENT: esp=%lld us (no time source)",
              event_type, (long long)data.esp_timestamp_us);

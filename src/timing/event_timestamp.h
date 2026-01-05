@@ -2,7 +2,6 @@
 #include "config.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include <Arduino.h>
 #include <sys/time.h>
 
 /**
@@ -16,8 +15,16 @@ struct EventTimestampData {
     // Локальное время (в формате timeval для миллисекундной точности)
     struct timeval local_time;
     
-    // Форматированная строка времени
-    String local_time_str;     // "HH:MM:SS,mmm"
+    // Форматированная строка времени в формате "HH:MM:SS,mmm" (C-строка)
+    char local_time_str[13];     // "HH:MM:SS,mmm"
+    
+    // Отдельные компоненты локального времени
+    uint8_t hours;             // Часы (0-23)
+    uint8_t minutes;           // Минуты (0-59)
+    uint8_t seconds;           // Секунды (0-59)
+    uint16_t milliseconds;     // Миллисекунды (0-999)
+
+    ModuleType module_type;    // Тип модуля (START или FINISH)
 };
 
 /**
@@ -40,12 +47,3 @@ EventTimestampData event_timestamp_process(int64_t esp_timestamp_us, ModuleType 
  * @param data Данные временного штампа
  */
 void event_timestamp_send_ble(const EventTimestampData& data);
-
-/**
- * @brief Форматирование времени в строку "HH:MM:SS,mmm"
- * 
- * @param tv Структура timeval с временем
- * @return String Отформатированная строка времени
- */
-String format_time_string(const struct timeval& tv);
-
