@@ -146,10 +146,24 @@
 {
   "cmd": "save_config",
   "data": {
-    "device_name": "ENTime-1",
-    "timezone": 0,
-    "auto_sync": true,
-    "rtc_offset_ppm": 0.5
+    "device": {
+      "name": "ENTime-Lab",
+      "number": 1,
+      "type": 1,
+      "timezone": 3
+    },
+    "sync": {
+      "auto": true,
+      "source": 0
+    },
+    "wifi": {
+      "active": false,
+      "ssid": "",
+      "passwd": ""
+    },
+    "calibration": {
+      "rtc_offset_ppm": 0.5
+    }
   }
 }
 ```
@@ -158,11 +172,13 @@
 ```json
 {
   "cmd": "save_config",
-  "saved_keys": 4,
-  "storage_usage_percent": 25,
+  "saved_keys": 5,
+  "storage_usage_percent": 15,
   "status": "ok"
 }
 ```
+
+**Примечание:** При сохранении можно указывать только нужные группы или параметры внутри групп. Остальные останутся без изменений. См. [SETTINGS.md](SETTINGS.md) для подробного описания всех настроек.
 
 ---
 
@@ -178,14 +194,30 @@
 {
   "cmd": "load_config",
   "data": {
-    "device_name": "ENTime-1",
-    "timezone": 0,
-    "auto_sync": true,
-    "rtc_offset_ppm": 0.5
+    "device": {
+      "name": "ENTime-Lab",
+      "number": 1,
+      "type": 1,
+      "timezone": 3
+    },
+    "sync": {
+      "auto": true,
+      "source": 0
+    },
+    "wifi": {
+      "active": false,
+      "ssid": "",
+      "passwd": ""
+    },
+    "calibration": {
+      "rtc_offset_ppm": 0.5
+    }
   },
   "status": "ok"
 }
 ```
+
+**Примечание:** Все настройки организованы в иерархическую структуру по функциональным категориям. См. [SETTINGS.md](SETTINGS.md) для подробного описания всех параметров.
 
 ---
 
