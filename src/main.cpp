@@ -8,12 +8,11 @@
 #include "timing/event_isr.h"
 #include "timing/pps_isr.h"
 #include "timing/time_sync.h"
+#include "ui/footer.h"
 #include "ui/status_bar.h"
 #include <Arduino.h>
 #include <esp_timer.h>
 #include <time.h>
-#include <string>
-#include <cstring>
 
 static const char *TAG = "MAIN";
 
@@ -26,10 +25,10 @@ static ModuleType module_type = ModuleType::START; // значение по ум
 void onBLEStateChanged(BLEState state) { statusBar.updateBluetoothIcon(state); }
 
 /**
- * @brief Обновление статус-бара и связанных элементов (когда меняется секунда в системном времени)
+ * @brief Обновление статус-бара и связанных элементов (когда меняется секунда в
+ * системном времени)
  */
-void updateStatusBar()
-{
+void updateStatusBar() {
   static uint8_t lastSecond = 255;
 
   // Предпочитаем системное время (синхронизируется по GPS PPS)
@@ -47,8 +46,7 @@ void updateStatusBar()
   uint8_t second = static_cast<uint8_t>(tm.tm_sec);
 
   // Обновляем только когда секунда изменилась в системном времени
-  if (second != lastSecond)
-  {
+  if (second != lastSecond) {
     lastSecond = second;
 
     uint8_t hour = static_cast<uint8_t>(tm.tm_hour);
@@ -73,8 +71,7 @@ void updateStatusBar()
   }
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(SERIAL_BAUD);
 
   ESP_LOGI(TAG, "ENTime v%s starting...", VERSION);
@@ -87,7 +84,7 @@ void setup()
 
   // Инициализация типа модуля из настроек
   {
-    const DeviceSettings& device = settings.getDevice();
+    const DeviceSettings &device = settings.getDevice();
     if (device.type == 1) {
       module_type = ModuleType::START;
     } else if (device.type == 2) {
@@ -96,7 +93,7 @@ void setup()
       ESP_LOGW(TAG, "Unknown device type %u, defaulting to START", device.type);
       module_type = ModuleType::START;
     }
-    ESP_LOGI(TAG, "Module type: %u (%s)", device.type, 
+    ESP_LOGI(TAG, "Module type: %u (%s)", device.type,
              module_type == ModuleType::START ? "START" : "FINISH");
   }
 
@@ -122,6 +119,10 @@ void setup()
   // Инициализация статус-бара
   statusBar.begin(display.tft());
   statusBar.draw();
+
+  // Инициализация footer
+  footer.begin(display.tft());
+  footer.draw(module_type, VERSION);
 
   // Заголовок под статус-баром
   display.tft().setCursor(0, StatusBar::HEIGHT + 10);
@@ -150,14 +151,12 @@ void setup()
   ESP_LOGI(TAG, "Setup complete");
 }
 
-void loop()
-{
+void loop() {
   gps.update();
   time_sync_update();
 
   // Обработка BLE данных
-  if (bleSerial.available())
-  {
+  if (bleSerial.available()) {
     String data = bleSerial.readString();
     ESP_LOGD(TAG, "BLE RX: %s", data.c_str());
   }
@@ -165,11 +164,9 @@ void loop()
   // Проверка события и вывод его UTC времени
   int64_t t_esp_us = 0;
 
-  if (event_isr_get(t_esp_us))
-  {
+  if (event_isr_get(t_esp_us)) {
     int64_t t_utc_us = 0;
-    if (time_sync_esp_to_utc_us(t_esp_us, t_utc_us))
-    {
+    if (time_sync_esp_to_utc_us(t_esp_us, t_utc_us)) {
       // Вывод UTC времени в зависимости от типа модуля
       if (module_type == ModuleType::START) {
         ESP_LOGI(TAG, "START EVENT UTC = %lld us", (long long)t_utc_us);
@@ -198,18 +195,20 @@ void loop()
 
       // Вывод локального времени в зависимости от типа модуля
       if (module_type == ModuleType::START) {
-        ESP_LOGI(TAG, "START EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute, second, local_msec);
+        ESP_LOGI(TAG, "START EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute,
+                 second, local_msec);
       } else {
-        ESP_LOGI(TAG, "FINISH EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute, second, local_msec);
+        ESP_LOGI(TAG, "FINISH EVENT LOCAL = %02d:%02d:%02d,%03d", hour, minute,
+                 second, local_msec);
       }
-    }
-    else
-    {
+    } else {
       // GPS и RTC ещё не готовы
       if (module_type == ModuleType::START) {
-        ESP_LOGW(TAG, "START EVENT esp = %lld us (no time source)", (long long)t_esp_us);
+        ESP_LOGW(TAG, "START EVENT esp = %lld us (no time source)",
+                 (long long)t_esp_us);
       } else {
-        ESP_LOGW(TAG, "FINISH EVENT esp = %lld us (no time source)", (long long)t_esp_us);
+        ESP_LOGW(TAG, "FINISH EVENT esp = %lld us (no time source)",
+                 (long long)t_esp_us);
       }
     }
   }
