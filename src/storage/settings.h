@@ -14,7 +14,7 @@
 #define DEFAULT_DEVICE_TIMEZONE 3
 
 #define DEFAULT_SYNC_AUTO true
-#define DEFAULT_SYNC_SOURCE "auto"
+#define DEFAULT_SYNC_SOURCE 0
 
 #define DEFAULT_WIFI_ACTIVE false
 #define DEFAULT_WIFI_SSID ""
@@ -41,7 +41,7 @@ struct DeviceSettings {
  */
 struct SyncSettings {
   bool auto_sync = DEFAULT_SYNC_AUTO;       // автоматическая синхронизация
-  std::string source = DEFAULT_SYNC_SOURCE; // "auto", "gps", "rtc"
+  uint8_t source = DEFAULT_SYNC_SOURCE;     // 0 = авто, 1 = GPS, 2 = RTC
 };
 
 /**
@@ -176,7 +176,7 @@ private:
   // Вспомогательные функции валидации
   bool isValidAsciiName(const std::string &name) const;
   bool isValidDeviceType(uint8_t type) const;
-  bool isValidSyncSource(const std::string &source) const;
+  bool isValidSyncSource(uint8_t source) const;
 
   // Сохранение/загрузка отдельных групп
   void saveDevice();

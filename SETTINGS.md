@@ -23,7 +23,7 @@
     },
     "sync": {
       "auto": ...,
-      "source": "..."
+      "source": ...
     },
     "wifi": {
       "active": ...,
@@ -114,15 +114,15 @@
 
 #### `sync.source`
 - **Путь в JSON:** `data.sync.source`
-- **Тип:** `string`
-- **По умолчанию:** `"auto"`
-- **Описание:** Предпочтительный источник синхронизации времени. В режиме `"auto"` устройство автоматически переключается между GPS и RTC в зависимости от доступности сигнала.
+- **Тип:** `integer`
+- **По умолчанию:** `0`
+- **Описание:** Предпочтительный источник синхронизации времени. В режиме `0` (auto) устройство автоматически переключается между GPS и RTC в зависимости от доступности сигнала.
 - **Допустимые значения:**
-  - `"auto"` — автоматический выбор источника (GPS при наличии PPS, иначе RTC)
-  - `"gps"` — принудительное использование GPS (fallback на RTC при потере сигнала)
-  - `"rtc"` — принудительное использование RTC (GPS отключён)
-- **Ограничения:** Только одно из трёх допустимых значений
-- **Примечание:** При установке `"gps"` без сигнала GPS устройство всё равно переключится на RTC для обеспечения работы
+  - `0` — автоматический выбор источника (GPS при наличии PPS, иначе RTC)
+  - `1` — принудительное использование GPS (fallback на RTC при потере сигнала)
+  - `2` — принудительное использование RTC (GPS отключён)
+- **Ограничения:** Только одно из трёх допустимых значений (0, 1 или 2)
+- **Примечание:** При установке `1` (GPS) без сигнала GPS устройство всё равно переключится на RTC для обеспечения работы
 
 ---
 
@@ -186,7 +186,7 @@
 | `device.type` | `data.device.type` | integer | `1` | 1/2 | Устройство |
 | `device.timezone` | `data.device.timezone` | integer | `3` | -12..12 часов | Устройство |
 | `sync.auto` | `data.sync.auto` | boolean | `true` | true/false | Синхронизация |
-| `sync.source` | `data.sync.source` | string | `"auto"` | "auto"/"gps"/"rtc" | Синхронизация |
+| `sync.source` | `data.sync.source` | integer | `0` | 0/1/2 | Синхронизация |
 | `wifi.active` | `data.wifi.active` | boolean | `false` | true/false | WiFi |
 | `wifi.ssid` | `data.wifi.ssid` | string | `""` | до 32 символов | WiFi |
 | `wifi.passwd` | `data.wifi.passwd` | string | `""` | до 64 символов | WiFi |
@@ -211,7 +211,7 @@
     },
     "sync": {
       "auto": true,
-      "source": "auto"
+      "source": 0
     },
     "wifi": {
       "active": false,
@@ -255,7 +255,7 @@
     },
     "sync": {
       "auto": true,
-      "source": "auto"
+      "source": 0
     },
     "wifi": {
       "active": false,
@@ -327,7 +327,7 @@
 | `data.device.type` | `1` |
 | `data.device.timezone` | `3` |
 | `data.sync.auto` | `true` |
-| `data.sync.source` | `"auto"` |
+| `data.sync.source` | `0` |
 | `data.wifi.active` | `false` |
 | `data.wifi.ssid` | `""` |
 | `data.wifi.passwd` | `""` |

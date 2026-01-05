@@ -43,8 +43,8 @@ bool SettingsManager::isValidDeviceType(uint8_t type) const {
   return type == 1 || type == 2;
 }
 
-bool SettingsManager::isValidSyncSource(const std::string &source) const {
-  return source == "auto" || source == "gps" || source == "rtc";
+bool SettingsManager::isValidSyncSource(uint8_t source) const {
+  return source == 0 || source == 1 || source == 2;
 }
 
 bool SettingsManager::validateDevice(const DeviceSettings &device) const {
@@ -78,8 +78,8 @@ bool SettingsManager::validateDevice(const DeviceSettings &device) const {
 bool SettingsManager::validateSync(const SyncSettings &sync) const {
   if (!isValidSyncSource(sync.source)) {
     ESP_LOGE(TAG,
-             "Invalid sync.source: must be 'auto', 'gps', or 'rtc', got '%s'",
-             sync.source.c_str());
+             "Invalid sync.source: must be 0 (auto), 1 (gps), or 2 (rtc), got %u",
+             sync.source);
     return false;
   }
 
@@ -225,8 +225,8 @@ void SettingsManager::saveDevice() {
 
 void SettingsManager::saveSync() {
   putBoolIfChanged_("sync.auto", settings_.sync.auto_sync, DEFAULT_SYNC_AUTO);
-  putStringIfChanged_("sync.source", settings_.sync.source,
-                      DEFAULT_SYNC_SOURCE);
+  putUCharIfChanged_("sync.source", settings_.sync.source,
+                     DEFAULT_SYNC_SOURCE);
 }
 
 void SettingsManager::saveWifi() {
@@ -260,8 +260,8 @@ void SettingsManager::loadDevice() {
 void SettingsManager::loadSync() {
   settings_.sync.auto_sync = prefs_.getBool("sync.auto", DEFAULT_SYNC_AUTO);
 
-  String source = prefs_.getString("sync.source", DEFAULT_SYNC_SOURCE);
-  settings_.sync.source = source.c_str();
+  settings_.sync.source =
+      prefs_.getUChar("sync.source", DEFAULT_SYNC_SOURCE);
 }
 
 void SettingsManager::loadWifi() {
