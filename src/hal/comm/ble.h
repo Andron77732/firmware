@@ -5,7 +5,6 @@
 #include <NimBLEDevice.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/stream_buffer.h"
-#include "esp_heap_caps.h"
 #include "config.h"
 
 // Nordic UART Service UUIDs
@@ -13,7 +12,7 @@
 #define NUS_RX_CHARACTERISTIC   "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  // Client -> ESP (Write)
 #define NUS_TX_CHARACTERISTIC   "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  // ESP -> Client (Notify)
 
-// 32KB буфер в PSRAM для больших пакетов настроек
+// 32KB буфер для больших пакетов настроек
 #define BLE_RX_BUFFER_SIZE 32768
 
 // Состояния Bluetooth
@@ -29,6 +28,8 @@ typedef void (*BLEStateCallback)(BLEState state);
 class BLESerial : public Stream {
 public:
     void begin(const String& deviceName = String(BLE_DEVICE_NAME));
+    void startAdvertising();
+    void stopAdvertising();
     void end();
     
     bool isConnected();
@@ -59,10 +60,12 @@ public:
     void onReceive(const uint8_t* data, size_t len);
     void onConnect(uint16_t mtu);
     void onDisconnect();
+    void onMtuUpdated(uint16_t mtu);
     void onNotifyStateChanged(bool enabled);
     
-    // Публичный метод для уведомления об изменении состояния (вызывается из колбеков)
+private:
     void notifyStateChanged();
+    void setupAdvertisingOnce();
     
 private:
     NimBLEServer* _server = nullptr;
@@ -81,8 +84,11 @@ private:
     bool _notifyEnabled = false;  // Клиент подписан на notify
     uint16_t _mtu = 23;  // Минимальный BLE MTU по умолчанию
     
+    String _deviceName;
     // Callback для уведомления об изменении состояния
     BLEStateCallback _stateCallback = nullptr;
+
+    bool _advConfigured = false; // Флаг для отслеживания настроенной рекламы
 };
 
 extern BLESerial bleSerial;

@@ -82,6 +82,8 @@ void setup() {
 
   ESP_LOGI(TAG, "ENTime v%s starting...", VERSION);
 
+  ESP_LOGI(TAG, "tick rate: %d Hz", configTICK_RATE_HZ);
+
   // Инициализация дисплея (раньше, чтобы можно было показывать логи)
   display.begin();
 
@@ -178,7 +180,7 @@ void setup() {
   delay(50);
 
   // Обновляем иконку Bluetooth до текущего состояния (реклама уже запущена)
-  bleSerial.notifyStateChanged();
+  // bleSerial.notifyStateChanged();
   ESP_LOGI(TAG, "BLE ready");
   mainArea.addLogLine("BLE ready");
 
@@ -203,8 +205,11 @@ void setup() {
     statusBar.updateWiFiIcon(WiFiState::OFF, 0);
   }
 
-  // Отрисовка footer с типом модуля
-  footer.draw(module_type, String(VERSION));
+  ESP_LOGI(TAG, "Setup complete");
+  mainArea.addLogLine("Setup complete");
+
+  // Пауза для чтения лога загрузки (3 секунды)
+  delay(5000);
 
   // Установка типа в зависимости от типа модуля
   if (module_type == ModuleType::START) {
@@ -213,12 +218,8 @@ void setup() {
     mainArea.setType(MainAreaType::FINISH);
   }
   mainArea.draw();
-
-  ESP_LOGI(TAG, "Setup complete");
-  mainArea.addLogLine("Setup complete");
-
-  // Пауза для чтения лога загрузки (3 секунды)
-  delay(5000);
+  // Отрисовка footer с типом модуля
+  footer.draw(module_type, String(VERSION));
 }
 
 void loop() {
