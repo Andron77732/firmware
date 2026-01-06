@@ -1,4 +1,5 @@
 #include "config.h"
+#include "command/command_parser.h"
 #include "esp_log.h"
 #include "hal/comm/ble.h"
 #include "hal/comm/wifi.h"
@@ -22,6 +23,10 @@
 static const char *TAG = "MAIN";
 
 static ModuleType module_type = ModuleType::START; // значение по умолчанию
+
+// Парсеры команд для Serial и BLE (инициализируются в setup())
+static CommandParser* serialParser = nullptr;
+static CommandParser* bleParser = nullptr;
 
 /**
  * @brief Callback для обновления иконки Bluetooth при изменении состояния BLE
@@ -184,6 +189,11 @@ void setup() {
   ESP_LOGI(TAG, "BLE ready");
   mainArea.addLogLine("BLE ready");
 
+  // Инициализация парсеров команд для Serial и BLE
+  serialParser = new CommandParser(Serial, "Serial");
+  bleParser = new CommandParser(bleSerial, "BLE");
+  ESP_LOGI(TAG, "Command parsers initialized");
+
   // Инициализация WiFi (если включен в настройках)
   const WifiSettings &wifi = settings.getWifi();
   if (wifi.active && wifi.ssid.length() > 0) {
@@ -235,10 +245,12 @@ void loop() {
   // Обновление WiFi (обработка событий, обновление RSSI)
   wifiManager.update();
 
-  // Обработка BLE данных
-  if (bleSerial.available()) {
-    String data = bleSerial.readString();
-    ESP_LOGD(TAG, "BLE RX: %s", data.c_str());
+  // Обработка команд из Serial и BLE
+  if (serialParser) {
+    serialParser->update();
+  }
+  if (bleParser) {
+    bleParser->update();
   }
 
   // Проверка события и обработка временного штампа
