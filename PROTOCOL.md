@@ -139,6 +139,50 @@
 
 ---
 
+### `sync_ntp` - Синхронизация RTC по NTP
+
+**Запрос:**
+```json
+{"cmd": "sync_ntp"}
+```
+
+**Ответ (успех):**
+```json
+{
+  "cmd": "sync_ntp",
+  "status": "ok",
+  "rtc_time": 1703169600,
+  "ntp_server": "ru.pool.ntp.org",
+  "sync_duration_ms": 2500
+}
+```
+
+**Ответ (ошибка):**
+```json
+{
+  "cmd": "sync_ntp",
+  "status": "error",
+  "error_code": 203,
+  "error_message": "WiFi not connected"
+}
+```
+
+**Параметры ответа:**
+- `status` — `"ok"`, `"warning"`, `"error"`
+- `rtc_time` — время, записанное в RTC (UNIX timestamp в секундах, UTC)
+- `ntp_server` — использованный NTP сервер
+- `sync_duration_ms` — длительность синхронизации в миллисекундах
+- `error_code` — код ошибки (при status="error")
+- `error_message` — описание ошибки
+
+**Требования:**
+- WiFi должен быть подключён
+- RTC должен быть инициализирован
+
+**Примечание:** Команда выполняет точную синхронизацию RTC по NTP с выравниванием на границу секунды. Используются серверы из конфигурации (SNTP_SERVER_1, SNTP_SERVER_2).
+
+---
+
 ### `save_config` - Сохранить конфигурацию
 
 **Запрос:**

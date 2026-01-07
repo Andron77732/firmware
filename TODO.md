@@ -6,21 +6,30 @@
 
 ## Фаза 3: Синхронизация
 
-- [ ] Синхронизация RTC по NTP
+- [x] Синхронизация RTC по NTP
 
 ---
 
 ## Фаза 5: Коммуникация
 
 - [ ] Serial (UART0) команды
-- [ ] WiFi STA (клиент): включение/выключение, подключение к SSID
-- [ ] Парсер команд (JSON)
+  - [ ] [time](PROTOCOL.md#time---получить-текущее-время)
+  - [ ] [status](PROTOCOL.md#status---получить-статус-синхронизации)
+  - [ ] [gps](PROTOCOL.md#gps---управление-gps-модулем)
+  - [ ] [calibrate](PROTOCOL.md#calibrate---калибровка-rtc)
+  - [ ] [sync_source](PROTOCOL.md#sync_source---переключить-источник-синхронизации)
+  - [ ] [sync_ntp](PROTOCOL.md#sync_ntp---синхронизация-rtc-по-ntp)
+  - [ ] [save_config](PROTOCOL.md#save_config---сохранить-конфигурацию)
+  - [ ] [load_config](PROTOCOL.md#load_config---загрузить-конфигурацию)
+  - [ ] [factory_reset](PROTOCOL.md#factory_reset---сброс-к-заводским-настройкам)
+- [x] WiFi STA (клиент): включение/выключение, подключение к SSID
+- [x] Парсер команд (JSON)
 
 ---
 
 ## Фаза 6: Интерфейс
 
-- [ ] UI (время, статус)
+- [x] UI (время, статус)
 - [ ] Мониторинг синхронизации
 
 ---
