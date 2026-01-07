@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "hal/comm/battery_service.h"
 #include "hal/comm/ble.h"
+#include "hal/comm/device_info_service.h"
 #include "hal/comm/wifi.h"
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
@@ -181,8 +182,14 @@ void setup() {
   // Инициализация сервиса батареи
   mainArea.addLogLine("Initializing battery service...");
   bleSerial.registerService(batteryService);
-  ESP_LOGI(TAG, "Battery service initialized");
   mainArea.addLogLine("Battery service initialized");
+  ESP_LOGI(TAG, "Battery service initialized");
+
+  // Инициализация сервиса устройства
+  mainArea.addLogLine("Initializing device info service...");
+  bleSerial.registerService(deviceInfoService);
+  mainArea.addLogLine("Device info service initialized");
+  ESP_LOGI(TAG, "Device info service initialized");
 
   // Запуск рекламы
   bleSerial.startAdvertising();

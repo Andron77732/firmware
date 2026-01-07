@@ -34,6 +34,14 @@
 // --- BLE ---
 #define BLE_DEVICE_NAME "ENTime"
 
+// --- BLE Device Information Service (DIS) ---
+#define BLE_DIS_MANUFACTURER  BLE_DEVICE_NAME  // Manufacturer Name
+#define BLE_DIS_MODEL         "Gate"           // Model Number
+#define BLE_DIS_HARDWARE      "v1"             // Hardware Revision
+#define BLE_DIS_FIRMWARE      VERSION          // Firmware version
+#define BLE_DIS_SOFTWARE      VERSION          // Software Revision (firmware version)
+#define BLE_DIS_SERIAL_PREFIX "FR-"            // Serial Number prefix for auto-generation
+
 // --- SNTP/NTP ---
 #define SNTP_SERVER_1           "ru.pool.ntp.org"
 #define SNTP_SERVER_2           "time.google.com"
