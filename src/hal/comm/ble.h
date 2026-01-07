@@ -25,6 +25,32 @@ enum class BLEState {
 // Callback для уведомления об изменении состояния подключения
 typedef void (*BLEStateCallback)(BLEState state);
 
+// ============================================================================
+// Plugin interface
+// ============================================================================
+
+/**
+ * @brief Интерфейс BLE-плагина (сервиса).
+ *
+ * Плагин должен:
+ *  - В init(server) создать свой service/characteristics и вызвать service->start()
+ *  - НЕ вызывать NimBLEDevice::init(), НЕ стартовать рекламу
+ *
+ * BLESerial гарантирует, что init() всех плагинов будет вызван ДО startAdvertising().
+ */
+ class IBleServicePlugin {
+    public:
+        virtual ~IBleServicePlugin() = default;
+    
+        // Вызывается один раз перед стартом advertising.
+        virtual void init(NimBLEServer* server) = 0;
+    
+        // Опциональные события
+        virtual void onConnect(NimBLEConnInfo& /*connInfo*/, uint16_t /*mtu*/) {}
+        virtual void onDisconnect(int /*reason*/) {}
+        virtual void onMtuUpdated(uint16_t /*mtu*/) {}
+    };
+
 class BLESerial : public Stream {
 public:
 
@@ -43,7 +69,17 @@ public:
     * чтобы внешние модули могли добавлять пользовательские сервисы или характеристики.
     * @return NimBLEServer* Указатель на BLE сервер.
     */
-    NimBLEServer* getServer() const { return _server; }
+    // NimBLEServer* getServer() const { return _server; }
+
+    /**
+     * @brief Регистрация BLE-плагина (сервиса).
+     *
+     * Важно:
+     *  - вызывать после init()
+     *  - и ДО startAdvertising()
+     * @return true если зарегистрирован
+     */
+     bool registerService(IBleServicePlugin& plugin);
     
     /**
      * @brief Получить текущее состояние Bluetooth
@@ -68,14 +104,20 @@ public:
     
     // Callback для внутреннего использования
     void onReceive(const uint8_t* data, size_t len);
-    void onConnect(uint16_t mtu);
-    void onDisconnect();
+    void onConnect(NimBLEConnInfo& connInfo, uint16_t mtu);
+    void onDisconnect(int reason);
     void onMtuUpdated(uint16_t mtu);
     void onNotifyStateChanged(bool enabled);
     
 private:
     void notifyStateChanged();
     void setupAdvertisingOnce();
+
+    // Plugins
+    void initPluginsOnce();
+    void pluginsOnConnect(NimBLEConnInfo& connInfo, uint16_t mtu);
+    void pluginsOnDisconnect(int reason);
+    void pluginsOnMtuUpdated(uint16_t mtu);
     
 private:
     NimBLEServer* _server = nullptr;
@@ -99,6 +141,12 @@ private:
     BLEStateCallback _stateCallback = nullptr;
 
     bool _advConfigured = false; // Флаг для отслеживания настроенной рекламы
+
+    // Plugin registry (фиксированный размер)
+    static constexpr size_t MAX_PLUGINS = 8;
+    IBleServicePlugin* _plugins[MAX_PLUGINS] = { nullptr };
+    size_t _pluginCount = 0;
+    bool _pluginsInited = false;
 };
 
 extern BLESerial bleSerial;

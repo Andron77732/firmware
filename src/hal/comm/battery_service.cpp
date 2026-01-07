@@ -17,6 +17,9 @@ class BatteryLevelCallbacks : public NimBLECharacteristicCallbacks {
 static BatteryLevelCallbacks s_batteryLevelCallbacks;
 
 void BleBatteryService::init(NimBLEServer* server) {
+    // init() вызывается один раз перед advertising
+    _notifyEnabled = false;
+
     _service = server->createService(NimBLEUUID((uint16_t)0x180F));
 
     _levelChar = _service->createCharacteristic(
@@ -34,6 +37,7 @@ void BleBatteryService::init(NimBLEServer* server) {
 
 void BleBatteryService::setLevel(uint8_t percent) {
     if (!_levelChar) return;
+
     if (percent > 100) percent = 100;
     if (percent == _lastLevel) return;
 
@@ -48,3 +52,4 @@ void BleBatteryService::setLevel(uint8_t percent) {
 void BleBatteryService::onNotifyStateChanged(bool enabled) {
     _notifyEnabled = enabled;
   }
+  

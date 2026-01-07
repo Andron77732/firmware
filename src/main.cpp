@@ -180,7 +180,7 @@ void setup() {
 
   // Инициализация сервиса батареи
   mainArea.addLogLine("Initializing battery service...");
-  batteryService.init(bleSerial.getServer());
+  bleSerial.registerService(batteryService);
   ESP_LOGI(TAG, "Battery service initialized");
   mainArea.addLogLine("Battery service initialized");
 

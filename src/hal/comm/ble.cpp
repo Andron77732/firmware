@@ -16,7 +16,7 @@ class ServerCallbacks : public NimBLEServerCallbacks {
     ESP_LOGI(TAG, "Client connected: %s, MTU: %d",
              connInfo.getAddress().toString().c_str(), mtu);
 
-    bleSerial.onConnect(mtu);
+    bleSerial.onConnect(connInfo, mtu);
 
     // Настройка connection interval для низкой latency (быстрое соединение)
     // min_interval: 6 = 7.5ms, max_interval: 6 = 7.5ms
@@ -31,7 +31,7 @@ class ServerCallbacks : public NimBLEServerCallbacks {
                     int reason) override {
     ESP_LOGI(TAG, "Client disconnected, reason: %d", reason);
 
-    bleSerial.onDisconnect();
+    bleSerial.onDisconnect(reason);
 
     // Только старт рекламы — payload уже настроен в begin()
     bleSerial.startAdvertising();
@@ -67,6 +67,59 @@ class TxCallbacks : public NimBLECharacteristicCallbacks {
 // BLESerial Implementation
 // ============================================================================
 
+bool BLESerial::registerService(IBleServicePlugin& plugin) {
+  if (!_server) {
+    ESP_LOGW(TAG, "registerService(): BLE not initialized yet (call init() first)");
+    return false;
+  }
+
+  // Регистрировать нужно ДО настройки рекламы/старта
+  if (_advConfigured || isAdvertising() || _pluginsInited) {
+    ESP_LOGW(TAG, "registerService(): too late (advertising/plugins already initialized)");
+    return false;
+  }
+
+  if (_pluginCount >= MAX_PLUGINS) {
+    ESP_LOGW(TAG, "registerService(): MAX_PLUGINS reached (%u)", (unsigned)MAX_PLUGINS);
+    return false;
+  }
+
+  _plugins[_pluginCount++] = &plugin;
+  return true;
+}
+
+void BLESerial::initPluginsOnce() {
+  if (_pluginsInited) return;
+  if (!_server) return;
+
+  for (size_t i = 0; i < _pluginCount; ++i) {
+    if (_plugins[i]) {
+      _plugins[i]->init(_server);
+    }
+  }
+
+  _pluginsInited = true;
+}
+
+
+void BLESerial::pluginsOnConnect(NimBLEConnInfo& connInfo, uint16_t mtu) {
+  for (size_t i = 0; i < _pluginCount; ++i) {
+    if (_plugins[i]) _plugins[i]->onConnect(connInfo, mtu);
+  }
+}
+
+void BLESerial::pluginsOnDisconnect(int reason) {
+  for (size_t i = 0; i < _pluginCount; ++i) {
+    if (_plugins[i]) _plugins[i]->onDisconnect(reason);
+  }
+}
+
+void BLESerial::pluginsOnMtuUpdated(uint16_t mtu) {
+  for (size_t i = 0; i < _pluginCount; ++i) {
+    if (_plugins[i]) _plugins[i]->onMtuUpdated(mtu);
+  }
+}
+
 void BLESerial::init(const String &deviceName) {
   if (_server) {
     ESP_LOGW(TAG, "BLE already initialized");
@@ -82,6 +135,10 @@ void BLESerial::init(const String &deviceName) {
   _hasPeeked = false;
   _peekedByte = -1;
   _advConfigured = false;
+
+  // plugins
+  _pluginCount = 0;
+  _pluginsInited = false;
   
   // Создание StreamBuffer для RX (thread-safe)
   _rxStream = xStreamBufferCreate(BLE_RX_BUFFER_SIZE, 1);
@@ -91,6 +148,12 @@ void BLESerial::init(const String &deviceName) {
     return;
   }
   ESP_LOGI(TAG, "RX StreamBuffer created: %d bytes", BLE_RX_BUFFER_SIZE);
+
+  // bonding=true, mitm=false, sc=true (или false, если будут проблемы)
+  NimBLEDevice::setSecurityAuth(true, false, true);
+  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+  NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+  NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
 
   // Инициализация BLE устройства
   NimBLEDevice::init(deviceName.c_str());
@@ -138,6 +201,7 @@ void BLESerial::setupAdvertisingOnce() {
   // ---------- Advertisement packet ----------
   // Минимальный: только UUID сервиса
   NimBLEAdvertisementData advData;
+  advData.setFlags(0x06);
   advData.addServiceUUID(NUS_SERVICE_UUID);
   adv->setAdvertisementData(advData);
 
@@ -157,6 +221,9 @@ void BLESerial::startAdvertising() {
     return;
   }
 
+  // Перед рекламой гарантируем, что все плагины создали свои сервисы
+  initPluginsOnce();
+
   if (!_advConfigured) {
     setupAdvertisingOnce();
     if (!_advConfigured)
@@ -175,7 +242,7 @@ void BLESerial::startAdvertising() {
   }
 
   adv->start();
-  ESP_LOGI(TAG, "Advertising started");
+  ESP_LOGI(TAG, "Advertising started, isAdvertising=%d", adv->isAdvertising());
   notifyStateChanged();
 }
 
@@ -199,6 +266,11 @@ void BLESerial::end() {
   _connected = false;
   _notifyEnabled = false;
   _advConfigured = false;
+
+    // plugins
+  _pluginCount = 0;
+  _pluginsInited = false;
+  for (size_t i = 0; i < MAX_PLUGINS; ++i) _plugins[i] = nullptr;
 
   // Освобождение StreamBuffer
   if (_rxStream) {
@@ -357,19 +429,27 @@ void BLESerial::onReceive(const uint8_t *data, size_t len) {
   }
 }
 
-void BLESerial::onConnect(uint16_t mtu) {
+void BLESerial::onConnect(NimBLEConnInfo& connInfo, uint16_t mtu) {
   _connected = true;
+  _notifyEnabled = false; // до subscribe
   _mtu = mtu;
+
+  pluginsOnConnect(connInfo, mtu);
   notifyStateChanged();
 }
 
-void BLESerial::onDisconnect() {
+void BLESerial::onDisconnect(int reason) {
   _connected = false;
   _notifyEnabled = false;
+
+  pluginsOnDisconnect(reason);
   notifyStateChanged();
 }
 
-void BLESerial::onMtuUpdated(uint16_t mtu) { _mtu = mtu; }
+void BLESerial::onMtuUpdated(uint16_t mtu) {
+  _mtu = mtu;
+  pluginsOnMtuUpdated(mtu);
+}
 
 void BLESerial::onNotifyStateChanged(bool enabled) { _notifyEnabled = enabled; }
 

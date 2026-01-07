@@ -1,9 +1,14 @@
 #pragma once
 #include <NimBLEDevice.h>
+#include "ble.h"
 
-class BleBatteryService {
+class BleBatteryService : public IBleServicePlugin {
 public:
-    void init(NimBLEServer* server);
+    // IBleServicePlugin
+    void init(NimBLEServer* server) override;
+    void onDisconnect(int /*reason*/) override { _notifyEnabled = false; }
+
+    // API сервиса
     void setLevel(uint8_t percent);
 
     // вызывается из callback
