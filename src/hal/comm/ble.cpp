@@ -1,6 +1,7 @@
 // ble.cpp
 #include "ble.h"
 #include "esp_log.h"
+#include <algorithm> 
 
 static const char *TAG = "BLE";
 BLESerial bleSerial;
@@ -66,7 +67,7 @@ class TxCallbacks : public NimBLECharacteristicCallbacks {
 // BLESerial Implementation
 // ============================================================================
 
-void BLESerial::begin(const String &deviceName) {
+void BLESerial::init(const String &deviceName) {
   if (_server) {
     ESP_LOGW(TAG, "BLE already initialized");
     return;
@@ -116,12 +117,6 @@ void BLESerial::begin(const String &deviceName) {
 
   // Запуск сервиса
   _service->start();
-
-  // Настроить payload рекламы один раз
-  setupAdvertisingOnce();
-
-  // И стартануть рекламу
-  startAdvertising();
 
   ESP_LOGI(TAG, "NUS initialized");
 }
@@ -346,7 +341,7 @@ void BLESerial::onReceive(const uint8_t *data, size_t len) {
 
   size_t pushed = xStreamBufferSend(_rxStream, data, len, 0);
   if (pushed < len) {
-    // Rate limit overflow warnings (max once per second)c
+    // Rate limit overflow warnings (max once per second)
     static uint32_t lastOverflowLog = 0;
     static size_t overflowEvents = 0;
 

@@ -27,13 +27,23 @@ typedef void (*BLEStateCallback)(BLEState state);
 
 class BLESerial : public Stream {
 public:
-    void begin(const String& deviceName = String(BLE_DEVICE_NAME));
+
+    void init(const String& deviceName = String(BLE_DEVICE_NAME));
     void startAdvertising();
     void stopAdvertising();
     void end();
     
     bool isConnected();
     bool isAdvertising();
+
+    /**
+    * @brief Доступ к серверу BLE для пользовательского добавления сервисов.
+    * 
+    * Метод позволяет получить указатель на внутренний NimBLEServer,
+    * чтобы внешние модули могли добавлять пользовательские сервисы или характеристики.
+    * @return NimBLEServer* Указатель на BLE сервер.
+    */
+    NimBLEServer* getServer() const { return _server; }
     
     /**
      * @brief Получить текущее состояние Bluetooth

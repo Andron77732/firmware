@@ -1,6 +1,7 @@
 #include "config.h"
 #include "command/command_parser.h"
 #include "esp_log.h"
+#include "hal/comm/battery_service.h"
 #include "hal/comm/ble.h"
 #include "hal/comm/wifi.h"
 #include "hal/gps/gps.h"
@@ -174,18 +175,25 @@ void setup() {
   String deviceNameStr = "Device: " + deviceName;
   mainArea.addLogLine(deviceNameStr);
 
-  bleSerial.begin(deviceName);
+  bleSerial.init(deviceName);
   ESP_LOGI(TAG, "BLE initialized as: %s", deviceName.c_str());
+
+  // Инициализация сервиса батареи
+  mainArea.addLogLine("Initializing battery service...");
+  batteryService.init(bleSerial.getServer());
+  ESP_LOGI(TAG, "Battery service initialized");
+  mainArea.addLogLine("Battery service initialized");
+
+  // Запуск рекламы
+  bleSerial.startAdvertising();
 
   // Установка callback для мгновенного обновления иконки Bluetooth при
   // изменении состояния
   bleSerial.setStateCallback(onBLEStateChanged);
 
   // Небольшая задержка для того, чтобы реклама успела запуститься
-  delay(50);
+  // delay(50);
 
-  // Обновляем иконку Bluetooth до текущего состояния (реклама уже запущена)
-  // bleSerial.notifyStateChanged();
   ESP_LOGI(TAG, "BLE ready");
   mainArea.addLogLine("BLE ready");
 
