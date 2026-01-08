@@ -59,6 +59,25 @@ static bool s_prev_sqw_locked = false;
 static bool s_prev_have_sqw_edge = false; // чтобы логировать "signal acquired" или "signal lost"
 static bool s_logged_sqw_warmup = false;
 
+// Фильтр phase_delta: медиана по 5 последним значениям
+static int64_t s_phase_deltas[5] = {0};
+static uint8_t s_phase_delta_idx = 0;
+static uint8_t s_phase_delta_count = 0;
+
+static int64_t median5(const int64_t v[5]) {
+  int64_t a[5] = {v[0], v[1], v[2], v[3], v[4]};
+  for (int i = 0; i < 4; ++i) {
+    for (int j = i + 1; j < 5; ++j) {
+      if (a[j] < a[i]) {
+        int64_t t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+      }
+    }
+  }
+  return a[2];
+}
+
 static bool gps_time_to_unix(uint32_t &unix_sec) {
   if (!gps.isReady())
     return false;
@@ -101,7 +120,15 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
   if (!s_have_nmea)
     return false;
 
-  int64_t delta = pps_esp_us - s_last_nmea_esp_us;
+  int64_t delta_raw = pps_esp_us - s_last_nmea_esp_us;
+  s_phase_deltas[s_phase_delta_idx] = delta_raw;
+  s_phase_delta_idx = (s_phase_delta_idx + 1) % 5;
+  if (s_phase_delta_count < 5) s_phase_delta_count++;
+
+  int64_t delta = delta_raw;
+  if (s_phase_delta_count == 5) {
+    delta = median5(s_phase_deltas);
+  }
   phase_delta_us_out = delta;
 
   if (delta <= -kPhaseWindowUs || delta >= kPhaseWindowUs)
