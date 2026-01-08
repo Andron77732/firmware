@@ -15,6 +15,17 @@
 void cmdPing(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды time
+ * 
+ * Возвращает текущее время в микросекундах с момента UNIX epoch,
+ * источник времени (GPS или RTC) и точность.
+ * 
+ * @param request JSON запрос с полем "cmd": "time"
+ * @param output Поток для отправки ответа
+ */
+void cmdTime(JsonDocument& request, Stream& output);
+
+/**
  * @brief Утилита для отправки JSON-ответа в поток
  * 
  * Сериализует переданный JSON-документ (response) в строку, 
@@ -26,5 +37,20 @@ void cmdPing(JsonDocument& request, Stream& output);
  * @param addNewline Добавить перевод строки в конец ответа (по умолчанию true)
  */
 void sendResponse(JsonDocument& response, Stream& output, bool addNewline = true);
+
+/**
+ * @brief Утилита для отправки ответа об ошибке
+ * 
+ * Формирует стандартный JSON-ответ об ошибке и отправляет его в поток.
+ * Используется обработчиками команд и роутером для единообразной обработки ошибок.
+ * 
+ * @param cmd Имя команды
+ * @param errorCode Код ошибки
+ * @param errorMessage Сообщение об ошибке
+ * @param requestId ID запроса (если есть)
+ * @param output Поток для отправки
+ */
+void sendError(const char* cmd, int errorCode, const char* errorMessage, 
+               const JsonVariant& requestId, Stream& output);
 
 #endif // COMMAND_HANDLERS_H

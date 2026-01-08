@@ -27,18 +27,6 @@ public:
      * @param output Поток для отправки ответа (Serial, BLESerial и т.д.)
      */
     static void route(JsonDocument& doc, Stream& output);
-
-private:
-    /**
-     * @brief Отправка ответа об ошибке
-     * @param cmd Имя команды
-     * @param errorCode Код ошибки
-     * @param errorMessage Сообщение об ошибке
-     * @param requestId ID запроса (если есть)
-     * @param output Поток для отправки
-     */
-    static void sendError(const char* cmd, int errorCode, const char* errorMessage, 
-                         const JsonVariant& requestId, Stream& output);
 };
 
 #endif // COMMAND_ROUTER_H
