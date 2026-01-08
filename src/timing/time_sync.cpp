@@ -38,6 +38,10 @@ static bool    s_rtc_pps_pending = false;
 static uint32_t s_rtc_pps_target_sec = 0;
 static uint32_t s_rtc_pps_target_count = 0;
 
+// Оценка точности: базовые допуски на джиттер/латентность
+static constexpr int64_t kPpsIsrJitterUs = 20;   // ISR + чтение таймера
+static constexpr int64_t kRtcBaseJitterUs = 1500; // I2C + ISR + анти-±1с логика
+
 // Для определения “новый PPS или старый”
 static uint32_t s_last_pps_count = 0;
 
@@ -505,15 +509,12 @@ int64_t time_sync_estimate_accuracy_us() {
 
   switch (s_status.source) {
     case TimeSource::GPS_PPS: {
-      int64_t acc = llabs(s_status.last_phase_delta_us);
+      int64_t acc = kPpsIsrJitterUs;
 
-      // запас на таймер и ISR
-      acc += 10;
-
-      // если PPS был давно — чуть ухудшаем
+      // если PPS был давно — чуть ухудшаем (дрейф esp_timer)
       int64_t now_us = esp_timer_get_time();
       int64_t age_us = now_us - s_status.last_pps_timestamp_us;
-      if (age_us > 1000000)
+      if (age_us > 0)
         acc += age_us / 1000000; // ~1µs на секунду
 
       return acc;
@@ -524,7 +525,7 @@ int64_t time_sync_estimate_accuracy_us() {
     
       // основная ошибка: ISR latency + чтение rtc.unixTime() (I2C) + анти-±1с логика
       // Консервативно: 500–2000 us (зависит от нагрузки)
-      int64_t acc = 1500;
+      int64_t acc = kRtcBaseJitterUs;
     
       // лёгкое ухудшение, если давно не было нового SQW тика
       int64_t now_us = esp_timer_get_time();
