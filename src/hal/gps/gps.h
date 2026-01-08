@@ -41,6 +41,12 @@ public:
     MicroNMEA& nmea() { return _nmea; }
     const MicroNMEA& nmea() const { return _nmea; }
 
+    /**
+     * @brief Время начала последнего полного NMEA-предложения (esp_timer_get_time, us)
+     * @return true если есть валидная метка времени
+     */
+    bool lastSentenceStartUs(int64_t &ts_us) const;
+
 private:
     static constexpr size_t NMEA_BUFFER_SIZE = 128;
     
@@ -48,6 +54,11 @@ private:
     MicroNMEA _nmea{_nmeaBuffer, NMEA_BUFFER_SIZE};
     
     bool _initialized = false;
+
+    // Мягкий таймстампинг NMEA: время начала последнего полного предложения
+    int64_t _last_sentence_start_us = 0;
+    int64_t _current_sentence_start_us = 0;
+    bool _in_sentence = false;
 };
 
 // Глобальный объект GPS

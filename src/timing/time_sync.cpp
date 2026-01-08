@@ -27,6 +27,17 @@ static constexpr int64_t kPhaseWindowUs = 900000;
 static constexpr int64_t kRtcResyncPeriodUs = 10000000; // 10 секунд
 static int64_t s_last_rtc_resync_us = 0;
 
+// Анти-±1с защита: якорь считаем "свежим" только в пределах окна
+static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
+
+// Дисциплина RTC по PPS: период и окно выравнивания
+static constexpr int64_t kRtcPpsSyncPeriodUs   = 10LL * 60LL * 1000000LL; // 10 минут
+static constexpr int64_t kRtcPpsAlignWindowUs  = 3000; // 3 ms
+static int64_t s_last_rtc_pps_sync_us = 0;
+static bool    s_rtc_pps_pending = false;
+static uint32_t s_rtc_pps_target_sec = 0;
+static uint32_t s_rtc_pps_target_count = 0;
+
 // Для определения “новый PPS или старый”
 static uint32_t s_last_pps_count = 0;
 
@@ -97,6 +108,26 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
   } else {
     pps_utc_sec_out = s_last_nmea_utc_sec;
   }
+
+  // Анти-±1с защита: сверяемся с текущей оценкой якоря, но только если якорь свежий
+  bool anchor_fresh = false;
+  if (s_status.source == TimeSource::GPS_PPS && s_status.last_pps_timestamp_us != 0) {
+    int64_t now_us = esp_timer_get_time();
+    anchor_fresh = (now_us - s_status.last_pps_timestamp_us) < kAnchorFreshnessUs;
+  }
+
+  if (anchor_fresh) {
+    int64_t est_utc_us = 0;
+    if (time_sync_esp_to_utc_us(pps_esp_us, est_utc_us)) {
+      int64_t candidate_us = (int64_t)pps_utc_sec_out * 1000000LL;
+      int64_t diff = candidate_us - est_utc_us;
+      if (diff > 500000 && diff < 1500000) {
+        pps_utc_sec_out -= 1;
+      } else if (diff < -500000 && diff > -1500000) {
+        pps_utc_sec_out += 1;
+      }
+    }
+  }
   return true;
 }
 
@@ -147,6 +178,10 @@ void time_sync_begin() {
   s_last_nmea_esp_us = 0;
 
   s_last_rtc_resync_us = 0;
+  s_last_rtc_pps_sync_us = 0;
+  s_rtc_pps_pending = false;
+  s_rtc_pps_target_sec = 0;
+  s_rtc_pps_target_count = 0;
 
   s_last_sqw_count = 0;
   rtc_sqw_begin(RTC_SQW_PIN, RISING);
@@ -170,7 +205,10 @@ void time_sync_update() {
   if (gps_time_to_unix(gps_utc)) {
     s_status.gps_time_valid = true;
 
-    int64_t nmea_arrival_us = esp_timer_get_time();
+    int64_t nmea_arrival_us = 0;
+    if (!gps.lastSentenceStartUs(nmea_arrival_us)) {
+      nmea_arrival_us = esp_timer_get_time();
+    }
 
     // Обновляем статус для диагностики всегда
     s_status.last_nmea_utc_sec = gps_utc;
@@ -190,75 +228,6 @@ void time_sync_update() {
 
   // --- 2) PPS lock? ---
   s_status.pps_locked = pps_is_locked();
-
-  // --- 3) Если PPS нет — fallback на RTC ---
-  // if (!s_status.pps_locked) {
-  //   s_status.phase_aligned = false;
-
-  //   if (!rtc.isReady()) {
-  //     // RTC не готов — источника времени нет
-  //     s_status.source = TimeSource::NONE;
-  //     return;
-  //   }
-
-  //   int64_t now_us = esp_timer_get_time();
-
-  //   // Первый вход в RTC режим: якорим по RTC
-  //   if (s_status.source != TimeSource::RTC) {
-  //     uint32_t rtc_sec = rtc.unixTime();
-  //     set_anchor(TimeSource::RTC, (int64_t)rtc_sec * 1000000LL, now_us);
-  //     s_last_rtc_resync_us = now_us;
-
-  //     ESP_LOGW(TAG, "GPS/PPS lost -> RTC fallback. rtc=%lu", (unsigned long)rtc_sec);
-
-  //     // (опционально) можно один раз выставить системное время по RTC
-  //     timeval tv{ .tv_sec = (time_t)rtc_sec, .tv_usec = 0 };
-  //     settimeofday(&tv, nullptr);
-
-  //     s_status.synced = true;
-  //     s_status.last_sync_us = now_us;
-  //     s_status.last_offset_us = 0;
-  //     return;
-  //   }
-
-  //   // Уже в RTC режиме: периодически подтягиваем якорь, чтобы не уплывать
-  //   if ((now_us - s_last_rtc_resync_us) > kRtcResyncPeriodUs) {
-  //     uint32_t rtc_sec = rtc.unixTime();
-  //     int64_t rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
-
-  //     int64_t est_utc_us = 0;
-  //     if (time_sync_esp_to_utc_us(now_us, est_utc_us)) {
-  //       int64_t err_us = rtc_utc_us - est_utc_us;
-
-  //       // Сдвигаем UTC-якорь так, чтобы "сейчас" совпало с RTC
-  //       s_status.anchor_utc_us += err_us;
-
-  //       s_last_rtc_resync_us = now_us;
-
-  //       ESP_LOGI(TAG, "RTC resync: err=%lld us (anchor adjusted)", (long long)err_us);
-
-  //       // (опционально) поддерживаем системное время близким к RTC
-  //       timeval current_tv{};
-  //       gettimeofday(&current_tv, nullptr);
-  //       int64_t current_us = (int64_t)current_tv.tv_sec * 1000000LL + (int64_t)current_tv.tv_usec;
-  //       int64_t delta_us = rtc_utc_us - current_us;
-
-  //       if (delta_us < -kJitterAdjustThresholdUs || delta_us > kJitterAdjustThresholdUs) {
-  //         timeval tv{};
-  //         tv.tv_sec  = (time_t)(rtc_utc_us / 1000000LL);
-  //         tv.tv_usec = (suseconds_t)(rtc_utc_us % 1000000LL);
-  //         settimeofday(&tv, nullptr);
-  //       }
-  //     } else {
-  //       // На всякий случай переякорим
-  //       set_anchor(TimeSource::RTC, rtc_utc_us, now_us);
-  //       s_last_rtc_resync_us = now_us;
-  //     }
-  //   }
-
-  //   s_status.synced = true;
-  //   return;
-  // }
 
   // --- 3) Если PPS нет — fallback на RTC (через SQW 1Hz) ---
   if (!s_status.pps_locked) {
@@ -440,6 +409,18 @@ void time_sync_update() {
   int64_t age_us = now_us - pps_time_us;
   if (age_us < 0) age_us = 0;
 
+  // Дисциплина RTC по PPS: отложенная установка на следующий PPS
+  if (s_rtc_pps_pending && pps_count == s_rtc_pps_target_count) {
+    if (age_us <= kRtcPpsAlignWindowUs && rtc.isReady()) {
+      rtc.setTime(s_rtc_pps_target_sec);
+      ESP_LOGI(TAG, "RTC set from PPS: %lu (aligned, age %lld us)",
+               (unsigned long)s_rtc_pps_target_sec, (long long)age_us);
+      s_last_rtc_pps_sync_us = now_us;
+      s_rtc_synced = true;
+    }
+    s_rtc_pps_pending = false;
+  }
+
   int64_t target_us = (int64_t)utc_second * 1000000LL + age_us;
 
   timeval current_tv{};
@@ -476,17 +457,25 @@ void time_sync_update() {
              (long long)pps_time_us,
              (unsigned long)pps_count);
 
-    // RTC обновляем один раз после первой успешной GPS синхронизации
-    if (!s_rtc_synced && rtc.isReady()) {
-      rtc.setTime((uint32_t)tv.tv_sec);
-      s_rtc_synced = true;
-    }
   }
 
   s_status.synced                = true;
   s_status.last_pps_timestamp_us = pps_time_us;
   s_status.last_offset_us        = delta_us;
   s_status.last_utc_second       = utc_second;
+
+  // Планируем следующее дисциплинирование RTC по PPS
+  if (!s_rtc_pps_pending &&
+      s_status.phase_aligned &&
+      s_status.gps_time_valid &&
+      // первая фронтовая синхронизация RTC будет сразу при первом phase_aligned (PPS+NMEA),
+      // а дальше через kRtcPpsSyncPeriodUs.
+      (s_last_rtc_pps_sync_us == 0 ||
+       (now_us - s_last_rtc_pps_sync_us) >= kRtcPpsSyncPeriodUs)) {
+    s_rtc_pps_pending = true;
+    s_rtc_pps_target_sec = utc_second + 1;
+    s_rtc_pps_target_count = pps_count + 1;
+  }
 }
 
 TimeSyncStatus time_sync_status() { return s_status; }

@@ -26,7 +26,7 @@ struct TimeSyncStatus {
 
   // Состояние phase alignment (PPS↔NMEA)
   bool     phase_aligned = false;
-  int64_t  last_phase_delta_us = 0; // pps_us - nmea_arrival_us
+  int64_t  last_phase_delta_us = 0; // pps_us - nmea_arrival_us (DIAG, не accuracy)
   uint32_t last_nmea_utc_sec = 0;
 
   // Последняя UTC секунда, соответствующая ПОСЛЕДНЕМУ PPS (в GPS режиме)

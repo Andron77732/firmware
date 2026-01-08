@@ -1,6 +1,7 @@
 #include "gps.h"
 #include "config.h"
 #include "esp_log.h"
+#include <esp_timer.h>
 
 static const char* TAG = "GPS";
 static const char* TAG_NMEA = "GPS][NMEA";  // Хак для вывода [GPS][NMEA]
@@ -27,6 +28,12 @@ void GPS::begin() {
 void GPS::update() {
     while (gpsSerial.available()) {
         char c = gpsSerial.read();
+
+        // Мягкий таймстампинг: фиксируем старт предложения по '$'
+        if (c == '$') {
+            _in_sentence = true;
+            _current_sentence_start_us = esp_timer_get_time();
+        }
         
         // Собираем строку для verbose лога
         if (c == '\n' || c == '\r') {
@@ -34,6 +41,12 @@ void GPS::update() {
                 verboseLine[verboseIdx] = '\0';
                 ESP_LOGV(TAG_NMEA, "%s", verboseLine);
                 verboseIdx = 0;
+            }
+
+            if (_in_sentence) {
+                _last_sentence_start_us = _current_sentence_start_us;
+                _current_sentence_start_us = 0;
+                _in_sentence = false;
             }
         } else if (verboseIdx < sizeof(verboseLine) - 1) {
             verboseLine[verboseIdx++] = c;
@@ -45,4 +58,10 @@ void GPS::update() {
         // Парсинг NMEA
         _nmea.process(c);
     }
+}
+
+bool GPS::lastSentenceStartUs(int64_t &ts_us) const {
+    if (_last_sentence_start_us == 0) return false;
+    ts_us = _last_sentence_start_us;
+    return true;
 }
