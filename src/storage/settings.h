@@ -94,9 +94,9 @@ public:
 
   /**
    * @brief Сохранить все настройки в NVS
-   * @return true если успешно, false при ошибке
+   * @return количество сохраненных ключей при успехе, -1 при ошибке
    */
-  bool save();
+  int save();
 
   /**
    * @brief Сброс всех настроек к значениям по умолчанию
@@ -160,6 +160,13 @@ public:
    */
   JsonDocument toJson() const;
 
+  /**
+   * @brief Загрузить настройки из JSON документа
+   * @param doc JsonDocument с настройками (группы и поля опциональны)
+   * @return true если все присутствующие настройки успешно валидированы и установлены, false при ошибке
+   */
+  bool fromJson(const JsonDocument& doc);
+
 private:
   Preferences prefs_;
   Settings settings_;
@@ -186,10 +193,10 @@ private:
   bool isValidSyncSource(uint8_t source) const;
 
   // Сохранение/загрузка отдельных групп
-  void saveDevice();
-  void saveSync();
-  void saveWifi();
-  void saveCalibration();
+  size_t saveDevice();
+  size_t saveSync();
+  size_t saveWifi();
+  size_t saveCalibration();
 
   void loadDevice();
   void loadSync();

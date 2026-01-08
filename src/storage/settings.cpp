@@ -215,33 +215,55 @@ bool SettingsManager::putFloatIfChanged_(const char *key, float v, float def,
 // Сохранение/загрузка отдельных групп
 // ============================================================================
 
-void SettingsManager::saveDevice() {
-  putStringIfChanged_("device.name", settings_.device.name,
-                      DEFAULT_DEVICE_NAME);
-  putUCharIfChanged_("device.number", settings_.device.number,
-                     DEFAULT_DEVICE_NUMBER);
-  putUCharIfChanged_("device.type", settings_.device.type, DEFAULT_DEVICE_TYPE);
-  putCharIfChanged_("device.timezone", settings_.device.timezone,
-                    DEFAULT_DEVICE_TIMEZONE);
+size_t SettingsManager::saveDevice() {
+  size_t count = 0;
+  if (putStringIfChanged_("device.name", settings_.device.name,
+                          DEFAULT_DEVICE_NAME))
+    count++;
+  if (putUCharIfChanged_("device.number", settings_.device.number,
+                         DEFAULT_DEVICE_NUMBER))
+    count++;
+  if (putUCharIfChanged_("device.type", settings_.device.type,
+                         DEFAULT_DEVICE_TYPE))
+    count++;
+  if (putCharIfChanged_("device.timezone", settings_.device.timezone,
+                        DEFAULT_DEVICE_TIMEZONE))
+    count++;
+  return count;
 }
 
-void SettingsManager::saveSync() {
-  putBoolIfChanged_("sync.auto", settings_.sync.auto_sync, DEFAULT_SYNC_AUTO);
-  putUCharIfChanged_("sync.source", settings_.sync.source, DEFAULT_SYNC_SOURCE);
+size_t SettingsManager::saveSync() {
+  size_t count = 0;
+  if (putBoolIfChanged_("sync.auto", settings_.sync.auto_sync,
+                        DEFAULT_SYNC_AUTO))
+    count++;
+  if (putUCharIfChanged_("sync.source", settings_.sync.source,
+                         DEFAULT_SYNC_SOURCE))
+    count++;
+  return count;
 }
 
-void SettingsManager::saveWifi() {
-  putBoolIfChanged_("wifi.active", settings_.wifi.active, DEFAULT_WIFI_ACTIVE);
-  putStringIfChanged_("wifi.ssid", settings_.wifi.ssid, DEFAULT_WIFI_SSID);
+size_t SettingsManager::saveWifi() {
+  size_t count = 0;
+  if (putBoolIfChanged_("wifi.active", settings_.wifi.active,
+                        DEFAULT_WIFI_ACTIVE))
+    count++;
+  if (putStringIfChanged_("wifi.ssid", settings_.wifi.ssid, DEFAULT_WIFI_SSID))
+    count++;
   // пароль не логируем значением
-  putStringIfChanged_("wifi.passwd", settings_.wifi.passwd, DEFAULT_WIFI_PASSWD,
-                      true);
+  if (putStringIfChanged_("wifi.passwd", settings_.wifi.passwd,
+                          DEFAULT_WIFI_PASSWD, true))
+    count++;
+  return count;
 }
 
-void SettingsManager::saveCalibration() {
-  putFloatIfChanged_("calibration.rtc_offset_ppm",
-                     settings_.calibration.rtc_offset_ppm,
-                     DEFAULT_CALIBRATION_RTC_OFFSET_PPM, 0.0001f);
+size_t SettingsManager::saveCalibration() {
+  size_t count = 0;
+  if (putFloatIfChanged_("calibration.rtc_offset_ppm",
+                         settings_.calibration.rtc_offset_ppm,
+                         DEFAULT_CALIBRATION_RTC_OFFSET_PPM, 0.0001f))
+    count++;
+  return count;
 }
 
 void SettingsManager::loadDevice() {
@@ -333,10 +355,10 @@ bool SettingsManager::load() {
   return true;
 }
 
-bool SettingsManager::save() {
+int SettingsManager::save() {
   if (!initialized_) {
     ESP_LOGE(TAG, "SettingsManager not initialized, call begin() first");
-    return false;
+    return -1;
   }
 
   // Валидация перед сохранением
@@ -344,16 +366,17 @@ bool SettingsManager::save() {
       !validateWifi(settings_.wifi) ||
       !validateCalibration(settings_.calibration)) {
     ESP_LOGE(TAG, "Settings validation failed, cannot save");
-    return false;
+    return -1;
   }
 
-  saveDevice();
-  saveSync();
-  saveWifi();
-  saveCalibration();
+  size_t total = 0;
+  total += saveDevice();
+  total += saveSync();
+  total += saveWifi();
+  total += saveCalibration();
 
-  ESP_LOGI(TAG, "Settings saved successfully");
-  return true;
+  ESP_LOGI(TAG, "Settings saved successfully (%zu keys)", total);
+  return (int)total;
 }
 
 bool SettingsManager::factoryReset() {
@@ -365,7 +388,7 @@ bool SettingsManager::factoryReset() {
   prefs_.clear();
   setDefaults();
 
-  if (!save()) {
+  if (save() < 0) {
     ESP_LOGE(TAG, "Failed to save default settings after factory reset");
     return false;
   }
@@ -466,4 +489,82 @@ JsonDocument SettingsManager::toJson() const {
   doc["calibration"]["rtc_offset_ppm"] = settings_.calibration.rtc_offset_ppm;
 
   return doc;
+}
+
+bool SettingsManager::fromJson(const JsonDocument& doc) {
+  // Создать временные структуры и обновить их данными из JSON
+  DeviceSettings device = settings_.device;
+  SyncSettings sync = settings_.sync;
+  WifiSettings wifi = settings_.wifi;
+  CalibrationSettings calibration = settings_.calibration;
+
+  // Device settings
+  if (!doc["device"].isNull()) {
+    if (!doc["device"]["name"].isNull()) {
+      device.name = doc["device"]["name"].as<String>();
+    }
+    if (!doc["device"]["number"].isNull()) {
+      device.number = doc["device"]["number"].as<uint8_t>();
+    }
+    if (!doc["device"]["type"].isNull()) {
+      device.type = doc["device"]["type"].as<uint8_t>();
+    }
+    if (!doc["device"]["timezone"].isNull()) {
+      device.timezone = doc["device"]["timezone"].as<int8_t>();
+    }
+
+    if (!validateDevice(device)) {
+      return false;
+    }
+  }
+
+  // Sync settings
+  if (!doc["sync"].isNull()) {
+    if (!doc["sync"]["auto"].isNull()) {
+      sync.auto_sync = doc["sync"]["auto"].as<bool>();
+    }
+    if (!doc["sync"]["source"].isNull()) {
+      sync.source = doc["sync"]["source"].as<uint8_t>();
+    }
+
+    if (!validateSync(sync)) {
+      return false;
+    }
+  }
+
+  // WiFi settings
+  if (!doc["wifi"].isNull()) {
+    if (!doc["wifi"]["active"].isNull()) {
+      wifi.active = doc["wifi"]["active"].as<bool>();
+    }
+    if (!doc["wifi"]["ssid"].isNull()) {
+      wifi.ssid = doc["wifi"]["ssid"].as<String>();
+    }
+    if (!doc["wifi"]["passwd"].isNull()) {
+      wifi.passwd = doc["wifi"]["passwd"].as<String>();
+    }
+
+    if (!validateWifi(wifi)) {
+      return false;
+    }
+  }
+
+  // Calibration settings
+  if (!doc["calibration"].isNull()) {
+    if (!doc["calibration"]["rtc_offset_ppm"].isNull()) {
+      calibration.rtc_offset_ppm = doc["calibration"]["rtc_offset_ppm"].as<float>();
+    }
+
+    if (!validateCalibration(calibration)) {
+      return false;
+    }
+  }
+
+  // Если все валидации прошли - применить изменения
+  settings_.device = device;
+  settings_.sync = sync;
+  settings_.wifi = wifi;
+  settings_.calibration = calibration;
+
+  return true;
 }
