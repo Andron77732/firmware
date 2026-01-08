@@ -67,21 +67,15 @@ void updateStatusBar() {
 
     // Время в статус-баре
     statusBar.updateTime(nowSec, timezone);
-
-    // Статус под статус-баром: спутники + источник времени
-    uint8_t sats = gps.isReady() ? gps.nmea().getNumSatellites() : 0;
-    TimeSyncStatus ts = time_sync_status();
-    const char *src = "NOSYNC";
-    if (ts.source == TimeSource::GPS_PPS)
-      src = "GPS   ";
-    else if (ts.source == TimeSource::RTC)
-      src = "RTC   ";
-
-    display.tft().setCursor(0, UI_STATUS_BAR_HEIGHT + 8);
-    display.tft().setTextSize(2);
-    display.tft().setTextColor(TFT_CYAN, TFT_BLACK);
-    display.tft().printf("Sats:%02u  Sync:%s", sats, src);
   }
+}
+
+void updateFooter() {
+  uint8_t sats = (gps.isReady() && gps.nmea().isValid())
+             ? gps.nmea().getNumSatellites()
+             : 0;
+  TimeSyncState state = time_sync_state();
+  footer.updateTimeSyncState(sats, state);
 }
 
 void setup() {
@@ -234,7 +228,7 @@ void setup() {
   mainArea.addLogLine("Setup complete");
 
   // Пауза для чтения лога загрузки (3 секунды)
-  delay(5000);
+  // delay(5000);
 
   // Установка типа в зависимости от типа модуля
   if (module_type == ModuleType::START) {
@@ -250,6 +244,9 @@ void setup() {
 void loop() {
   // Обновление статус-бара
   updateStatusBar();
+
+  // Обновление состояния синхронизации времени в footer
+  updateFooter();
 
   // Обновление GPS
   gps.update();

@@ -5,6 +5,7 @@
 #include <TFT_eSPI.h>
 #include "config.h"
 #include "ui_config.h"
+#include "timing/time_sync.h"
 
 /**
  * @brief Footer в нижней части экрана
@@ -32,8 +33,16 @@ public:
      */
     void draw(ModuleType moduleType, const String& version);
 
+    /**
+     * @brief Обновление состояния синхронизации времени
+     * @param state Состояние синхронизации
+     */
+    void updateTimeSyncState(uint8_t sats, TimeSyncState state);
+
 private:
     TFT_eSPI* _tft = nullptr;
+    TimeSyncState _lastState = TimeSyncState::NONE;
+    uint8_t _lastSats = 255;
 };
 
 // Глобальный объект footer

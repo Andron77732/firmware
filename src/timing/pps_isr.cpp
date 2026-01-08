@@ -14,6 +14,8 @@ static volatile uint32_t s_pps_count   = 0;
 // Только для диагностики
 static volatile uint32_t s_last_gps_utc_sec = 0;
 
+static constexpr int64_t kLossTimeoutUs = 1500000; // 1.5s
+
 static void IRAM_ATTR pps_isr_handler() {
   int64_t now = esp_timer_get_time();
   s_pps_time_us = now;
@@ -39,7 +41,7 @@ uint32_t pps_get_last_gps_utc_second() {
 
 bool pps_is_locked() {
   int64_t now = esp_timer_get_time();
-  bool locked = s_pps_valid && ((now - s_last_pps_us) < 1500000);
+  bool locked = s_pps_valid && ((now - s_last_pps_us) < kLossTimeoutUs);
 
   static bool last_locked_state = false;
   if (locked != last_locked_state) {

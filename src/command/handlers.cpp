@@ -53,12 +53,7 @@ void cmdTime(JsonDocument& request, Stream& output) {
     
     // Определяем источник времени и точность
     const char* source_str = "rtc";
-    int64_t accuracy_us = 5000; // Точность RTC: 5 мс
-    
-    if (sync_status.source == TimeSource::GPS_PPS) {
-        source_str = "gps";
-        accuracy_us = 50; // Точность GPS PPS: 50 мкс
-    }
+    int64_t accuracy_us = time_sync_estimate_accuracy_us();
     
     // Определяем статус ответа
     const char* status_str = "ok";
