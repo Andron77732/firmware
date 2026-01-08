@@ -37,12 +37,12 @@ public:
      * @brief Обновление состояния синхронизации времени
      * @param state Состояние синхронизации
      */
-    void updateTimeSyncState(uint8_t sats, TimeSyncState state);
+    void updateTimeSyncState(int8_t sats, TimeSyncState state);
 
 private:
     TFT_eSPI* _tft = nullptr;
     TimeSyncState _lastState = TimeSyncState::NONE;
-    uint8_t _lastSats = 255;
+    int8_t _lastSats = -127;
 };
 
 // Глобальный объект footer

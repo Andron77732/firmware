@@ -32,7 +32,7 @@ void Footer::draw(ModuleType moduleType, const String& version) {
     if (!_tft) return;
 
     // Сбрасываем последние значения
-    _lastSats = 255;
+    _lastSats = -127;
     _lastState = (TimeSyncState)255;
     
     // Отрисовка фона footer
@@ -50,7 +50,7 @@ void Footer::draw(ModuleType moduleType, const String& version) {
     _tft->printf("%s v%s", moduleTypeStr, version.c_str());
 }
 
-void Footer::updateTimeSyncState(uint8_t sats, TimeSyncState state) {
+void Footer::updateTimeSyncState(int8_t sats, TimeSyncState state) {
     // Обновляем только если что-то изменилось
     if (!_tft || (state == _lastState && sats == _lastSats)) {
         return;
@@ -66,7 +66,11 @@ void Footer::updateTimeSyncState(uint8_t sats, TimeSyncState state) {
     // Формируем короткую строку справа
     // Sxx + пробел + LABEL
     char right[16];
-    snprintf(right, sizeof(right), "S%02u %s", (unsigned)sats, label);
+    if (sats < 0)  {
+        snprintf(right, sizeof(right), "S-- %s", label);
+    } else {
+        snprintf(right, sizeof(right), "S%02d %s", (int)sats, label);
+    }
 
     int16_t x = UI_FOOTER_WIDTH - 6 * (int)strlen(right) * UI_FOOTER_TEXT_SIZE;
     int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y;
@@ -76,7 +80,12 @@ void Footer::updateTimeSyncState(uint8_t sats, TimeSyncState state) {
     // спутники — нейтральным цветом
     _tft->setTextColor(UI_FOOTER_COLOR_TEXT, UI_FOOTER_COLOR_BACKGROUND);
     _tft->setCursor(x, y);
-    _tft->printf("S%02u ", (unsigned)sats);
+
+    if (sats < 0) {
+        _tft->print("S-- ");
+    } else {
+        _tft->printf("S%02d ", (int)sats);
+    }
 
     // статус — цветной
     int16_t x2 = x + 6 * 4 * UI_FOOTER_TEXT_SIZE; // "Sxx " = 4 символа

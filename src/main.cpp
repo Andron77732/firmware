@@ -71,9 +71,9 @@ void updateStatusBar() {
 }
 
 void updateFooter() {
-  uint8_t sats = (gps.isReady() && gps.nmea().isValid())
-             ? gps.nmea().getNumSatellites()
-             : 0;
+  int8_t sats = (gps.isReady() && gps.nmea().isValid())
+             ? (int8_t)gps.nmea().getNumSatellites()
+             : -1;
   TimeSyncState state = time_sync_state();
   footer.updateTimeSyncState(sats, state);
 }
