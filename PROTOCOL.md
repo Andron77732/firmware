@@ -4,19 +4,71 @@
 
 ---
 
+## 🔗 Сопоставление запросов и ответов
+
+Для сопоставления запросов и ответов используется опциональное поле `id` (идентификатор запроса).
+
+**Как это работает:**
+
+1. Клиент может включить поле `id` в запрос (любое значение: число, строка и т.д.)
+2. Устройство копирует это поле `id` в ответ
+3. Клиент сопоставляет ответ с запросом по значению `id`
+
+**Пример:**
+
+```json
+// Запрос 1
+{"cmd": "time", "id": 1}
+
+// Запрос 2 (отправлен сразу после первого)
+{"cmd": "status", "id": 2}
+
+// Ответ на запрос 1
+{
+  "cmd": "time",
+  "id": 1,
+  "time": 1703169600123456,
+  "source": "gps",
+  "accuracy_us": 50,
+  "status": "ok"
+}
+
+// Ответ на запрос 2
+{
+  "cmd": "status",
+  "id": 2,
+  "gps_fix": true,
+  "gps_satellites": 12,
+  "status": "ok"
+}
+```
+
+**Важно:**
+- Поле `id` опционально — если оно не указано в запросе, оно не будет в ответе
+- Если указано `id` в запросе, оно всегда будет в ответе
+- Значение `id` может быть любым (число, строка, null)
+- Рекомендуется использовать последовательные числа или уникальные строки для удобства отслеживания
+
+**Без `id`:**
+
+Если `id` не указан, клиент должен отправлять команды последовательно и ждать ответа перед отправкой следующей команды (см. рекомендации по интеграции).
+
+---
+
 ## 📤 Команды (Request)
 
 ### `time` - Получить текущее время
 
 **Запрос:**
 ```json
-{"cmd": "time"}
+{"cmd": "time", "id": 1}
 ```
 
 **Ответ:**
 ```json
 {
   "cmd": "time",
+  "id": 1,
   "time": 1703169600123456,
   "source": "gps",
   "accuracy_us": 50,
@@ -36,13 +88,14 @@
 
 **Запрос:**
 ```json
-{"cmd": "status"}
+{"cmd": "status", "id": 2}
 ```
 
 **Ответ:**
 ```json
 {
   "cmd": "status",
+  "id": 2,
   "gps_fix": true,
   "gps_satellites": 12,
   "pps_signal": true,
@@ -71,22 +124,23 @@
 
 **Запрос (включить):**
 ```json
-{"cmd": "gps", "enable": true}
-```
-
-**Запрос (отключить):**
-```json
-{"cmd": "gps", "enable": false}
+{"cmd": "gps", "enable": true, "id": 3}
 ```
 
 **Ответ:**
 ```json
 {
   "cmd": "gps",
+  "id": 3,
   "state": "enabled",
   "power_consumption_ma": 45,
   "status": "ok"
 }
+```
+
+**Запрос (отключить):**
+```json
+{"cmd": "gps", "disable": false, "id": 4}
 ```
 
 ---
@@ -95,7 +149,7 @@
 
 **Запрос:**
 ```json
-{"cmd": "calibrate", "offset": 0.5}
+{"cmd": "calibrate", "offset": 0.5, "id": 5}
 ```
 
 **Параметры:**
@@ -105,6 +159,7 @@
 ```json
 {
   "cmd": "calibrate",
+  "id": 5,
   "previous_offset": 0.2,
   "new_offset": 0.5,
   "estimated_error_us": 10,
@@ -143,13 +198,14 @@
 
 **Запрос:**
 ```json
-{"cmd": "sync_ntp"}
+{"cmd": "sync_ntp", "id": 8}
 ```
 
 **Ответ (успех):**
 ```json
 {
   "cmd": "sync_ntp",
+  "id": 8,
   "status": "ok",
   "rtc_time": 1703169600,
   "ntp_server": "ru.pool.ntp.org",
@@ -161,6 +217,7 @@
 ```json
 {
   "cmd": "sync_ntp",
+  "id": 8,
   "status": "error",
   "error_code": 203,
   "error_message": "WiFi not connected"
@@ -189,6 +246,7 @@
 ```json
 {
   "cmd": "save_config",
+  "id": 9,
   "data": {
     "device": {
       "name": "ENTime-Lab",
@@ -216,6 +274,7 @@
 ```json
 {
   "cmd": "save_config",
+  "id": 9,
   "saved_keys": 5,
   "storage_usage_percent": 15,
   "status": "ok"
@@ -232,13 +291,14 @@
 
 **Запрос:**
 ```json
-{"cmd": "load_config"}
+{"cmd": "load_config", "id": 10}
 ```
 
 **Ответ:**
 ```json
 {
   "cmd": "load_config",
+  "id": 10,
   "data": {
     "device": {
       "name": "ENTime-Lab",
@@ -271,13 +331,14 @@
 
 **Запрос:**
 ```json
-{"cmd": "factory_reset"}
+{"cmd": "factory_reset", "id": 11}
 ```
 
 **Ответ:**
 ```json
 {
   "cmd": "factory_reset",
+  "id": 11,
   "message": "Device will reset in 2 seconds",
   "status": "ok"
 }
@@ -292,6 +353,7 @@
 ```json
 {
   "cmd": "command_name",
+  "id": 123,  // опционально, копируется из запроса
   "status": "ok|warning|error",
   "error_code": 0,
   "error_message": "",
@@ -323,11 +385,12 @@
 
 ```json
 // Запрос
-{"cmd": "time"}
+{"cmd": "time", "id": 1}
 
 // Ответ
 {
   "cmd": "time",
+  "id": 1,
   "time": 1703169600123456,
   "source": "gps",
   "accuracy_us": 50,
@@ -339,20 +402,24 @@
 
 ```json
 // 1. Запрос статуса
-{"cmd": "status"}
+{"cmd": "status", "id": 1}
 
 // Ответ: RTC дрейфит
 {
+  "cmd": "status",
+  "id": 1,
   "sync_source": "rtc",
   "rtc_drifting": true,
   "status": "warning"
 }
 
 // 2. Калибровка
-{"cmd": "calibrate", "offset": 0.8}
+{"cmd": "calibrate", "offset": 0.8, "id": 2}
 
 // Ответ
 {
+  "cmd": "calibrate",
+  "id": 2,
   "previous_offset": 0.2,
   "new_offset": 0.8,
   "status": "ok"
