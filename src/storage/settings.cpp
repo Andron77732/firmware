@@ -1,6 +1,7 @@
 #include "settings.h"
 #include "esp_log.h"
 #include "nvs.h"
+#include <ArduinoJson.h>
 #include <cctype>
 #include <cmath>
 
@@ -441,4 +442,28 @@ bool SettingsManager::getStorageStats(size_t &used_bytes,
            (unsigned long)nvs_stats.namespace_count, used_bytes, total_bytes);
 
   return true;
+}
+
+JsonDocument SettingsManager::toJson() const {
+  JsonDocument doc;
+
+  // Device settings
+  doc["device"]["name"] = settings_.device.name;
+  doc["device"]["number"] = settings_.device.number;
+  doc["device"]["type"] = settings_.device.type;
+  doc["device"]["timezone"] = settings_.device.timezone;
+
+  // Sync settings
+  doc["sync"]["auto"] = settings_.sync.auto_sync;
+  doc["sync"]["source"] = settings_.sync.source;
+
+  // WiFi settings
+  doc["wifi"]["active"] = settings_.wifi.active;
+  doc["wifi"]["ssid"] = settings_.wifi.ssid;
+  doc["wifi"]["passwd"] = settings_.wifi.passwd;
+
+  // Calibration settings
+  doc["calibration"]["rtc_offset_ppm"] = settings_.calibration.rtc_offset_ppm;
+
+  return doc;
 }

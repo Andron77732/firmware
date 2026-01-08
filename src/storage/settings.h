@@ -3,6 +3,7 @@
 
 #include <Preferences.h>
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 // ============================================================================
 // Значения по умолчанию
@@ -152,6 +153,12 @@ public:
    * @return true если успешно
    */
   bool getStorageStats(size_t &used_bytes, size_t &total_bytes) const;
+
+  /**
+   * @brief Получить JSON представление всех настроек
+   * @return JsonDocument с настройками в формате JSON
+   */
+  JsonDocument toJson() const;
 
 private:
   Preferences prefs_;
