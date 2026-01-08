@@ -1,4 +1,5 @@
 #include "command_parser.h"
+#include "command_router.h"
 #include "esp_log.h"
 
 static const char *TAG = "CommandParser";
@@ -124,6 +125,9 @@ void CommandParser::processJson() {
   // Успешный парсинг - логируем JSON
   ESP_LOGI(TAG, "[%s] Received JSON: %.*s", _sourceName,
            (int)(endPos - startPos), _buffer + startPos);
+  
+  // Маршрутизация команды к обработчику
+  CommandRouter::route(doc, *_stream);
 }
 
 void CommandParser::clearBuffer() {
