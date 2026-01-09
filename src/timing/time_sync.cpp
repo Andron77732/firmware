@@ -59,10 +59,16 @@ static bool s_prev_sqw_locked = false;
 static bool s_prev_have_sqw_edge = false; // чтобы логировать "signal acquired" или "signal lost"
 static bool s_logged_sqw_warmup = false;
 
-// Фильтр phase_delta: медиана по 5 последним значениям
+// Фильтр phase_delta: медиана по 5 последним значениям (устойчиво к выбросам NMEA)
 static int64_t s_phase_deltas[5] = {0};
 static uint8_t s_phase_delta_idx = 0;
 static uint8_t s_phase_delta_count = 0;
+
+static void reset_phase_delta_filter() {
+  for (int i = 0; i < 5; ++i) s_phase_deltas[i] = 0;
+  s_phase_delta_idx = 0;
+  s_phase_delta_count = 0;
+}
 
 static int64_t median5(const int64_t v[5]) {
   int64_t a[5] = {v[0], v[1], v[2], v[3], v[4]};
@@ -120,6 +126,7 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
   if (!s_have_nmea)
     return false;
 
+  // Фильтр phase_delta
   int64_t delta_raw = pps_esp_us - s_last_nmea_esp_us;
   s_phase_deltas[s_phase_delta_idx] = delta_raw;
   s_phase_delta_idx = (s_phase_delta_idx + 1) % 5;
@@ -222,6 +229,7 @@ void time_sync_begin() {
   s_prev_sqw_locked = false;
   s_prev_have_sqw_edge = false;
   s_logged_sqw_warmup = false;
+  reset_phase_delta_filter();
 
   // Инициализация системного времени по RTC
   if (rtc.isReady()) {
@@ -255,10 +263,15 @@ void time_sync_update() {
     }
   } else {
     s_status.gps_time_valid = false;
+    s_have_nmea = false;
+    reset_phase_delta_filter();
   }
 
   // --- 2) PPS lock? ---
   s_status.pps_locked = pps_is_locked();
+  if (!s_status.pps_locked) {
+    reset_phase_delta_filter();
+  }
 
   // --- 3) Если PPS нет — fallback на RTC (через SQW 1Hz) ---
   if (!s_status.pps_locked) {
