@@ -48,17 +48,12 @@ bool WiFiManager::end() {
     // Отключаем автопереподключение перед отключением
     _autoReconnect = false;
     
-    // Отключаемся от сети и останавливаем драйвер
-    disconnect();
+    // Отключаемся от сети и выключаем WiFi одним вызовом
     WiFi.disconnect(true, true);
-    delay(50);
-
-    // Выключаем WiFi после остановки STA
-    WiFi.mode(WIFI_OFF);
 
     // Ждем подтверждения выключения WiFi
     const uint32_t t0 = millis();
-    while (millis() - t0 < 200) {
+    while (millis() - t0 < 1000) {
         if (WiFi.getMode() == WIFI_OFF) {
             break;
         }

@@ -92,6 +92,10 @@ void setup() {
   statusBar.begin(display.tft());
   statusBar.draw();
 
+  // Установка callback для мгновенного обновления иконки WiFi при
+  // изменении состояния (независимо от текущих настроек)
+  wifiManager.setStateCallback(onWiFiStateChanged);
+
   // Инициализация footer
   footer.begin(display.tft());
 
@@ -208,8 +212,6 @@ void setup() {
   if (wifi.active && wifi.ssid.length() > 0) {
     mainArea.addLogLine("Initializing WiFi...");
     wifiManager.begin();
-    wifiManager.setStateCallback(onWiFiStateChanged);
-
     // Подключение к WiFi сети
     if (wifiManager.connect(wifi.ssid, wifi.passwd)) {
       ESP_LOGI(TAG, "WiFi connecting to: %s", wifi.ssid.c_str());
