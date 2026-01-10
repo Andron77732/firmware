@@ -26,6 +26,16 @@ void cmdPing(JsonDocument& request, Stream& output);
 void cmdTime(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды load_config
+ *
+ * Возвращает текущие настройки устройства в JSON формате.
+ *
+ * @param request JSON запрос с полем "cmd": "load_config"
+ * @param output Поток для отправки ответа
+ */
+void cmdLoadConfig(JsonDocument& request, Stream& output);
+
+/**
  * @brief Утилита для отправки JSON-ответа в поток
  * 
  * Сериализует переданный JSON-документ (response) в строку, 

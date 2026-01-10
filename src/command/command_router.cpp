@@ -10,6 +10,7 @@ static const char *TAG = "CommandRouter";
 static const CommandRoute commandRoutes[] = {
     {"ping", cmdPing},
     {"time", cmdTime},
+    {"load_config", cmdLoadConfig},
     // Добавьте здесь новые команды:
     // {"setNumber", cmdSetNumber},
 };

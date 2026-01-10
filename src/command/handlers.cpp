@@ -1,4 +1,5 @@
 #include "handlers.h"
+#include "storage/settings.h"
 #include "timing/time_sync.h"
 #include "esp_log.h"
 #include <ArduinoJson.h>
@@ -72,6 +73,24 @@ void cmdTime(JsonDocument& request, Stream& output) {
     
     ESP_LOGI(TAG, "Time command processed: time=%lld us, source=%s, accuracy=%lld us, status=%s",
              (long long)utc_time_us, source_str, (long long)accuracy_us, status_str);
+}
+
+void cmdLoadConfig(JsonDocument& request, Stream& output) {
+    JsonDocument response;
+
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "load_config";
+    response["status"] = "ok";
+
+    JsonDocument settings_doc = settings.toJson();
+    response["data"] = settings_doc.as<JsonVariantConst>();
+
+    sendResponse(response, output, true);
+
+    ESP_LOGI(TAG, "Load_config command processed");
 }
 
 void sendResponse(JsonDocument& response, Stream& output, bool addNewline) {
