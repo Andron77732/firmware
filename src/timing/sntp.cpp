@@ -47,8 +47,13 @@ bool syncRtcUtcFromNtpPrecise(RTC &rtc,
                               const char *ntp2,
                               uint32_t timeoutSyncMs,
                               uint32_t timeoutEdgeMs,
-                              uint32_t edgeWindowUs)
+                              uint32_t edgeWindowUs,
+                              uint32_t *outDurationMs)
 {
+  if (outDurationMs) {
+    *outDurationMs = 0;
+  }
+
   if (!wifiManager.isConnected()) {
     ESP_LOGW(TAG, "WiFi not connected");
     return false;
@@ -63,6 +68,7 @@ bool syncRtcUtcFromNtpPrecise(RTC &rtc,
   sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
 
   // UTC: смещение 0, DST 0
+  const uint32_t t0 = millis();
   if (ntp2 && ntp2[0]) configTime(0, 0, ntp1, ntp2);
   else                 configTime(0, 0, ntp1);
 
@@ -74,6 +80,10 @@ bool syncRtcUtcFromNtpPrecise(RTC &rtc,
   if (!writeRtcOnSecondEdgeUtc(rtc, edgeWindowUs, timeoutEdgeMs)) {
     ESP_LOGW(TAG, "RTC edge-align timeout");
     return false;
+  }
+
+  if (outDurationMs) {
+    *outDurationMs = millis() - t0;
   }
 
   // Контрольный лог (можешь убрать)

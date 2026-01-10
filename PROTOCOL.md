@@ -158,7 +158,6 @@
   "cmd": "gps",
   "id": 3,
   "state": "enabled",
-  "power_consumption_ma": 45,
   "status": "ok"
 }
 ```

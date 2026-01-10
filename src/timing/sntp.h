@@ -20,6 +20,7 @@
  * @param timeoutSyncMs Таймаут ожидания SNTP синхронизации, мс (по умолчанию: SNTP_SYNC_TIMEOUT_MS)
  * @param timeoutEdgeMs Таймаут ожидания границы секунды, мс (по умолчанию: SNTP_EDGE_TIMEOUT_MS)
  * @param edgeWindowUs Окно для записи RTC в начале секунды, мкс (по умолчанию: SNTP_EDGE_WINDOW_US)
+ * @param outDurationMs Указатель для возврата длительности синхронизации, мс (опционально)
  * 
  * @return true если синхронизация успешна, false при ошибке или таймауте
  * 
@@ -36,5 +37,6 @@ bool syncRtcUtcFromNtpPrecise(
     const char *ntp2 = SNTP_SERVER_2,
     uint32_t timeoutSyncMs = SNTP_SYNC_TIMEOUT_MS,
     uint32_t timeoutEdgeMs = SNTP_EDGE_TIMEOUT_MS,
-    uint32_t edgeWindowUs  = SNTP_EDGE_WINDOW_US
+    uint32_t edgeWindowUs  = SNTP_EDGE_WINDOW_US,
+    uint32_t *outDurationMs = nullptr
 );
