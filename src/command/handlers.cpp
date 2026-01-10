@@ -93,6 +93,57 @@ void cmdLoadConfig(JsonDocument& request, Stream& output) {
     ESP_LOGI(TAG, "Load_config command processed");
 }
 
+void cmdSaveConfig(JsonDocument& request, Stream& output) {
+    if (request["data"].isNull()) {
+        sendError("save_config", 102, "Missing 'data' field", request["id"], output);
+        ESP_LOGW(TAG, "Save_config failed: missing data");
+        return;
+    }
+
+    if (!request["data"].is<JsonObject>()) {
+        sendError("save_config", 103, "Invalid 'data' field type", request["id"], output);
+        ESP_LOGW(TAG, "Save_config failed: invalid data type");
+        return;
+    }
+
+    JsonDocument data_doc;
+    data_doc.set(request["data"]);
+
+    if (!settings.fromJson(data_doc)) {
+        sendError("save_config", 103, "Invalid config values", request["id"], output);
+        ESP_LOGW(TAG, "Save_config failed: validation error");
+        return;
+    }
+
+    int saved_keys = settings.save();
+    if (saved_keys < 0) {
+        sendError("save_config", 202, "Failed to save settings", request["id"], output);
+        ESP_LOGW(TAG, "Save_config failed: storage error");
+        return;
+    }
+
+    JsonDocument response;
+
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "save_config";
+    response["saved_keys"] = saved_keys;
+    response["status"] = "ok";
+
+    size_t used_bytes = 0;
+    size_t total_bytes = 0;
+    if (settings.getStorageStats(used_bytes, total_bytes) && total_bytes > 0) {
+        response["storage_usage_percent"] =
+            static_cast<int>((used_bytes * 100U) / total_bytes);
+    }
+
+    sendResponse(response, output, true);
+
+    ESP_LOGI(TAG, "Save_config command processed: saved_keys=%d", saved_keys);
+}
+
 void sendResponse(JsonDocument& response, Stream& output, bool addNewline) {
     String jsonStr;
     serializeJson(response, jsonStr);

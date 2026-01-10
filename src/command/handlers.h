@@ -36,6 +36,16 @@ void cmdTime(JsonDocument& request, Stream& output);
 void cmdLoadConfig(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды save_config
+ *
+ * Сохраняет настройки устройства из поля data.
+ *
+ * @param request JSON запрос с полем "cmd": "save_config"
+ * @param output Поток для отправки ответа
+ */
+void cmdSaveConfig(JsonDocument& request, Stream& output);
+
+/**
  * @brief Утилита для отправки JSON-ответа в поток
  * 
  * Сериализует переданный JSON-документ (response) в строку, 

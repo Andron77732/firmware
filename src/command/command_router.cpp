@@ -11,6 +11,7 @@ static const CommandRoute commandRoutes[] = {
     {"ping", cmdPing},
     {"time", cmdTime},
     {"load_config", cmdLoadConfig},
+    {"save_config", cmdSaveConfig},
     // Добавьте здесь новые команды:
     // {"setNumber", cmdSetNumber},
 };
