@@ -12,6 +12,7 @@ static const CommandRoute commandRoutes[] = {
     {"time", cmdTime},
     {"load_config", cmdLoadConfig},
     {"save_config", cmdSaveConfig},
+    {"sync_ntp", cmdSyncNtp},
     // Добавьте здесь новые команды:
     // {"setNumber", cmdSetNumber},
 };

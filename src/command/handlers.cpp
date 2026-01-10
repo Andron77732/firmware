@@ -1,4 +1,5 @@
 #include "handlers.h"
+#include "timing/sntp.h"
 #include "storage/settings.h"
 #include "timing/time_sync.h"
 #include "esp_log.h"
@@ -142,6 +143,55 @@ void cmdSaveConfig(JsonDocument& request, Stream& output) {
     sendResponse(response, output, true);
 
     ESP_LOGI(TAG, "Save_config command processed: saved_keys=%d", saved_keys);
+}
+
+void cmdSyncNtp(JsonDocument& request, Stream& output) {
+    if (!wifiManager.isConnected()) {
+        sendError("sync_ntp", 204, "WiFi not connected", request["id"], output);
+        ESP_LOGW(TAG, "Sync_ntp failed: WiFi not connected");
+        return;
+    }
+
+    if (!rtc.isReady()) {
+        sendError("sync_ntp", 201, "RTC not initialized", request["id"], output);
+        ESP_LOGW(TAG, "Sync_ntp failed: RTC not initialized");
+        return;
+    }
+
+    uint32_t duration_ms = 0;
+    bool ok = syncRtcUtcFromNtpPrecise(
+        rtc,
+        wifiManager,
+        SNTP_SERVER_1,
+        SNTP_SERVER_2,
+        SNTP_SYNC_TIMEOUT_MS,
+        SNTP_EDGE_TIMEOUT_MS,
+        SNTP_EDGE_WINDOW_US,
+        &duration_ms
+    );
+
+    if (!ok) {
+        sendError("sync_ntp", 203, "NTP sync failed", request["id"], output);
+        ESP_LOGW(TAG, "Sync_ntp failed: unknown error during sync");
+        return;
+    }
+
+    JsonDocument response;
+
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "sync_ntp";
+    response["status"] = "ok";
+    response["rtc_time"] = rtc.unixTime();
+    response["ntp_server"] = SNTP_SERVER_1;
+    response["sync_duration_ms"] = duration_ms;
+
+    sendResponse(response, output, true);
+
+    ESP_LOGI(TAG, "Sync_ntp command processed: duration=%lu ms",
+             (unsigned long)duration_ms);
 }
 
 void sendResponse(JsonDocument& response, Stream& output, bool addNewline) {

@@ -243,7 +243,7 @@
   "cmd": "sync_ntp",
   "id": 8,
   "status": "error",
-  "error_code": 203,
+  "error_code": 204,
   "error_message": "WiFi not connected"
 }
 ```
@@ -400,6 +400,7 @@
 | 201 | error | RTC не инициализирован |
 | 202 | error | Ошибка сохранения в Preferences |
 | 203 | error | Ошибка при синхронизации времени |
+| 204 | error | WiFi не подключен |
 
 ---
 

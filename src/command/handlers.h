@@ -46,6 +46,16 @@ void cmdLoadConfig(JsonDocument& request, Stream& output);
 void cmdSaveConfig(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды sync_ntp
+ *
+ * Выполняет синхронизацию RTC по NTP и возвращает параметры результата.
+ *
+ * @param request JSON запрос с полем "cmd": "sync_ntp"
+ * @param output Поток для отправки ответа
+ */
+void cmdSyncNtp(JsonDocument& request, Stream& output);
+
+/**
  * @brief Утилита для отправки JSON-ответа в поток
  * 
  * Сериализует переданный JSON-документ (response) в строку, 
