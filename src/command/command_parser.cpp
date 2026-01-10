@@ -1,5 +1,6 @@
 #include "command_parser.h"
 #include "command_router.h"
+#include "handlers.h"
 #include "esp_log.h"
 
 static const char *TAG = "CommandParser";
@@ -119,6 +120,8 @@ void CommandParser::processJson() {
     ESP_LOGW(TAG, "[%s] Invalid JSON: %s", _sourceName, error.c_str());
     ESP_LOGD(TAG, "[%s] JSON content: %.*s", _sourceName,
              (int)(endPos - startPos), _buffer + startPos);
+    JsonVariant nullId;
+    sendError("", 101, "Invalid JSON", nullId, *_stream);
     return;
   }
 
