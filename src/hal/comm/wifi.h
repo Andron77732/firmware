@@ -30,7 +30,7 @@ public:
     /**
      * @brief Отключение WiFi модуля
      */
-    void end();
+    bool end();
     
     /**
      * @brief Подключение к WiFi сети
@@ -119,4 +119,3 @@ private:
 extern WiFiManager wifiManager;
 
 #endif // WIFI_H
-

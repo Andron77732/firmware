@@ -223,6 +223,17 @@
 }
 ```
 
+**Ответ (ошибка остановки):**
+```json
+{
+  "cmd": "wifi",
+  "id": 14,
+  "status": "error",
+  "error_code": 206,
+  "error_message": "WiFi stop timeout"
+}
+```
+
 **Параметры ответа:**
 - `state` — `"enabled"` или `"disabled"`
 
@@ -461,6 +472,7 @@
 | 203 | error | Ошибка при синхронизации времени |
 | 204 | error | WiFi не подключен |
 | 205 | error | Ошибка запуска WiFi |
+| 206 | error | Таймаут остановки WiFi |
 
 ---
 

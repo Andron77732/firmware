@@ -56,6 +56,16 @@ void cmdSaveConfig(JsonDocument& request, Stream& output);
 void cmdSyncNtp(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды wifi
+ *
+ * Включает или выключает WiFi, опционально задает SSID и пароль.
+ *
+ * @param request JSON запрос с полем "cmd": "wifi"
+ * @param output Поток для отправки ответа
+ */
+void cmdWifi(JsonDocument& request, Stream& output);
+
+/**
  * @brief Утилита для отправки JSON-ответа в поток
  * 
  * Сериализует переданный JSON-документ (response) в строку, 

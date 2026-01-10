@@ -1,6 +1,7 @@
 #include "handlers.h"
 #include "timing/sntp.h"
 #include "storage/settings.h"
+#include "hal/comm/wifi.h"
 #include "timing/time_sync.h"
 #include "esp_log.h"
 #include <ArduinoJson.h>
@@ -192,6 +193,86 @@ void cmdSyncNtp(JsonDocument& request, Stream& output) {
 
     ESP_LOGI(TAG, "Sync_ntp command processed: duration=%lu ms",
              (unsigned long)duration_ms);
+}
+
+void cmdWifi(JsonDocument& request, Stream& output) {
+    if (request["enable"].isNull()) {
+        sendError("wifi", 102, "Missing 'enable' field", request["id"], output);
+        ESP_LOGW(TAG, "WiFi command failed: missing enable");
+        return;
+    }
+
+    if (!request["enable"].is<bool>()) {
+        sendError("wifi", 103, "Invalid 'enable' field type", request["id"], output);
+        ESP_LOGW(TAG, "WiFi command failed: invalid enable type");
+        return;
+    }
+
+    bool enable = request["enable"].as<bool>();
+    if (!enable) {
+        bool stopped = wifiManager.end();
+        if (!stopped) {
+            sendError("wifi", 206, "WiFi stop timeout", request["id"], output);
+            ESP_LOGW(TAG, "WiFi stop timeout");
+            return;
+        }
+
+        JsonDocument response;
+        if (!request["id"].isNull()) {
+            response["id"] = request["id"];
+        }
+
+        response["cmd"] = "wifi";
+        response["state"] = "disabled";
+        response["status"] = "ok";
+
+        sendResponse(response, output, true);
+        ESP_LOGI(TAG, "WiFi disabled via command");
+        return;
+    }
+
+    String ssid;
+    String passwd;
+    bool has_ssid = false;
+    if (!request["ssid"].isNull()) {
+        ssid = request["ssid"].as<String>();
+        has_ssid = ssid.length() > 0;
+        if (!request["passwd"].isNull()) {
+            passwd = request["passwd"].as<String>();
+        }
+    }
+
+    if (!has_ssid) {
+        const WifiSettings &wifi = settings.getWifi();
+        ssid = wifi.ssid;
+        passwd = wifi.passwd;
+        has_ssid = ssid.length() > 0;
+    }
+
+    if (!has_ssid) {
+        sendError("wifi", 102, "Missing 'ssid' field", request["id"], output);
+        ESP_LOGW(TAG, "WiFi command failed: missing ssid");
+        return;
+    }
+
+    wifiManager.begin();
+    if (!wifiManager.connect(ssid, passwd)) {
+        sendError("wifi", 205, "WiFi start failed", request["id"], output);
+        ESP_LOGW(TAG, "WiFi command failed: connect start failed");
+        return;
+    }
+
+    JsonDocument response;
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "wifi";
+    response["state"] = "enabled";
+    response["status"] = "ok";
+
+    sendResponse(response, output, true);
+    ESP_LOGI(TAG, "WiFi enabled via command: ssid=%s", ssid.c_str());
 }
 
 void sendResponse(JsonDocument& response, Stream& output, bool addNewline) {
