@@ -51,6 +51,16 @@
 #define SNTP_POLL_DELAY_MS      50
 #define SNTP_EDGE_POLL_DELAY_MS 1
 
+// --- Event packets ---
+#define START_HEADER '$'
+#define FINISH_HEADER 'F'
+#define BEEP_HEADER 'B'
+#define VOICE_HEADER 'V'
+#define PACKET_ENDER '#'
+
+#define MAX_CORRECTION_MS 10000U
+#define START_EVENT_DELAY_US 2000000U
+
 // --- Module Type ---
 // Тип модуля устройства
 enum class ModuleType {
