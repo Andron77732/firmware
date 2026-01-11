@@ -59,6 +59,7 @@ static bool s_logged_no_sqw = false;
 static bool s_prev_sqw_locked = false;
 static bool s_prev_have_sqw_edge = false; // чтобы логировать "signal acquired" или "signal lost"
 static bool s_logged_sqw_warmup = false;
+static bool s_logged_rtc_only = false;
 
 static bool is_auto_sync_enabled() {
   return settings.getSync().auto_sync;
@@ -234,6 +235,7 @@ void time_sync_begin() {
   s_prev_sqw_locked = false;
   s_prev_have_sqw_edge = false;
   s_logged_sqw_warmup = false;
+  s_logged_rtc_only = false;
   reset_phase_delta_filter();
 
   // Инициализация системного времени по RTC
@@ -247,10 +249,15 @@ void time_sync_begin() {
 
 void time_sync_update() {
   const bool auto_sync_enabled = is_auto_sync_enabled();
+  const uint8_t sync_source = settings.getSync().source;
+  const bool allow_gps = (sync_source != 2);
+  if (allow_gps) {
+    s_logged_rtc_only = false;
+  }
 
   // --- 1) NMEA: обновляем секунду и фиксируем момент её получения ---
   uint32_t gps_utc = 0;
-  if (gps_time_to_unix(gps_utc)) {
+  if (allow_gps && gps_time_to_unix(gps_utc)) {
     s_status.gps_time_valid = true;
 
     int64_t nmea_arrival_us = 0;
@@ -277,7 +284,7 @@ void time_sync_update() {
   }
 
   // --- 2) PPS lock? ---
-  s_status.pps_locked = pps_is_locked();
+  s_status.pps_locked = allow_gps && pps_is_locked();
   if (!s_status.pps_locked) {
     reset_phase_delta_filter();
   }
@@ -352,7 +359,12 @@ void time_sync_update() {
 
       // Для красивого лога вытащим секунду RTC
       uint32_t rtc_sec = rtc.unixTime();
-      ESP_LOGW(TAG, "GPS/PPS lost -> RTC+SQW fallback. rtc=%lu", (unsigned long)rtc_sec);
+      if (allow_gps) {
+        ESP_LOGW(TAG, "GPS/PPS lost -> RTC+SQW fallback. rtc=%lu", (unsigned long)rtc_sec);
+      } else if (!s_logged_rtc_only) {
+        ESP_LOGI(TAG, "RTC-only mode (sync.source=2). rtc=%lu", (unsigned long)rtc_sec);
+        s_logged_rtc_only = true;
+      }
     }
 
     // реагируем только на новый фронт SQW
