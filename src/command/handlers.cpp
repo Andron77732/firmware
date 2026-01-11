@@ -108,6 +108,8 @@ void cmdSaveConfig(JsonDocument& request, Stream& output) {
         return;
     }
 
+    Settings prev_settings = settings.getAll();
+
     JsonDocument data_doc;
     data_doc.set(request["data"]);
 
@@ -124,6 +126,18 @@ void cmdSaveConfig(JsonDocument& request, Stream& output) {
         return;
     }
 
+    Settings new_settings = settings.getAll();
+    bool reboot_needed =
+        prev_settings.device.name != new_settings.device.name ||
+        prev_settings.device.number != new_settings.device.number ||
+        prev_settings.device.type != new_settings.device.type ||
+        prev_settings.device.timezone != new_settings.device.timezone ||
+        prev_settings.sync.auto_sync != new_settings.sync.auto_sync ||
+        prev_settings.sync.source != new_settings.sync.source ||
+        prev_settings.wifi.active != new_settings.wifi.active ||
+        prev_settings.wifi.ssid != new_settings.wifi.ssid ||
+        prev_settings.wifi.passwd != new_settings.wifi.passwd;
+
     JsonDocument response;
 
     if (!request["id"].isNull()) {
@@ -132,6 +146,7 @@ void cmdSaveConfig(JsonDocument& request, Stream& output) {
 
     response["cmd"] = "save_config";
     response["saved_keys"] = saved_keys;
+    response["reboot_needed"] = reboot_needed;
     response["status"] = "ok";
 
     size_t used_bytes = 0;
