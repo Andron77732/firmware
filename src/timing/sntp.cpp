@@ -55,6 +55,11 @@ bool syncRtcUtcFromNtpPrecise(RTC &rtc,
     *outDurationMs = 0;
   }
 
+  if (!ntp1 || !ntp1[0]) {
+    ESP_LOGW(TAG, "NTP server 1 is empty");
+    return false;
+  }
+
   if (!wifiManager.isConnected()) {
     ESP_LOGW(TAG, "WiFi not connected");
     return false;
