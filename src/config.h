@@ -43,8 +43,6 @@
 #define BLE_DIS_SERIAL_PREFIX "FR-"            // Serial Number prefix for auto-generation
 
 // --- SNTP/NTP ---
-#define SNTP_SERVER_1           "ru.pool.ntp.org"
-#define SNTP_SERVER_2           "time.google.com"
 #define SNTP_SYNC_TIMEOUT_MS    15000
 #define SNTP_EDGE_TIMEOUT_MS    2500
 #define SNTP_EDGE_WINDOW_US     1500
@@ -59,4 +57,3 @@ enum class ModuleType {
 };
 
 #endif // CONFIG_H
-

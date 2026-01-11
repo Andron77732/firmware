@@ -45,6 +45,7 @@ bool syncRtcUtcFromNtpPrecise(RTC &rtc,
                               WiFiManager &wifiManager,
                               const char *ntp1,
                               const char *ntp2,
+                              const char *ntp3,
                               uint32_t timeoutSyncMs,
                               uint32_t timeoutEdgeMs,
                               uint32_t edgeWindowUs,
@@ -69,8 +70,14 @@ bool syncRtcUtcFromNtpPrecise(RTC &rtc,
 
   // UTC: смещение 0, DST 0
   const uint32_t t0 = millis();
-  if (ntp2 && ntp2[0]) configTime(0, 0, ntp1, ntp2);
-  else                 configTime(0, 0, ntp1);
+  if (ntp3 && ntp3[0]) {
+    if (ntp2 && ntp2[0]) configTime(0, 0, ntp1, ntp2, ntp3);
+    else                 configTime(0, 0, ntp1, ntp3);
+  } else if (ntp2 && ntp2[0]) {
+    configTime(0, 0, ntp1, ntp2);
+  } else {
+    configTime(0, 0, ntp1);
+  }
 
   if (!waitForSntpSync(timeoutSyncMs)) {
     ESP_LOGW(TAG, "NTP sync timeout");

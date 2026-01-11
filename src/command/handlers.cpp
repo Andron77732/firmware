@@ -160,11 +160,16 @@ void cmdSyncNtp(JsonDocument& request, Stream& output) {
     }
 
     uint32_t duration_ms = 0;
+    const SyncSettings &sync = settings.getSync();
+    const char *ntp1 = (sync.ntp1.length() > 0) ? sync.ntp1.c_str() : DEFAULT_SYNC_NTP1;
+    const char *ntp2 = (sync.ntp2.length() > 0) ? sync.ntp2.c_str() : DEFAULT_SYNC_NTP2;
+    const char *ntp3 = (sync.ntp3.length() > 0) ? sync.ntp3.c_str() : DEFAULT_SYNC_NTP3;
     bool ok = syncRtcUtcFromNtpPrecise(
         rtc,
         wifiManager,
-        SNTP_SERVER_1,
-        SNTP_SERVER_2,
+        ntp1,
+        ntp2,
+        ntp3,
         SNTP_SYNC_TIMEOUT_MS,
         SNTP_EDGE_TIMEOUT_MS,
         SNTP_EDGE_WINDOW_US,
@@ -186,7 +191,7 @@ void cmdSyncNtp(JsonDocument& request, Stream& output) {
     response["cmd"] = "sync_ntp";
     response["status"] = "ok";
     response["rtc_time"] = rtc.unixTime();
-    response["ntp_server"] = SNTP_SERVER_1;
+    response["ntp_server"] = ntp1;
     response["sync_duration_ms"] = duration_ms;
 
     sendResponse(response, output, true);

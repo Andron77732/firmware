@@ -1,6 +1,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include "config.h"
 #include <Preferences.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -9,13 +10,16 @@
 // Значения по умолчанию
 // ============================================================================
 
-#define DEFAULT_DEVICE_NAME "ENTime"
+#define DEFAULT_DEVICE_NAME BLE_DEVICE_NAME
 #define DEFAULT_DEVICE_NUMBER 1
 #define DEFAULT_DEVICE_TYPE 1
 #define DEFAULT_DEVICE_TIMEZONE 3
 
 #define DEFAULT_SYNC_AUTO true
 #define DEFAULT_SYNC_SOURCE 0
+#define DEFAULT_SYNC_NTP1 "ru.pool.ntp.org"
+#define DEFAULT_SYNC_NTP2 "time.google.com"
+#define DEFAULT_SYNC_NTP3 "time.cloudflare.com"
 
 #define DEFAULT_WIFI_ACTIVE false
 #define DEFAULT_WIFI_SSID ""
@@ -43,6 +47,9 @@ struct DeviceSettings {
 struct SyncSettings {
   bool auto_sync = DEFAULT_SYNC_AUTO;       // автоматическая синхронизация
   uint8_t source = DEFAULT_SYNC_SOURCE;     // 0 = авто, 1 = GPS, 2 = RTC
+  String ntp1 = DEFAULT_SYNC_NTP1;          // основной NTP сервер
+  String ntp2 = DEFAULT_SYNC_NTP2;          // резервный NTP сервер
+  String ntp3 = DEFAULT_SYNC_NTP3;          // третичный NTP сервер
 };
 
 /**
@@ -191,6 +198,7 @@ private:
   bool isValidAsciiName(const String &name) const;
   bool isValidDeviceType(uint8_t type) const;
   bool isValidSyncSource(uint8_t source) const;
+  bool isValidNtpHost(const String &host, bool allowEmpty) const;
 
   // Сохранение/загрузка отдельных групп
   size_t saveDevice();

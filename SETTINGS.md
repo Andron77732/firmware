@@ -23,7 +23,10 @@
     },
     "sync": {
       "auto": ...,
-      "source": ...
+      "source": ...,
+      "ntp1": "...",
+      "ntp2": "...",
+      "ntp3": "..."
     },
     "wifi": {
       "active": ...,
@@ -124,6 +127,38 @@
 - **Ограничения:** Только одно из трёх допустимых значений (0, 1 или 2)
 - **Примечание:** При установке `1` (GPS) без сигнала GPS устройство всё равно переключится на RTC для обеспечения работы
 
+#### `sync.ntp1`
+- **Путь в JSON:** `data.sync.ntp1`
+- **Тип:** `string`
+- **По умолчанию:** `"ru.pool.ntp.org"`
+- **Описание:** Основной NTP сервер для команды `sync_ntp`.
+- **Ограничения:**
+  - Длина: 1..64 символа
+  - Только ASCII символы (a-z, A-Z, 0-9, `-`, `.`)
+- **Пример:** `"ru.pool.ntp.org"`
+
+#### `sync.ntp2`
+- **Путь в JSON:** `data.sync.ntp2`
+- **Тип:** `string`
+- **По умолчанию:** `"time.google.com"`
+- **Описание:** Резервный NTP сервер.
+- **Ограничения:**
+  - Может быть пустой строкой
+  - Длина: 1..64 символа
+  - Только ASCII символы (a-z, A-Z, 0-9, `-`, `.`)
+- **Пример:** `"time.google.com"`
+
+#### `sync.ntp3`
+- **Путь в JSON:** `data.sync.ntp3`
+- **Тип:** `string`
+- **По умолчанию:** `"time.cloudflare.com"`
+- **Описание:** Третичный NTP сервер.
+- **Ограничения:**
+  - Может быть пустой строкой
+  - Длина: 1..64 символа
+  - Только ASCII символы (a-z, A-Z, 0-9, `-`, `.`)
+- **Пример:** `"time.cloudflare.com"`
+
 ---
 
 ### Настройки калибровки
@@ -187,6 +222,9 @@
 | `device.timezone` | `data.device.timezone` | integer | `3` | -12..12 часов | Устройство |
 | `sync.auto` | `data.sync.auto` | boolean | `true` | true/false | Синхронизация |
 | `sync.source` | `data.sync.source` | integer | `0` | 0/1/2 | Синхронизация |
+| `sync.ntp1` | `data.sync.ntp1` | string | `"ru.pool.ntp.org"` | 1..64 ASCII, `-`/`.` | Синхронизация |
+| `sync.ntp2` | `data.sync.ntp2` | string | `"time.google.com"` | пусто или 1..64 ASCII, `-`/`.` | Синхронизация |
+| `sync.ntp3` | `data.sync.ntp3` | string | `"time.cloudflare.com"` | пусто или 1..64 ASCII, `-`/`.` | Синхронизация |
 | `wifi.active` | `data.wifi.active` | boolean | `false` | true/false | WiFi |
 | `wifi.ssid` | `data.wifi.ssid` | string | `""` | до 32 символов | WiFi |
 | `wifi.passwd` | `data.wifi.passwd` | string | `""` | до 64 символов | WiFi |
@@ -211,7 +249,10 @@
     },
     "sync": {
       "auto": true,
-      "source": 0
+      "source": 0,
+      "ntp1": "ru.pool.ntp.org",
+      "ntp2": "time.google.com",
+      "ntp3": "time.cloudflare.com"
     },
     "wifi": {
       "active": false,
@@ -255,7 +296,10 @@
     },
     "sync": {
       "auto": true,
-      "source": 0
+      "source": 0,
+      "ntp1": "ru.pool.ntp.org",
+      "ntp2": "time.google.com",
+      "ntp3": "time.cloudflare.com"
     },
     "wifi": {
       "active": false,
@@ -328,6 +372,9 @@
 | `data.device.timezone` | `3` |
 | `data.sync.auto` | `true` |
 | `data.sync.source` | `0` |
+| `data.sync.ntp1` | `"ru.pool.ntp.org"` |
+| `data.sync.ntp2` | `"time.google.com"` |
+| `data.sync.ntp3` | `"time.cloudflare.com"` |
 | `data.wifi.active` | `false` |
 | `data.wifi.ssid` | `""` |
 | `data.wifi.passwd` | `""` |
@@ -352,4 +399,3 @@
 
 - [PROTOCOL.md](PROTOCOL.md) — протокол команд и API
 - [README.md](README.md) — общая информация о проекте
-

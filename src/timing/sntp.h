@@ -17,6 +17,7 @@
  * @param wifiManager Менеджер WiFi (должен быть подключён)
  * @param ntp1 Первичный NTP сервер (по умолчанию: SNTP_SERVER_1)
  * @param ntp2 Вторичный NTP сервер, опционально (по умолчанию: SNTP_SERVER_2)
+ * @param ntp3 Третичный NTP сервер, опционально (по умолчанию: SNTP_SERVER_3)
  * @param timeoutSyncMs Таймаут ожидания SNTP синхронизации, мс (по умолчанию: SNTP_SYNC_TIMEOUT_MS)
  * @param timeoutEdgeMs Таймаут ожидания границы секунды, мс (по умолчанию: SNTP_EDGE_TIMEOUT_MS)
  * @param edgeWindowUs Окно для записи RTC в начале секунды, мкс (по умолчанию: SNTP_EDGE_WINDOW_US)
@@ -35,6 +36,7 @@ bool syncRtcUtcFromNtpPrecise(
     WiFiManager &wifiManager,
     const char *ntp1 = SNTP_SERVER_1,
     const char *ntp2 = SNTP_SERVER_2,
+    const char *ntp3 = SNTP_SERVER_3,
     uint32_t timeoutSyncMs = SNTP_SYNC_TIMEOUT_MS,
     uint32_t timeoutEdgeMs = SNTP_EDGE_TIMEOUT_MS,
     uint32_t edgeWindowUs  = SNTP_EDGE_WINDOW_US,

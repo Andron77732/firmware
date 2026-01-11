@@ -330,7 +330,7 @@
 - WiFi должен быть подключён
 - RTC должен быть инициализирован
 
-**Примечание:** Команда выполняет точную синхронизацию RTC по NTP с выравниванием на границу секунды. Используются серверы из конфигурации (SNTP_SERVER_1, SNTP_SERVER_2).
+**Примечание:** Команда выполняет точную синхронизацию RTC по NTP с выравниванием на границу секунды. Используются серверы из конфигурации (SNTP_SERVER_1, SNTP_SERVER_2, SNTP_SERVER_3).
 
 ---
 
@@ -350,7 +350,10 @@
     },
     "sync": {
       "auto": true,
-      "source": 0
+      "source": 0,
+      "ntp1": "ru.pool.ntp.org",
+      "ntp2": "time.google.com",
+      "ntp3": "time.cloudflare.com"
     },
     "wifi": {
       "active": false,
@@ -402,7 +405,10 @@
     },
     "sync": {
       "auto": true,
-      "source": 0
+      "source": 0,
+      "ntp1": "ru.pool.ntp.org",
+      "ntp2": "time.google.com",
+      "ntp3": "time.cloudflare.com"
     },
     "wifi": {
       "active": false,

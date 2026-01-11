@@ -48,6 +48,23 @@ bool SettingsManager::isValidSyncSource(uint8_t source) const {
   return source == 0 || source == 1 || source == 2;
 }
 
+bool SettingsManager::isValidNtpHost(const String &host, bool allowEmpty) const {
+  if (host.length() == 0) {
+    return allowEmpty;
+  }
+  if (host.length() > 64) {
+    return false;
+  }
+
+  for (uint16_t i = 0; i < host.length(); i++) {
+    char c = host.charAt(i);
+    if (!std::isalnum((unsigned char)c) && c != '-' && c != '.') {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool SettingsManager::validateDevice(const DeviceSettings &device) const {
   if (!isValidAsciiName(device.name)) {
     ESP_LOGE(TAG, "Invalid device.name: must be 1-16 ASCII characters (a-z, "
@@ -83,6 +100,22 @@ bool SettingsManager::validateSync(const SyncSettings &sync) const {
         TAG,
         "Invalid sync.source: must be 0 (auto), 1 (gps), or 2 (rtc), got %u",
         sync.source);
+    return false;
+  }
+
+  if (!isValidNtpHost(sync.ntp1, false)) {
+    ESP_LOGE(TAG, "Invalid sync.ntp1: must be 1-64 ASCII hostname chars (a-z, "
+                  "A-Z, 0-9, -, .)");
+    return false;
+  }
+  if (!isValidNtpHost(sync.ntp2, true)) {
+    ESP_LOGE(TAG, "Invalid sync.ntp2: must be empty or 1-64 ASCII hostname "
+                  "chars (a-z, A-Z, 0-9, -, .)");
+    return false;
+  }
+  if (!isValidNtpHost(sync.ntp3, true)) {
+    ESP_LOGE(TAG, "Invalid sync.ntp3: must be empty or 1-64 ASCII hostname "
+                  "chars (a-z, A-Z, 0-9, -, .)");
     return false;
   }
 
@@ -131,6 +164,9 @@ void SettingsManager::setDefaults() {
 
   settings_.sync.auto_sync = DEFAULT_SYNC_AUTO;
   settings_.sync.source = DEFAULT_SYNC_SOURCE;
+  settings_.sync.ntp1 = DEFAULT_SYNC_NTP1;
+  settings_.sync.ntp2 = DEFAULT_SYNC_NTP2;
+  settings_.sync.ntp3 = DEFAULT_SYNC_NTP3;
 
   settings_.wifi.active = DEFAULT_WIFI_ACTIVE;
   settings_.wifi.ssid = DEFAULT_WIFI_SSID;
@@ -240,6 +276,12 @@ size_t SettingsManager::saveSync() {
   if (putUCharIfChanged_("sync.source", settings_.sync.source,
                          DEFAULT_SYNC_SOURCE))
     count++;
+  if (putStringIfChanged_("sync.ntp1", settings_.sync.ntp1, DEFAULT_SYNC_NTP1))
+    count++;
+  if (putStringIfChanged_("sync.ntp2", settings_.sync.ntp2, DEFAULT_SYNC_NTP2))
+    count++;
+  if (putStringIfChanged_("sync.ntp3", settings_.sync.ntp3, DEFAULT_SYNC_NTP3))
+    count++;
   return count;
 }
 
@@ -282,6 +324,10 @@ void SettingsManager::loadSync() {
   settings_.sync.auto_sync = prefs_.getBool("sync.auto", DEFAULT_SYNC_AUTO);
 
   settings_.sync.source = prefs_.getUChar("sync.source", DEFAULT_SYNC_SOURCE);
+
+  settings_.sync.ntp1 = prefs_.getString("sync.ntp1", DEFAULT_SYNC_NTP1);
+  settings_.sync.ntp2 = prefs_.getString("sync.ntp2", DEFAULT_SYNC_NTP2);
+  settings_.sync.ntp3 = prefs_.getString("sync.ntp3", DEFAULT_SYNC_NTP3);
 }
 
 void SettingsManager::loadWifi() {
@@ -479,6 +525,9 @@ JsonDocument SettingsManager::toJson() const {
   // Sync settings
   doc["sync"]["auto"] = settings_.sync.auto_sync;
   doc["sync"]["source"] = settings_.sync.source;
+  doc["sync"]["ntp1"] = settings_.sync.ntp1;
+  doc["sync"]["ntp2"] = settings_.sync.ntp2;
+  doc["sync"]["ntp3"] = settings_.sync.ntp3;
 
   // WiFi settings
   doc["wifi"]["active"] = settings_.wifi.active;
@@ -525,6 +574,15 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
     }
     if (!doc["sync"]["source"].isNull()) {
       sync.source = doc["sync"]["source"].as<uint8_t>();
+    }
+    if (!doc["sync"]["ntp1"].isNull()) {
+      sync.ntp1 = doc["sync"]["ntp1"].as<String>();
+    }
+    if (!doc["sync"]["ntp2"].isNull()) {
+      sync.ntp2 = doc["sync"]["ntp2"].as<String>();
+    }
+    if (!doc["sync"]["ntp3"].isNull()) {
+      sync.ntp3 = doc["sync"]["ntp3"].as<String>();
     }
 
     if (!validateSync(sync)) {
