@@ -6,6 +6,8 @@
 // ============================================================================
 
 #define VERSION "0.1.0"
+#define HARDWARE "v1"
+#define PROTOCOL "v1"
 
 // --- TFT Display (ILI9341) ---
 // Пины определены в platformio.ini через build_flags для TFT_eSPI
@@ -37,9 +39,9 @@
 // --- BLE Device Information Service (DIS) ---
 #define BLE_DIS_MANUFACTURER  BLE_DEVICE_NAME  // Manufacturer Name
 #define BLE_DIS_MODEL         "Gate"           // Model Number
-#define BLE_DIS_HARDWARE      "v1"             // Hardware Revision
+#define BLE_DIS_HARDWARE      HARDWARE         // Hardware Revision
 #define BLE_DIS_FIRMWARE      VERSION          // Firmware version
-#define BLE_DIS_SOFTWARE      VERSION          // Software Revision (firmware version)
+#define BLE_DIS_SOFTWARE      PROTOCOL         // Protocol Revision
 #define BLE_DIS_SERIAL_PREFIX "FR-"            // Serial Number prefix for auto-generation
 
 // --- SNTP/NTP ---
