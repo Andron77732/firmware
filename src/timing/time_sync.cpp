@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
+#include "storage/settings.h"
 #include "pps_isr.h"
 #include <RTClib.h>
 #include <esp_timer.h>
@@ -58,6 +59,10 @@ static bool s_logged_no_sqw = false;
 static bool s_prev_sqw_locked = false;
 static bool s_prev_have_sqw_edge = false; // чтобы логировать "signal acquired" или "signal lost"
 static bool s_logged_sqw_warmup = false;
+
+static bool is_auto_sync_enabled() {
+  return settings.getSync().auto_sync;
+}
 
 // Фильтр phase_delta: медиана по 5 последним значениям (устойчиво к выбросам NMEA)
 static int64_t s_phase_deltas[5] = {0};
@@ -232,13 +237,17 @@ void time_sync_begin() {
   reset_phase_delta_filter();
 
   // Инициализация системного времени по RTC
-  if (rtc.isReady()) {
+  if (rtc.isReady() && is_auto_sync_enabled()) {
     bool aligned = set_system_time_from_rtc_on_second_edge(1500);
     ESP_LOGI(TAG, "Boot time from RTC: %s", aligned ? "aligned to second" : "not aligned (timeout)");
+  } else if (rtc.isReady()) {
+    ESP_LOGI(TAG, "Auto sync disabled: boot time from RTC skipped");
   }
 }
 
 void time_sync_update() {
+  const bool auto_sync_enabled = is_auto_sync_enabled();
+
   // --- 1) NMEA: обновляем секунду и фиксируем момент её получения ---
   uint32_t gps_utc = 0;
   if (gps_time_to_unix(gps_utc)) {
@@ -386,18 +395,22 @@ void time_sync_update() {
                           ((now_us - s_status.last_sync_us) > kMaxHoldoffUs);
 
         if (need_adjust) {
-          int64_t sec64  = target_us / 1000000LL;
-          int64_t usec64 = target_us % 1000000LL;
-          if (usec64 < 0) { usec64 += 1000000LL; sec64 -= 1; }
+          if (auto_sync_enabled) {
+            int64_t sec64  = target_us / 1000000LL;
+            int64_t usec64 = target_us % 1000000LL;
+            if (usec64 < 0) { usec64 += 1000000LL; sec64 -= 1; }
 
-          timeval tv{};
-          tv.tv_sec  = (time_t)sec64;
-          tv.tv_usec = (suseconds_t)usec64;
-          settimeofday(&tv, nullptr);
+            timeval tv{};
+            tv.tv_sec  = (time_t)sec64;
+            tv.tv_usec = (suseconds_t)usec64;
+            settimeofday(&tv, nullptr);
 
-          s_status.last_sync_us    = now_us;
-          s_status.last_offset_us  = delta_us;
-          s_status.last_utc_second = (uint32_t)tv.tv_sec;
+            s_status.last_sync_us    = now_us;
+            s_status.last_offset_us  = delta_us;
+            s_status.last_utc_second = (uint32_t)tv.tv_sec;
+          } else {
+            s_status.last_offset_us = delta_us;
+          }
         }
       }
     }
@@ -455,7 +468,7 @@ void time_sync_update() {
 
   // Дисциплина RTC по PPS: отложенная установка на следующий PPS
   if (s_rtc_pps_pending && pps_count == s_rtc_pps_target_count) {
-    if (age_us <= kRtcPpsAlignWindowUs && rtc.isReady()) {
+    if (auto_sync_enabled && age_us <= kRtcPpsAlignWindowUs && rtc.isReady()) {
       rtc.setTime(s_rtc_pps_target_sec);
       ESP_LOGI(TAG, "RTC set from PPS: %lu (aligned, age %lld us)",
                (unsigned long)s_rtc_pps_target_sec, (long long)age_us);
@@ -478,29 +491,31 @@ void time_sync_update() {
                      ((now_us - s_status.last_sync_us) > kMaxHoldoffUs);
 
   if (need_adjust) {
-    int64_t sec64  = target_us / 1000000LL;
-    int64_t usec64 = target_us % 1000000LL;
-    if (usec64 < 0) { usec64 += 1000000LL; sec64 -= 1; }
+    if (auto_sync_enabled) {
+      int64_t sec64  = target_us / 1000000LL;
+      int64_t usec64 = target_us % 1000000LL;
+      if (usec64 < 0) { usec64 += 1000000LL; sec64 -= 1; }
 
-    timeval tv{};
-    tv.tv_sec  = (time_t)sec64;
-    tv.tv_usec = (suseconds_t)usec64;
+      timeval tv{};
+      tv.tv_sec  = (time_t)sec64;
+      tv.tv_usec = (suseconds_t)usec64;
 
-    settimeofday(&tv, nullptr);
+      settimeofday(&tv, nullptr);
 
-    s_status.last_sync_us     = now_us;
-    s_status.last_utc_second  = (uint32_t)tv.tv_sec;
-    s_last_synced_pps_us      = pps_time_us;
+      s_status.last_sync_us     = now_us;
+      s_status.last_utc_second  = (uint32_t)tv.tv_sec;
+      s_last_synced_pps_us      = pps_time_us;
 
-    ESP_LOGI(TAG,
-             "System time synced: %ld.%06ld (delta %lld us, age %lld us, pps_utc %lu, phase %lld us, pps %lld, cnt %lu)",
-             (long)tv.tv_sec, (long)tv.tv_usec,
-             (long long)delta_us, (long long)age_us,
-             (unsigned long)utc_second,
-             (long long)phase_delta_us,
-             (long long)pps_time_us,
-             (unsigned long)pps_count);
-
+      ESP_LOGI(TAG,
+               "System time synced: %ld.%06ld (delta %lld us, age %lld us, pps_utc %lu, phase %lld us, pps %lld, cnt %lu)",
+               (long)tv.tv_sec, (long)tv.tv_usec,
+               (long long)delta_us, (long long)age_us,
+               (unsigned long)utc_second,
+               (long long)phase_delta_us,
+               (long long)pps_time_us,
+               (unsigned long)pps_count);
+    }
+    s_status.last_offset_us = delta_us;
   }
 
   s_status.synced                = true;
@@ -514,6 +529,7 @@ void time_sync_update() {
       s_status.gps_time_valid &&
       // первая фронтовая синхронизация RTC будет сразу при первом phase_aligned (PPS+NMEA),
       // а дальше через kRtcPpsSyncPeriodUs.
+      auto_sync_enabled &&
       (s_last_rtc_pps_sync_us == 0 ||
        (now_us - s_last_rtc_pps_sync_us) >= kRtcPpsSyncPeriodUs)) {
     s_rtc_pps_pending = true;
