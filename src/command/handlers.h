@@ -66,6 +66,16 @@ void cmdSyncNtp(JsonDocument& request, Stream& output);
 void cmdWifi(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды factory_reset
+ *
+ * Сбрасывает все настройки к значениям по умолчанию и планирует перезагрузку.
+ *
+ * @param request JSON запрос с полем "cmd": "factory_reset"
+ * @param output Поток для отправки ответа
+ */
+void cmdFactoryReset(JsonDocument& request, Stream& output);
+
+/**
  * @brief Утилита для отправки JSON-ответа в поток
  * 
  * Сериализует переданный JSON-документ (response) в строку, 

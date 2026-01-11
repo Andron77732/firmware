@@ -23,7 +23,7 @@
   - [x] [sync_ntp](PROTOCOL.md#sync_ntp---синхронизация-rtc-по-ntp)
   - [x] [save_config](PROTOCOL.md#save_config---сохранить-конфигурацию)
   - [x] [load_config](PROTOCOL.md#load_config---загрузить-конфигурацию)
-  - [ ] [factory_reset](PROTOCOL.md#factory_reset---сброс-к-заводским-настройкам)
+  - [x] [factory_reset](PROTOCOL.md#factory_reset---сброс-к-заводским-настройкам)
 - [x] WiFi STA (клиент): включение/выключение, подключение к SSID
 - [x] Парсер команд (JSON)
 

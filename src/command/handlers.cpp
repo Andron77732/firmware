@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include <ArduinoJson.h>
 #include <esp_timer.h>
+#include <esp_system.h>
 
 static const char *TAG = "CommandHandlers";
 
@@ -293,6 +294,45 @@ void cmdWifi(JsonDocument& request, Stream& output) {
 
     sendResponse(response, output, true);
     ESP_LOGI(TAG, "WiFi enabled via command: ssid=%s", ssid.c_str());
+}
+
+void cmdFactoryReset(JsonDocument& request, Stream& output) {
+    if (!settings.factoryReset()) {
+        sendError("factory_reset", 202, "Failed to reset settings", request["id"], output);
+        ESP_LOGW(TAG, "Factory_reset failed: storage error");
+        return;
+    }
+
+    JsonDocument response;
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "factory_reset";
+    response["message"] = "Device will reset in 2 seconds";
+    response["status"] = "ok";
+
+    sendResponse(response, output, true);
+
+    static esp_timer_handle_t reset_timer = nullptr;
+    if (reset_timer == nullptr) {
+        esp_timer_create_args_t timer_args = {};
+        timer_args.callback = [](void*) { esp_restart(); };
+        timer_args.name = "factory_reset";
+        if (esp_timer_create(&timer_args, &reset_timer) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to create reset timer");
+            return;
+        }
+    } else if (esp_timer_is_active(reset_timer)) {
+        esp_timer_stop(reset_timer);
+    }
+
+    if (esp_timer_start_once(reset_timer, 2000000) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start reset timer");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Factory_reset completed, scheduled reboot in 2 seconds");
 }
 
 void sendResponse(JsonDocument& response, Stream& output, bool addNewline) {
