@@ -131,9 +131,6 @@ void cmdSaveConfig(JsonDocument& request, Stream& output) {
         prev_settings.device.name != new_settings.device.name ||
         prev_settings.device.number != new_settings.device.number ||
         prev_settings.device.type != new_settings.device.type ||
-        prev_settings.device.timezone != new_settings.device.timezone ||
-        prev_settings.sync.auto_sync != new_settings.sync.auto_sync ||
-        prev_settings.sync.source != new_settings.sync.source ||
         prev_settings.wifi.active != new_settings.wifi.active ||
         prev_settings.wifi.ssid != new_settings.wifi.ssid ||
         prev_settings.wifi.passwd != new_settings.wifi.passwd;
