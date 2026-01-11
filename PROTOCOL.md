@@ -302,7 +302,7 @@
   "id": 8,
   "status": "ok",
   "rtc_time": 1703169600,
-  "ntp_server": "ru.pool.ntp.org",
+  "ntp_servers": ["ru.pool.ntp.org", "time.google.com", "time.cloudflare.com"],
   "sync_duration_ms": 2500
 }
 ```
@@ -321,7 +321,7 @@
 **Параметры ответа:**
 - `status` — `"ok"`, `"warning"`, `"error"`
 - `rtc_time` — время, записанное в RTC (UNIX timestamp в секундах, UTC)
-- `ntp_server` — использованный NTP сервер
+- `ntp_servers` — список используемых NTP серверов (в порядке приоритета)
 - `sync_duration_ms` — длительность синхронизации в миллисекундах
 - `error_code` — код ошибки (при status="error")
 - `error_message` — описание ошибки

@@ -203,7 +203,10 @@ void cmdSyncNtp(JsonDocument& request, Stream& output) {
     response["cmd"] = "sync_ntp";
     response["status"] = "ok";
     response["rtc_time"] = rtc.unixTime();
-    response["ntp_server"] = ntp1;
+    JsonArray ntp_servers = response["ntp_servers"].to<JsonArray>();
+    ntp_servers.add(ntp1);
+    ntp_servers.add(ntp2);
+    ntp_servers.add(ntp3);
     response["sync_duration_ms"] = duration_ms;
 
     sendResponse(response, output, true);
