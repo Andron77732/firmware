@@ -61,12 +61,21 @@ void onGPSStateChanged(GPSState state) {
   statusBar.updateGPSIcon(state);
 }
 
-void updateFooter() {
-  int8_t sats = (gps.isReady() && gps.nmea().isValid())
-             ? (int8_t)gps.nmea().getNumSatellites()
-             : -1;
-  TimeSyncState state = time_sync_state();
-  footer.updateTimeSyncState(sats, state);
+static int8_t footer_sats = -1;
+static TimeSyncState footer_state = TimeSyncState::NONE;
+
+static void pushFooterUpdate() {
+  footer.updateTimeSyncState(footer_sats, footer_state);
+}
+
+void onGPSSatsChanged(int8_t sats) {
+  footer_sats = sats;
+  pushFooterUpdate();
+}
+
+void onTimeSyncStateChanged(TimeSyncState state) {
+  footer_state = state;
+  pushFooterUpdate();
 }
 
 void setup() {
@@ -134,6 +143,7 @@ void setup() {
   gps.begin();
   mainArea.addLogLine("GPS initialized");
   gps.setStateCallback(onGPSStateChanged);
+  gps.setSatsCallback(onGPSSatsChanged);
   onGPSStateChanged(gps.getState());
 
   // Инициализация RTC
@@ -156,6 +166,7 @@ void setup() {
   // Инициализация подсистемы синхронизации времени
   mainArea.addLogLine("Starting time sync...");
   time_sync_begin();
+  time_sync_set_state_callback(onTimeSyncStateChanged);
   ESP_LOGI(TAG, "Time sync initialized");
   mainArea.addLogLine("Time sync initialized");
 
@@ -234,6 +245,7 @@ void setup() {
   mainArea.draw();
   // Отрисовка footer с типом модуля
   footer.draw(module_type, String(VERSION));
+  pushFooterUpdate();
 }
 
 void loop() {
@@ -241,8 +253,6 @@ void loop() {
   second_events_handle_tick(module_type);
 
   // Обновление состояния синхронизации времени в footer
-  updateFooter();
-
   // Обновление GPS
   gps.update();
 

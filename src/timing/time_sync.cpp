@@ -14,6 +14,8 @@ static const char *TAG = "TimeSync";
 static TimeSyncStatus s_status{};
 static int64_t        s_last_synced_pps_us = 0;
 static bool           s_rtc_synced = false;
+static TimeSyncStateCallback s_state_callback = nullptr;
+static TimeSyncState s_last_state = TimeSyncState::NONE;
 
 // Порог: игнорируем мелкий дрейф системных часов (до 1 мс)
 static constexpr int64_t kJitterAdjustThresholdUs = 1000;
@@ -63,6 +65,15 @@ static bool s_logged_rtc_only = false;
 
 static bool is_auto_sync_enabled() {
   return settings.getSync().auto_sync;
+}
+
+static void notify_state_change_if_needed() {
+  TimeSyncState state = time_sync_state();
+  if (state == s_last_state)
+    return;
+  s_last_state = state;
+  if (s_state_callback)
+    s_state_callback(state);
 }
 
 // Фильтр phase_delta: медиана по 5 последним значениям (устойчиво к выбросам NMEA)
@@ -245,6 +256,15 @@ void time_sync_begin() {
   } else if (rtc.isReady()) {
     ESP_LOGI(TAG, "Auto sync disabled: boot time from RTC skipped");
   }
+
+  notify_state_change_if_needed();
+}
+
+void time_sync_set_state_callback(TimeSyncStateCallback callback) {
+  s_state_callback = callback;
+  s_last_state = time_sync_state();
+  if (s_state_callback)
+    s_state_callback(s_last_state);
 }
 
 void time_sync_update() {
@@ -296,6 +316,7 @@ void time_sync_update() {
     if (!rtc.isReady()) {
       s_status.source = TimeSource::NONE;
       s_status.synced = false;
+      notify_state_change_if_needed();
       return;
     }
 
@@ -332,6 +353,7 @@ void time_sync_update() {
         ESP_LOGW(TAG, "RTC ready but SQW no signal -> NOSYNC");
       }
       s_logged_sqw_warmup = false;
+      notify_state_change_if_needed();
       return;
     }
 
@@ -346,6 +368,7 @@ void time_sync_update() {
 
       s_status.source = TimeSource::RTC;
       s_status.synced = true;
+      notify_state_change_if_needed();
       return;
     }
 
@@ -429,6 +452,7 @@ void time_sync_update() {
 
     s_status.source = TimeSource::RTC;
     s_status.synced = true;
+    notify_state_change_if_needed();
     return;
   }
 
@@ -437,17 +461,22 @@ void time_sync_update() {
   uint32_t pps_count   = 0;
   if (!pps_get_raw(pps_time_us, pps_count)) {
     s_status.phase_aligned = false;
+    notify_state_change_if_needed();
     return;
   }
 
   // Реагируем только на новый импульс
-  if (pps_count == s_last_pps_count)
+  if (pps_count == s_last_pps_count) {
+    notify_state_change_if_needed();
     return;
+  }
   s_last_pps_count = pps_count;
 
   // Уже синхронизировали этот PPS (доп. защита)
-  if (pps_time_us == s_last_synced_pps_us)
+  if (pps_time_us == s_last_synced_pps_us) {
+    notify_state_change_if_needed();
     return;
+  }
 
   // --- 5) PPS↔NMEA phase alignment ---
   uint32_t utc_second = 0;
@@ -458,6 +487,7 @@ void time_sync_update() {
 
     ESP_LOGW(TAG, "PPS received but cannot align with NMEA (delta=%lld us, have_nmea=%d)",
              (long long)phase_delta_us, (int)s_have_nmea);
+    notify_state_change_if_needed();
     return;
   }
 
@@ -548,6 +578,8 @@ void time_sync_update() {
     s_rtc_pps_target_sec = utc_second + 1;
     s_rtc_pps_target_count = pps_count + 1;
   }
+
+  notify_state_change_if_needed();
 }
 
 TimeSyncStatus time_sync_status() { return s_status; }

@@ -63,6 +63,12 @@ public:
      * @param callback Функция, которая будет вызвана при изменении состояния
      */
     void setStateCallback(void (*callback)(GPSState state));
+    
+    /**
+     * @brief Установить callback для уведомления об изменении числа спутников
+     * @param callback Функция, которая будет вызвана при изменении количества спутников
+     */
+    void setSatsCallback(void (*callback)(int8_t sats));
 
 private:
     static constexpr size_t NMEA_BUFFER_SIZE = 128;
@@ -76,6 +82,10 @@ private:
     void (*_stateCallback)(GPSState state) = nullptr;
     GPSState _lastState = GPSState::OFF;
 
+    // Callback для уведомления об изменении числа спутников
+    void (*_satsCallback)(int8_t sats) = nullptr;
+    int8_t _lastSats = -127;
+
     // Мягкий таймстампинг NMEA: время начала последнего полного предложения
     int64_t _last_sentence_start_us = 0;
     int64_t _current_sentence_start_us = 0;
@@ -83,6 +93,9 @@ private:
 
     void notifyStateChanged_();
     void updateState_();
+    void notifySatsChanged_();
+    void updateSats_();
+    int8_t currentSats_() const;
 };
 
 // Глобальный объект GPS

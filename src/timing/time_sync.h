@@ -19,6 +19,8 @@ enum class TimeSyncState : uint8_t {
   RTC_DEGRADED = 4     // RTC есть, но SQW нестабилен / неточен
 };
 
+using TimeSyncStateCallback = void (*)(TimeSyncState state);
+
 struct TimeSyncStatus {
   bool     synced = false;
   bool     gps_time_valid = false;
@@ -64,6 +66,11 @@ TimeSyncStatus time_sync_status();
  * Получить состояние синхронизации
  */
 TimeSyncState time_sync_state();
+
+/**
+ * Установить callback для уведомления об изменении состояния синхронизации
+ */
+void time_sync_set_state_callback(TimeSyncStateCallback callback);
 
 /**
  * Перевод esp_timer timestamp (us) -> UTC (us) по текущему якорю.

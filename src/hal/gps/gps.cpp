@@ -24,6 +24,7 @@ void GPS::begin() {
     
     _initialized = true;
     updateState_();
+    updateSats_();
 }
 
 void GPS::update() {
@@ -61,6 +62,7 @@ void GPS::update() {
     }
 
     updateState_();
+    updateSats_();
 }
 
 bool GPS::lastSentenceStartUs(int64_t &ts_us) const {
@@ -80,6 +82,12 @@ void GPS::setStateCallback(void (*callback)(GPSState state)) {
     notifyStateChanged_();
 }
 
+void GPS::setSatsCallback(void (*callback)(int8_t sats)) {
+    _satsCallback = callback;
+    _lastSats = currentSats_();
+    notifySatsChanged_();
+}
+
 void GPS::notifyStateChanged_() {
     if (_stateCallback) {
         _stateCallback(getState());
@@ -91,4 +99,32 @@ void GPS::updateState_() {
     if (state == _lastState) return;
     _lastState = state;
     notifyStateChanged_();
+}
+
+void GPS::notifySatsChanged_() {
+    if (_satsCallback) {
+        _satsCallback(_lastSats);
+    }
+}
+
+int8_t GPS::currentSats_() const {
+    if (!_initialized || !_nmea.isValid()) {
+        return -1;
+    }
+
+    int sats = (int)_nmea.getNumSatellites();
+    if (sats < 0) {
+        return -1;
+    }
+    if (sats > 99) {
+        sats = 99;
+    }
+    return (int8_t)sats;
+}
+
+void GPS::updateSats_() {
+    int8_t sats = currentSats_();
+    if (sats == _lastSats) return;
+    _lastSats = sats;
+    notifySatsChanged_();
 }
