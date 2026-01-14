@@ -1,6 +1,6 @@
 # Entime Firmware
 
-Прошивка для ESP32-S3 с TFT дисплеем, GPS + RTC и управлением через JSON-команды по Serial/BLE.
+Прошивка для ESP32-S3 с TFT дисплеем, GPS + RTC + INA219 и управлением через JSON-команды по Serial/BLE.
 
 ## Документация
 
