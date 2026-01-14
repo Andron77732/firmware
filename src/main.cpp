@@ -10,6 +10,7 @@
 #include "hal/tft/tft.h"
 #include "storage/settings.h"
 #include "timing/event_isr.h"
+#include "timing/event_dispatcher.h"
 #include "timing/event_timestamp.h"
 #include "timing/pps_isr.h"
 #include "timing/sntp.h"
@@ -247,6 +248,9 @@ void loop() {
   // Обновление статус-бара
   updateStatusBar();
 
+  // Секундные события (BEEP/VOICE/и др.)
+  event_dispatcher_update_second_events();
+
   // Обновление состояния синхронизации времени в footer
   updateFooter();
 
@@ -268,11 +272,5 @@ void loop() {
   }
 
   // Проверка события и обработка временного штампа
-  int64_t t_esp_us = 0;
-
-  if (event_isr_get(t_esp_us)) {
-    EventTimestampData data = event_timestamp_process(t_esp_us, module_type);
-    event_timestamp_send_ble(data); // заглушка
-    mainArea.displayEventTimestamp(data);
-  }
+  event_dispatcher_handle_event_isr(module_type);
 }
