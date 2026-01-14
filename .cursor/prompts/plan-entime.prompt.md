@@ -4,7 +4,7 @@
 
 Устройство синхронизирует время по GPS (резервная копия RTC). По внешнему прерыванию выдаёт точное время **±1мс или лучше**.
 
-**Компоненты:** ESP2-S3-devkitc-1, GPS NEO-6M (UART), RTC DS3231 (I2C), 3.2" TFT 240*320 ILI9341 (SPI), внешнее прерывание (GPIO)
+**Компоненты:** ESP2-S3-devkitc-1, GPS NEO-6M (UART), RTC DS3231 (I2C), INA219 (I2C), 3.2" TFT 240*320 ILI9341 (SPI), внешнее прерывание (GPIO)
 
 ---
 
@@ -64,16 +64,17 @@
 ```
 src/
 ├── main.cpp
+├── config.h
+├── command/              # Router + parser + handlers
 ├── hal/
+│   ├── comm/             # BLE + WiFi + battery/device info
 │   ├── gps/              # NEO-6M driver
-│   ├── rtc/              # DS3231 driver  
+│   ├── rtc/              # DS3231 driver
 │   ├── tft/              # ILI9341 driver
-│   ├── comm/             # Serial + Bluetooth
-│   └── wifi/             # WiFi STA (клиент)
+│   └── power/            # Power monitoring (INA219 I2C or another method)
+├── storage/              # Settings manager
 ├── timing/               # Time sync + ISR
-├── commands/             # Command parser
-├── storage/              # Preferences manager
-└── config.h
+└── ui/                   # UI components (status bar, footer, main area)
 
 test/
 ├── test_nmea_parser.cpp
