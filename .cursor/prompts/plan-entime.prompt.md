@@ -77,11 +77,26 @@ src/
 └── ui/                   # UI components (status bar, footer, main area)
 
 test/
-├── test_nmea_parser.cpp
-├── test_command_parser.cpp
-├── test_time_sync.cpp
-└── test_interrupt.cpp
 ```
+
+---
+
+## ✅ План тестирования
+
+**Unit (host-side):**
+- Парсер команд: корректный/битый JSON, неизвестные команды, граничные значения
+- Парсер NMEA: валидные/битые предложения, отсутствие PPS, разрывы по времени
+- Математика синхронизации: расчёт смещения, обработка jitter, GPS→RTC fallback
+- Логика RTC: lostPower, некорректное время, перевод часового пояса
+- Таймстемпы событий: последовательность START/FINISH и форматирование
+- Логика UI: соответствие иконок состояниям, формат времени (mock display)
+- Settings: валидация, дефолты, сценарии load/reset
+
+**Integration (device):**
+- Логирование latency PPS ISR под нагрузкой
+- Переключение RTC + GPS и восстановление
+- BLE уведомления состояния батареи/сервиса
+- WiFi connect/disconnect и уровни RSSI
 
 ---
 
