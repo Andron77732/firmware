@@ -2,5 +2,8 @@
 
 #include "config.h"
 
-void event_dispatcher_update_second_events(ModuleType module_type);
+struct tm;
+
 void event_dispatcher_handle_event_isr(ModuleType module_type);
+
+void sendTimedPacket(char header, const struct tm &tm);

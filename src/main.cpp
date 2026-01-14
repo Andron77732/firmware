@@ -13,6 +13,7 @@
 #include "timing/event_dispatcher.h"
 #include "timing/event_timestamp.h"
 #include "timing/pps_isr.h"
+#include "timing/second_events.h"
 #include "timing/sntp.h"
 #include "timing/time_sync.h"
 #include "ui/footer.h"
@@ -58,31 +59,6 @@ void onGPSStateChanged(GPSState state) {
   }
 
   statusBar.updateGPSIcon(state);
-}
-
-/**
- * @brief Обновление статус-бара и связанных элементов (когда меняется секунда в
- * системном времени)
- */
-void updateStatusBar() {
-  static time_t lastTimeSec = 0;
-
-  // Предпочитаем системное время (синхронизируется по GPS PPS)
-  time_t nowSec = time(nullptr);
-
-  if (nowSec <= 0)
-    return; // Время ещё не установлено
-
-  // Обновляем только когда секунда изменилась в системном времени
-  if (nowSec != lastTimeSec) {
-    lastTimeSec = nowSec;
-
-    // Получаем таймзону из настроек
-    int8_t timezone = settings.getDevice().timezone;
-
-    // Время в статус-баре
-    statusBar.updateTime(nowSec, timezone);
-  }
 }
 
 void updateFooter() {
@@ -261,11 +237,8 @@ void setup() {
 }
 
 void loop() {
-  // Обновление статус-бара
-  updateStatusBar();
-
-  // Секундные события (BEEP/VOICE/и др.)
-  event_dispatcher_update_second_events(module_type);
+  // Секундные события (BEEP/VOICE/Часы/Countdown и др.)
+  second_events_handle_tick(module_type);
 
   // Обновление состояния синхронизации времени в footer
   updateFooter();

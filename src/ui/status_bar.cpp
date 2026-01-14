@@ -9,7 +9,6 @@ void StatusBar::begin(TFT_eSPI& tft) {
     _tft = &tft;
     
     // Сброс кэша
-    _lastTimeSec = 0;
     _lastBtState = BLEState::DISCONNECTED;
     _lastWiFiState = WiFiState::UNINITIALIZED;
     _lastWiFiSignalLevel = 255;
@@ -25,49 +24,25 @@ void StatusBar::draw() {
     drawIcons();
     
     // Принудительная отрисовка времени
-    forceRedrawTime();
+    drawTimePlaceholder();
 }
 
-void StatusBar::updateTime(time_t time_sec, int8_t timezone) {
+void StatusBar::updateTime(const struct tm &local_tm) {
     if (!_tft) return;
-    
-    // Применяем таймзону к UTC времени
-    time_t local_time = time_sec + (timezone * 3600);
-    
-    // Проверяем, изменилось ли время (сравниваем секунды)
-    if (local_time == _lastTimeSec) {
-        return;  // Ничего не изменилось
-    }
-    
-    // Сохраняем текущее значение
-    _lastTimeSec = local_time;
-    
-    // Извлекаем часы, минуты, секунды из time_t
-    struct tm tm{};
-    gmtime_r(&local_time, &tm);
     
     // Отрисовка времени
     _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
     _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
     _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
-    _tft->printf("%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    _tft->printf("%02d:%02d:%02d", local_tm.tm_hour, local_tm.tm_min, local_tm.tm_sec);
 }
 
-void StatusBar::forceRedrawTime() {
-    // Сбрасываем кэш, чтобы updateTime точно перерисовал
-    time_t lastTime = _lastTimeSec;
-    _lastTimeSec = 0;
-    
-    // Если были валидные значения, перерисовываем их
-    // Но для этого нужна таймзона, которую мы не храним
-    // Поэтому просто рисуем placeholder, если время не установлено
-    if (lastTime == 0) {
-        _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
-        _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
-        _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
-        _tft->print("--:--:--");
-    }
-    // Если время было установлено, оно обновится при следующем вызове updateTime()
+void StatusBar::drawTimePlaceholder() {
+    // Рисуем placeholder, если время еще не было установлено
+    _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
+    _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
+    _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
+    _tft->print("--:--:--");
 }
 
 void StatusBar::drawIcons() {

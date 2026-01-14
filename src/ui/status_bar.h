@@ -35,15 +35,14 @@ public:
     
     /**
      * @brief Обновить время на статус-баре
-     * @param time_sec Время в секундах (time_t)
-     * @param timezone Часовой пояс (смещение в часах от UTC)
+     * @param local_tm Локальное время (tm, уже с учетом таймзоны)
      */
-    void updateTime(time_t time_sec, int8_t timezone);
+    void updateTime(const struct tm &local_tm);
     
     /**
      * @brief Принудительная перерисовка времени (даже если не изменилось)
      */
-    void forceRedrawTime();
+    void drawTimePlaceholder();
     
     /**
      * @brief Обновить иконку Bluetooth в зависимости от состояния
@@ -66,9 +65,6 @@ public:
 
 private:
     TFT_eSPI* _tft = nullptr;
-    
-    // Кэш времени для оптимизации перерисовки
-    time_t _lastTimeSec = 0;
     
     // Кэш состояния Bluetooth для оптимизации перерисовки
     BLEState _lastBtState = BLEState::DISCONNECTED;

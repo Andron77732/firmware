@@ -1,13 +1,12 @@
 #include "event_dispatcher.h"
 #include "hal/ble/ble.h"
-#include "storage/settings.h"
 #include "timing/event_isr.h"
 #include "timing/event_timestamp.h"
 #include "ui/main_area.h"
 #include <Arduino.h>
 #include <time.h>
 
-static void sendTimedPacket(char header, const struct tm &tm) {
+void sendTimedPacket(char header, const struct tm &tm) {
   char timebuf[9];
   String packet;
   snprintf(timebuf, sizeof(timebuf), "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
@@ -50,38 +49,6 @@ static void sendEventPacket(const EventTimestampData &data) {
       (len < (int)sizeof(packet)) ? (size_t)len : (sizeof(packet) - 1);
   Serial.write(packet, send_len);
   bleSerial.write((const uint8_t *)packet, send_len);
-}
-
-void event_dispatcher_update_second_events(ModuleType module_type) {
-  static time_t lastTimeSec = 0;
-
-  if (module_type != ModuleType::START)
-    return;
-
-  time_t nowSec = time(nullptr);
-
-  if (nowSec <= 0)
-    return; // Время ещё не установлено
-
-  if (nowSec != lastTimeSec) {
-    lastTimeSec = nowSec;
-
-    int8_t timezone = settings.getDevice().timezone;
-    time_t localSec = nowSec + (time_t)timezone * 3600;
-    struct tm tm{};
-    gmtime_r(&localSec, &tm);
-
-    switch (tm.tm_sec) {
-    case 56:
-      sendTimedPacket(BEEP_HEADER, tm);
-      break;
-    case 15:
-      sendTimedPacket(VOICE_HEADER, tm);
-      break;
-    default:
-      break;
-    }
-  }
 }
 
 void event_dispatcher_handle_event_isr(ModuleType module_type) {
