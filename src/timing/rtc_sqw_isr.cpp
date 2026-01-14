@@ -68,17 +68,6 @@ bool rtc_sqw_is_locked() {
   bool has_signal = (last != 0) && ((now - last) < kLossTimeoutUs);
   bool locked = has_signal && s_locked;
 
-  static bool last_locked_state = false;
-  if (locked != last_locked_state) {
-    if (locked) {
-      ESP_LOGI(TAG, "SQW lock acquired");
-    } else if (last != 0) {
-      int64_t age_ms = (now - last) / 1000;
-      ESP_LOGW(TAG, "SQW lock lost (last SQW %lld ms ago)", (long long)age_ms);
-    }
-    last_locked_state = locked;
-  }
-
   // если сигнал потерян — сбросим накопление периодов
   if (!has_signal) {
     s_locked = false;
