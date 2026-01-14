@@ -12,14 +12,14 @@ bool RTC::begin() {
     if (_initialized) return true;
     
     // Инициализация I2C на заданных пинах
-    Wire.begin(RTC_SDA_PIN, RTC_SCL_PIN);
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
     
     if (!_rtc.begin(&Wire)) {
-        ESP_LOGE(TAG, "DS3231 not found on I2C (SDA:%d, SCL:%d)", RTC_SDA_PIN, RTC_SCL_PIN);
+        ESP_LOGE(TAG, "DS3231 not found on I2C (SDA:%d, SCL:%d)", I2C_SDA_PIN, I2C_SCL_PIN);
         return false;
     }
     
-    ESP_LOGI(TAG, "Initialized (SDA:%d, SCL:%d, SQW:%d)", RTC_SDA_PIN, RTC_SCL_PIN, RTC_SQW_PIN);
+    ESP_LOGI(TAG, "Initialized (SDA:%d, SCL:%d, SQW:%d)", I2C_SDA_PIN, I2C_SCL_PIN, RTC_SQW_PIN);
     
     // Настройка SQW пина: 1 Hz square wave для синхронизации
     pinMode(RTC_SQW_PIN, INPUT_PULLUP);
@@ -100,4 +100,3 @@ float RTC::getTemperature() {
     }
     return _rtc.getTemperature();
 }
-
