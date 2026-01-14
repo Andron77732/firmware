@@ -24,6 +24,8 @@ struct EventTimestampData {
     uint8_t seconds;           // Секунды (0-59)
     uint16_t milliseconds;     // Миллисекунды (0-999)
 
+    int32_t correction_ms;     // Поправка для START, 0 для FINISH/нет времени
+
     ModuleType module_type;    // Тип модуля (START или FINISH)
 };
 

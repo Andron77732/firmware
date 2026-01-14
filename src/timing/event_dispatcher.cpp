@@ -21,6 +21,37 @@ static void sendTimedPacket(char header, const struct tm &tm) {
   bleSerial.print(packet);
 }
 
+static void sendEventPacket(const EventTimestampData &data) {
+  if (!data.success)
+    return;
+
+  char packet[40];
+  int len = 0;
+
+  if (data.module_type == ModuleType::START) {
+    int32_t correction_ms = data.correction_ms;
+    int32_t abs_corr = (correction_ms < 0) ? -correction_ms : correction_ms;
+    if (abs_corr > (int32_t)MAX_CORRECTION_MS) {
+      len = snprintf(packet, sizeof(packet), "%c%s%c\n", START_HEADER,
+                     data.local_time_str, PACKET_ENDER);
+    } else {
+      len = snprintf(packet, sizeof(packet), "%c%s;%ld%c\n", START_HEADER,
+                     data.local_time_str, (long)correction_ms, PACKET_ENDER);
+    }
+  } else {
+    len = snprintf(packet, sizeof(packet), "%c%s%c\n", FINISH_HEADER,
+                   data.local_time_str, PACKET_ENDER);
+  }
+
+  if (len <= 0)
+    return;
+
+  size_t send_len =
+      (len < (int)sizeof(packet)) ? (size_t)len : (sizeof(packet) - 1);
+  Serial.write(packet, send_len);
+  bleSerial.write((const uint8_t *)packet, send_len);
+}
+
 void event_dispatcher_update_second_events() {
   static time_t lastTimeSec = 0;
 
@@ -55,7 +86,7 @@ void event_dispatcher_handle_event_isr(ModuleType module_type) {
 
   if (event_isr_get(t_esp_us)) {
     EventTimestampData data = event_timestamp_process(t_esp_us, module_type);
-    event_timestamp_send_ble(data); // заглушка
+    sendEventPacket(data);
     mainArea.displayEventTimestamp(data);
   }
 }
