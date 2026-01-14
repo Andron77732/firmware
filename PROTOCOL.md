@@ -52,7 +52,7 @@ V10:10:15#
 
 - [ping](#ping---проверка-связи)
 - [time](#time---получить-текущее-время)
-- [status](#status---получить-статус-синхронизации)
+- [status](#status---получить-статус-устройства)
 - [gps](#gps---управление-gps-модулем)
 - [wifi](#wifi---управление-wifi)
 - [calibrate](#calibrate---калибровка-rtc)
@@ -169,7 +169,7 @@ V10:10:15#
 
 ---
 
-### `status` - Получить статус синхронизации
+### `status` - Получить статус устройства
 
 **Запрос:**
 ```json
@@ -181,27 +181,91 @@ V10:10:15#
 {
   "cmd": "status",
   "id": 2,
-  "gps_fix": true,
-  "gps_satellites": 12,
-  "pps_signal": true,
-  "rtc_drifting": false,
-  "last_sync": 5000,
-  "sync_source": "gps",
-  "battery_voltage": 5.0,
-  "temperature_c": 24.5,
+  "device": {
+    "name": "ENTIME",
+    "number": 1,
+    "type": "start"
+  },
+  "firmware": {
+    "version": "0.1.0",
+    "build_date": "2024-01-01"
+  },
+  "system": {
+    "uptime_s": 12345,
+    "free_heap_bytes": 142336,
+    "reset_reason": "power_on"
+  },
+  "wifi": {
+    "state": "connected",
+    "rssi": -62,
+    "ip": "192.168.1.10",
+    "ssid": "MyWiFi"
+  },
+  "ble": {
+    "state": "advertising",
+    "clients": 0
+  },
+  "rtc": {
+    "ready": true,
+    "lost_power": false,
+    "drifting": false,
+    "temperature_c": 24.5
+  },
+  "gps": {
+    "state": "searching",
+    "fix_age_ms": 120000,
+    "fix": true,
+    "satellites": 12,
+    "pps_signal": true
+  },
+  "sync": {
+    "last_ms": 5000,
+    "state": "gps_ok",
+    "accuracy_us": 50,
+    "source": "gps"
+  },
+  "storage": {
+    "used_pct": 42,
+    "ok": true
+  },
+  "power": {
+    "battery_voltage": 5.0
+  },
   "status": "ok"
 }
 ```
 
 **Параметры:**
-- `gps_fix` — есть ли GPS фиксация
-- `gps_satellites` — количество видимых спутников
-- `pps_signal` — получен ли PPS сигнал от GPS
-- `rtc_drifting` — дрейф RTC (true если >100ppm)
-- `last_sync` — время последней синхронизации (мс)
-- `sync_source` — текущий источник: `"gps"` или `"rtc"`
-- `battery_voltage` — напряжение питания
-- `temperature_c` — температура датчика RTC
+- `device.name` — имя устройства
+- `device.number` — номер устройства
+- `device.type` — тип модуля: `"start"` или `"finish"`
+- `firmware.version` — версия прошивки
+- `firmware.build_date` — дата сборки
+- `system.uptime_s` — время работы в секундах
+- `system.free_heap_bytes` — свободная куча
+- `system.reset_reason` — причина последней перезагрузки
+- `wifi.state` — состояние WiFi: `"off"`, `"connecting"`, `"connected"`, `"error"`
+- `wifi.rssi` — уровень сигнала WiFi в dBm
+- `wifi.ip` — IP адрес (если подключено)
+- `wifi.ssid` — SSID текущей сети (если подключено)
+- `ble.state` — состояние BLE: `"off"`, `"advertising"`, `"connected"`
+- `ble.clients` — количество активных BLE клиентов
+- `rtc.ready` — готов ли RTC
+- `rtc.lost_power` — потеря питания RTC
+- `rtc.drifting` — дрейф RTC (true если >100ppm)
+- `rtc.temperature_c` — температура датчика RTC
+- `gps.state` — состояние GPS: `"off"`, `"searching"`, `"active"`
+- `gps.fix_age_ms` — давность последнего фикса в мс
+- `gps.fix` — есть ли GPS фиксация
+- `gps.satellites` — количество видимых спутников
+- `gps.pps_signal` — получен ли PPS сигнал от GPS
+- `sync.last_ms` — время последней синхронизации (мс)
+- `sync.state` — состояние синхронизации: `"gps_ok"`, `"gps_degraded"`, `"rtc_ok"`, `"rtc_degraded"`, `"nosync"`
+- `sync.accuracy_us` — оценка точности синхронизации (мкс)
+- `sync.source` — текущий источник: `"gps"` или `"rtc"`
+- `storage.used_pct` — использование хранилища в %
+- `storage.ok` — статус хранилища (true если ok)
+- `power.battery_voltage` — напряжение питания
 
 ---
 
