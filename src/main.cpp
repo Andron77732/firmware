@@ -47,6 +47,20 @@ void onWiFiStateChanged(WiFiState state, int8_t rssi) {
 }
 
 /**
+ * @brief Callback для обновления иконки GPS при изменении состояния
+ * @param state Текущее состояние GPS
+ */
+void onGPSStateChanged(GPSState state) {
+  const SyncSettings &sync = settings.getSync();
+  if (sync.source == 2) {
+    statusBar.updateGPSIcon(GPSState::OFF);
+    return;
+  }
+
+  statusBar.updateGPSIcon(state);
+}
+
+/**
  * @brief Обновление статус-бара и связанных элементов (когда меняется секунда в
  * системном времени)
  */
@@ -143,6 +157,8 @@ void setup() {
   mainArea.addLogLine("Initializing GPS...");
   gps.begin();
   mainArea.addLogLine("GPS initialized");
+  gps.setStateCallback(onGPSStateChanged);
+  onGPSStateChanged(gps.getState());
 
   // Инициализация RTC
   mainArea.addLogLine("Initializing RTC...");

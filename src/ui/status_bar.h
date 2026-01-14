@@ -6,6 +6,7 @@
 #include <time.h>
 #include "hal/comm/ble.h"
 #include "hal/comm/wifi.h"
+#include "hal/gps/gps.h"
 #include "ui_config.h"
 
 /**
@@ -21,7 +22,6 @@
  */
 class StatusBar {
 public:
-
     /**
      * @brief Инициализация статус-бара
      * @param tft Ссылка на TFT объект
@@ -58,6 +58,12 @@ public:
      */
     void updateWiFiIcon(WiFiState state, int8_t rssi = 0);
 
+    /**
+     * @brief Обновить иконку GPS в зависимости от состояния
+     * @param state Текущее состояние GPS
+     */
+    void updateGPSIcon(GPSState state);
+
 private:
     TFT_eSPI* _tft = nullptr;
     
@@ -70,6 +76,9 @@ private:
     // Кэш состояния WiFi для оптимизации перерисовки
     WiFiState _lastWiFiState = WiFiState::UNINITIALIZED;
     uint8_t _lastWiFiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
+
+    // Кэш состояния GPS для оптимизации перерисовки
+    GPSState _lastGpsState = GPSState::OFF;
     
     /**
      * @brief Отрисовка всех иконок
@@ -92,4 +101,3 @@ private:
 extern StatusBar statusBar;
 
 #endif // UI_STATUS_BAR_H
-

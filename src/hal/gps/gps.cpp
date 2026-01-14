@@ -23,6 +23,7 @@ void GPS::begin() {
     ESP_LOGI(TAG, "Initialized (RX:%d, TX:%d, PPS:%d)", GPS_RX_PIN, GPS_TX_PIN, GPS_PPS_PIN);
     
     _initialized = true;
+    updateState_();
 }
 
 void GPS::update() {
@@ -58,10 +59,36 @@ void GPS::update() {
         // Парсинг NMEA
         _nmea.process(c);
     }
+
+    updateState_();
 }
 
 bool GPS::lastSentenceStartUs(int64_t &ts_us) const {
     if (_last_sentence_start_us == 0) return false;
     ts_us = _last_sentence_start_us;
     return true;
+}
+
+GPSState GPS::getState() const {
+    if (!_initialized) return GPSState::OFF;
+    return _nmea.isValid() ? GPSState::ACTIVE : GPSState::SEARCHING;
+}
+
+void GPS::setStateCallback(void (*callback)(GPSState state)) {
+    _stateCallback = callback;
+    _lastState = getState();
+    notifyStateChanged_();
+}
+
+void GPS::notifyStateChanged_() {
+    if (_stateCallback) {
+        _stateCallback(getState());
+    }
+}
+
+void GPS::updateState_() {
+    GPSState state = getState();
+    if (state == _lastState) return;
+    _lastState = state;
+    notifyStateChanged_();
 }

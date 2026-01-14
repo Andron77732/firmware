@@ -7,13 +7,13 @@
 #include "config.h"
 
 // Состояния WiFi
-enum class WiFiState {
-    UNINITIALIZED, // WiFiManager не инициализирован
-    OFF,           // WiFi выключен (после begin/end)
-    CONNECTING,    // Идет подключение
-    CONNECTED,     // Подключено к сети
-    DISCONNECTED,  // Не подключено (но WiFi включен)
-    ERROR          // Ошибка подключения
+enum class WiFiState : uint8_t {
+    UNINITIALIZED = 0, // WiFiManager не инициализирован
+    OFF = 1,           // WiFi выключен (после begin/end)
+    CONNECTING = 2,    // Идет подключение
+    CONNECTED = 3,     // Подключено к сети
+    DISCONNECTED = 4,  // Не подключено (но WiFi включен)
+    ERROR = 5,         // Ошибка подключения
 };
 
 // Callback для уведомления об изменении состояния подключения

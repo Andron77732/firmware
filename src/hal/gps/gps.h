@@ -4,6 +4,12 @@
 #include <Arduino.h>
 #include <MicroNMEA.h>
 
+enum class GPSState : uint8_t {
+  OFF = 0,
+  SEARCHING = 1,
+  ACTIVE = 2,
+};
+
 /**
  * @brief Класс GPS NEO-6M
  * 
@@ -47,6 +53,17 @@ public:
      */
     bool lastSentenceStartUs(int64_t &ts_us) const;
 
+    /**
+     * @brief Получить текущее состояние GPS
+     */
+    GPSState getState() const;
+
+    /**
+     * @brief Установить callback для уведомления об изменении состояния GPS
+     * @param callback Функция, которая будет вызвана при изменении состояния
+     */
+    void setStateCallback(void (*callback)(GPSState state));
+
 private:
     static constexpr size_t NMEA_BUFFER_SIZE = 128;
     
@@ -55,10 +72,17 @@ private:
     
     bool _initialized = false;
 
+    // Callback для уведомления об изменении состояния
+    void (*_stateCallback)(GPSState state) = nullptr;
+    GPSState _lastState = GPSState::OFF;
+
     // Мягкий таймстампинг NMEA: время начала последнего полного предложения
     int64_t _last_sentence_start_us = 0;
     int64_t _current_sentence_start_us = 0;
     bool _in_sentence = false;
+
+    void notifyStateChanged_();
+    void updateState_();
 };
 
 // Глобальный объект GPS

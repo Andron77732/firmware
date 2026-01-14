@@ -16,10 +16,10 @@
 #define BLE_RX_BUFFER_SIZE 32768
 
 // Состояния Bluetooth
-enum class BLEState {
-    DISCONNECTED,   // Реклама не активна
-    ADVERTISING,    // Реклама активна, но нет подключения
-    CONNECTED       // Есть активное подключение
+enum class BLEState : uint8_t {
+    DISCONNECTED = 0,    // Реклама не активна
+    ADVERTISING = 1,     // Реклама активна, но нет подключения
+    CONNECTED = 2,       // Есть активное подключение
 };
 
 // Callback для уведомления об изменении состояния подключения

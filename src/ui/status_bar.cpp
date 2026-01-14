@@ -211,6 +211,32 @@ void StatusBar::updateWiFiIcon(WiFiState state, int8_t rssi) {
     drawIconWiFi(bitmap, color, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
+void StatusBar::updateGPSIcon(GPSState state) {
+    if (!_tft) return;
+
+    if (state == _lastGpsState) {
+        return;
+    }
+
+    _lastGpsState = state;
+
+    uint16_t color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+    switch (state) {
+        case GPSState::ACTIVE:
+            color = UI_STATUS_BAR_COLOR_ICON_GPS_ACTIVE;
+            break;
+        case GPSState::SEARCHING:
+            color = UI_STATUS_BAR_COLOR_ICON_GPS_SEARCHING;
+            break;
+        case GPSState::OFF:
+        default:
+            color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+            break;
+    }
+
+    drawIconGPS(color, UI_STATUS_BAR_COLOR_BACKGROUND);
+}
+
 void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
     for (int row = 0; row < 16; row++) {
         uint8_t b1 = bitmap[row * 2];
