@@ -34,10 +34,16 @@ public:
     void draw(ModuleType moduleType, const String& version);
 
     /**
+     * @brief Обновление количества спутников
+     * @param sats Количество спутников, -1 если недоступно
+     */
+    void updateSats(int8_t sats);
+
+    /**
      * @brief Обновление состояния синхронизации времени
      * @param state Состояние синхронизации
      */
-    void updateTimeSyncState(int8_t sats, TimeSyncState state);
+    void updateTimeSyncState(TimeSyncState state);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -49,4 +55,3 @@ private:
 extern Footer footer;
 
 #endif // UI_FOOTER_H
-

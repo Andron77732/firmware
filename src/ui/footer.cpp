@@ -50,34 +50,18 @@ void Footer::draw(ModuleType moduleType, const String& version) {
     _tft->printf("%s v%s", moduleTypeStr, version.c_str());
 }
 
-void Footer::updateTimeSyncState(int8_t sats, TimeSyncState state) {
-    // Обновляем только если что-то изменилось
-    if (!_tft || (state == _lastState && sats == _lastSats)) {
+void Footer::updateSats(int8_t sats) {
+    if (!_tft || sats == _lastSats) {
         return;
     }
-    
-    _lastState = state;
+
     _lastSats = sats;
-    
-   
-    const char* label = timeSyncLabel(state);
-    uint16_t color    = timeSyncColor(state);
 
-    // Формируем короткую строку справа
-    // Sxx + пробел + LABEL
-    char right[16];
-    if (sats < 0)  {
-        snprintf(right, sizeof(right), "S-- %s", label);
-    } else {
-        snprintf(right, sizeof(right), "S%02d %s", (int)sats, label);
-    }
-
-    int16_t x = UI_FOOTER_WIDTH - 6 * (int)strlen(right) * UI_FOOTER_TEXT_SIZE;
+    const char* label = timeSyncLabel(_lastState);
+    int16_t x = UI_FOOTER_WIDTH - 6 * (4 + (int)strlen(label)) * UI_FOOTER_TEXT_SIZE;
     int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y;
 
     _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
-
-    // спутники — нейтральным цветом
     _tft->setTextColor(UI_FOOTER_COLOR_TEXT, UI_FOOTER_COLOR_BACKGROUND);
     _tft->setCursor(x, y);
 
@@ -86,9 +70,24 @@ void Footer::updateTimeSyncState(int8_t sats, TimeSyncState state) {
     } else {
         _tft->printf("S%02d ", (int)sats);
     }
+}
+
+void Footer::updateTimeSyncState(TimeSyncState state) {
+    // Обновляем только если что-то изменилось
+    if (!_tft || state == _lastState) {
+        return;
+    }
+    
+    _lastState = state;
+    
+    const char* label = timeSyncLabel(state);
+    uint16_t color    = timeSyncColor(state);
 
     // статус — цветной
+    int16_t x = UI_FOOTER_WIDTH - 6 * (4 + (int)strlen(label)) * UI_FOOTER_TEXT_SIZE;
+    int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y;
     int16_t x2 = x + 6 * 4 * UI_FOOTER_TEXT_SIZE; // "Sxx " = 4 символа
+    _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
     _tft->setTextColor(color, UI_FOOTER_COLOR_BACKGROUND);
     _tft->setCursor(x2, y);
     _tft->print(label);

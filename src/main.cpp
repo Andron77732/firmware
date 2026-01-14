@@ -62,20 +62,14 @@ void onGPSStateChanged(GPSState state) {
 }
 
 static int8_t footer_sats = -1;
-static TimeSyncState footer_state = TimeSyncState::NONE;
-
-static void pushFooterUpdate() {
-  footer.updateTimeSyncState(footer_sats, footer_state);
-}
 
 void onGPSSatsChanged(int8_t sats) {
   footer_sats = sats;
-  pushFooterUpdate();
+  footer.updateSats(footer_sats);
 }
 
 void onTimeSyncStateChanged(TimeSyncState state) {
-  footer_state = state;
-  pushFooterUpdate();
+  footer.updateTimeSyncState(state);
 }
 
 void setup() {
@@ -245,7 +239,8 @@ void setup() {
   mainArea.draw();
   // Отрисовка footer с типом модуля
   footer.draw(module_type, String(VERSION));
-  pushFooterUpdate();
+  footer.updateTimeSyncState(time_sync_state());
+  footer.updateSats(footer_sats);
 }
 
 void loop() {
