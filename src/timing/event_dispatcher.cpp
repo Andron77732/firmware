@@ -52,8 +52,11 @@ static void sendEventPacket(const EventTimestampData &data) {
   bleSerial.write((const uint8_t *)packet, send_len);
 }
 
-void event_dispatcher_update_second_events() {
+void event_dispatcher_update_second_events(ModuleType module_type) {
   static time_t lastTimeSec = 0;
+
+  if (module_type != ModuleType::START)
+    return;
 
   time_t nowSec = time(nullptr);
 

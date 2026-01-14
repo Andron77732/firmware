@@ -249,7 +249,7 @@ void loop() {
   updateStatusBar();
 
   // Секундные события (BEEP/VOICE/и др.)
-  event_dispatcher_update_second_events();
+  event_dispatcher_update_second_events(module_type);
 
   // Обновление состояния синхронизации времени в footer
   updateFooter();
