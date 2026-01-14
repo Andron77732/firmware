@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config.h"
-#include "hal/comm/wifi.h"
+#include "hal/wifi/wifi.h"
 #include "hal/rtc/rtc.h"
 #include <Arduino.h>
 

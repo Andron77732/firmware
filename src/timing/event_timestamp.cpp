@@ -1,6 +1,6 @@
 #include "event_timestamp.h"
 #include "esp_log.h"
-#include "hal/comm/ble.h"
+#include "hal/ble/ble.h"
 #include "storage/settings.h"
 #include "time_sync.h"
 #include <time.h>

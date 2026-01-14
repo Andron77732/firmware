@@ -67,11 +67,12 @@ src/
 ├── config.h
 ├── command/              # Router + parser + handlers
 ├── hal/
-│   ├── comm/             # BLE + WiFi + battery/device info
+│   ├── ble/              # BLE + battery/device info
+│   ├── wifi/             # WiFi STA (client)
 │   ├── gps/              # NEO-6M driver
 │   ├── rtc/              # DS3231 driver
 │   ├── tft/              # ILI9341 driver
-│   └── power/            # Power monitoring (INA219 I2C or another method)
+│   └── power/            # INA219 driver
 ├── storage/              # Settings manager
 ├── timing/               # Time sync + ISR
 └── ui/                   # UI components (status bar, footer, main area)
@@ -106,7 +107,7 @@ test/
 |-----------|-----------|------|
 | UART0 | Serial (логирование) | USB встроенный ESP32 |
 | UART2 | GPS NEO-6M | RX:4, TX:5, PPS:6 |
-| I2C | RTC DS3231 | SDA:8, SCL:9, SQW:7 |
+| I2C | RTC DS3231 + INA219 | SDA:8, SCL:9, SQW:7 |
 | SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:14, T_CS:17 |
 | GPIO | Ext interrupt | PIN:3 |
 | BLE | GATT | встроенный |

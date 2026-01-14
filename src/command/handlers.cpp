@@ -1,7 +1,7 @@
 #include "handlers.h"
 #include "timing/sntp.h"
 #include "storage/settings.h"
-#include "hal/comm/wifi.h"
+#include "hal/wifi/wifi.h"
 #include "timing/time_sync.h"
 #include "esp_log.h"
 #include <ArduinoJson.h>

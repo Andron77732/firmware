@@ -1,5 +1,5 @@
 #include "event_dispatcher.h"
-#include "hal/comm/ble.h"
+#include "hal/ble/ble.h"
 #include "storage/settings.h"
 #include "timing/event_isr.h"
 #include "timing/event_timestamp.h"

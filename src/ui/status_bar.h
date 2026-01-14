@@ -4,8 +4,8 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include <time.h>
-#include "hal/comm/ble.h"
-#include "hal/comm/wifi.h"
+#include "hal/ble/ble.h"
+#include "hal/wifi/wifi.h"
 #include "hal/gps/gps.h"
 #include "ui_config.h"
 
