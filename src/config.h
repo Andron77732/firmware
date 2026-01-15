@@ -22,8 +22,8 @@
 #define GPS_PPS_PIN     6
 #define GPS_BAUD        9600
 
-// --- RTC DS3231 + INA219 (I2C) ---
-// Общая I2C шина для RTC и мониторинга питания (INA219)
+// --- RTC DS3231 + INA226 (I2C) ---
+// Общая I2C шина для RTC и мониторинга питания (INA226)
 #define I2C_SDA_PIN     8
 #define I2C_SCL_PIN     9
 #define RTC_SQW_PIN     7
