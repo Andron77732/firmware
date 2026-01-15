@@ -44,7 +44,7 @@ void Footer::draw(ModuleType moduleType, const String& version) {
     // Настройка текста
     _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
     _tft->setTextColor(UI_FOOTER_COLOR_TEXT, UI_FOOTER_COLOR_BACKGROUND);
-    _tft->setCursor(UI_FOOTER_TEXT_X, UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y);
+    _tft->setCursor(UI_FOOTER_TEXT_X, UI_FOOTER_Y_POS + UI_FOOTER_PADDING);
     
     // Вывод текста: "START v0.1.0" или "FINISH v0.1.0"
     _tft->printf("%s v%s", moduleTypeStr, version.c_str());
@@ -59,7 +59,7 @@ void Footer::updateSats(int8_t sats) {
 
     const char* label = timeSyncLabel(_lastState);
     int16_t x = UI_FOOTER_WIDTH - 6 * (4 + (int)strlen(label)) * UI_FOOTER_TEXT_SIZE;
-    int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y;
+    int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_PADDING;
 
     _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
     _tft->setTextColor(UI_FOOTER_COLOR_TEXT, UI_FOOTER_COLOR_BACKGROUND);
@@ -85,7 +85,7 @@ void Footer::updateTimeSyncState(TimeSyncState state) {
 
     // статус — цветной
     int16_t x = UI_FOOTER_WIDTH - 6 * (4 + (int)strlen(label)) * UI_FOOTER_TEXT_SIZE;
-    int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_TEXT_Y;
+    int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_PADDING;
     int16_t x2 = x + 6 * 4 * UI_FOOTER_TEXT_SIZE; // "Sxx " = 4 символа
     _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
     _tft->setTextColor(color, UI_FOOTER_COLOR_BACKGROUND);
