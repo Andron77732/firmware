@@ -12,6 +12,7 @@ void MainArea::begin(TFT_eSPI& tft) {
     _canvasYOffset = UI_MAIN_AREA_Y_POS;
     _logLineCount = 0;
     _finishLineCount = 0;
+    _finishEventCounter = 0;
     _hasEvent = false;
 
     if (!_framebuffer) {
@@ -113,7 +114,12 @@ void MainArea::drawLoading() {
 
 void MainArea::displayEventTimestamp(const EventTimestampData& data) {
     if (_currentType == MainAreaType::FINISH && _hasEvent) {
-        addFinishLine(String(_lastEvent.local_time_str));
+        bool spacerAbove = false;
+        if (data.success && _lastEvent.success) {
+            const int64_t gap_us = data.utc_timestamp_us - _lastEvent.utc_timestamp_us;
+            spacerAbove = gap_us > (int64_t)UI_MAIN_AREA_FINISH_GAP_SPACER_MS * 1000LL;
+        }
+        addFinishLine(String(_lastEvent.local_time_str), spacerAbove);
     }
     _lastEvent = data;
     _hasEvent = true;
@@ -171,11 +177,33 @@ void MainArea::drawFinish() {
 }
 
 void MainArea::drawFinishLines() {
-    drawLogLines(_finishLines,
-                 _finishLineCount,
-                 UI_MAIN_AREA_FINISH_LOG_Y,
-                 UI_MAIN_AREA_FINISH_MAX_LOG_LINES,
-                 true);
+    if (!_canvas || _finishLineCount == 0) return;
+
+    _canvas->setTextSize(UI_MAIN_AREA_LOG_TEXT_SIZE);
+    _canvas->setTextColor(UI_MAIN_AREA_LOG_COLOR, UI_MAIN_AREA_COLOR_BACKGROUND);
+
+    uint8_t visibleLines = _finishLineCount;
+    if (visibleLines > UI_MAIN_AREA_FINISH_MAX_LOG_LINES) {
+        visibleLines = UI_MAIN_AREA_FINISH_MAX_LOG_LINES;
+    }
+
+    for (uint8_t i = 0; i < visibleLines; i++) {
+        uint16_t y = canvasY(UI_MAIN_AREA_FINISH_LOG_Y + i * UI_MAIN_AREA_LOG_LINE_HEIGHT);
+        uint32_t number = _finishLineNumbers[i];
+        if (number == 0 && _finishLines[i].length() == 0) {
+            continue;
+        }
+
+        _canvas->setCursor(UI_MAIN_AREA_LOG_X, y);
+        if (number < 10) {
+            _canvas->print("  ");
+        } else if (number < 100) {
+            _canvas->print(" ");
+        }
+        _canvas->print(number);
+        _canvas->print(".   ");
+        _canvas->print(_finishLines[i]);
+    }
 }
 
 void MainArea::drawLogLines(const String* lines,
@@ -216,21 +244,40 @@ void MainArea::drawLogLines(const String* lines,
     }
 }
 
-void MainArea::addFinishLine(const String& line) {
+void MainArea::addFinishLine(const String& line, bool spacerAbove) {
     if (line.length() == 0) return;
 
     uint8_t maxLines = UI_MAIN_AREA_FINISH_MAX_LOG_LINES;
-    if (_finishLineCount < maxLines) {
-        _finishLineCount++;
+    if (maxLines == 0) return;
+
+    if (spacerAbove && maxLines < 2) {
+        spacerAbove = false;
     }
 
-    for (uint8_t i = _finishLineCount - 1; i > 0; i--) {
-        _finishLines[i] = _finishLines[i - 1];
+    _finishEventCounter++;
+    uint8_t shift = spacerAbove ? 2 : 1;
+    uint8_t newCount = _finishLineCount + shift;
+    if (newCount > maxLines) {
+        newCount = maxLines;
+    }
+
+    for (int i = newCount - 1; i >= shift; i--) {
+        _finishLines[i] = _finishLines[i - shift];
+        _finishLineNumbers[i] = _finishLineNumbers[i - shift];
+    }
+
+    _finishLineCount = newCount;
+
+    if (spacerAbove) {
+        _finishLines[0] = "";
+        _finishLineNumbers[0] = 0;
     }
 
     if (line.length() > UI_MAIN_AREA_LOG_LINE_LENGTH - 1) {
-        _finishLines[0] = line.substring(0, UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
+        _finishLines[spacerAbove ? 1 : 0] =
+            line.substring(0, UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
     } else {
-        _finishLines[0] = line;
+        _finishLines[spacerAbove ? 1 : 0] = line;
     }
+    _finishLineNumbers[spacerAbove ? 1 : 0] = _finishEventCounter;
 }

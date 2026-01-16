@@ -78,7 +78,9 @@ private:
 
     // Буфер для отсечек финиша (сверху вниз)
     String _finishLines[UI_MAIN_AREA_FINISH_MAX_LOG_LINES];
+    uint32_t _finishLineNumbers[UI_MAIN_AREA_FINISH_MAX_LOG_LINES];
     uint8_t _finishLineCount = 0;
+    uint32_t _finishEventCounter = 0;
     
     // Данные последнего события
     EventTimestampData _lastEvent;
@@ -121,7 +123,7 @@ private:
     /**
      * @brief Добавить строку в список отсечек финиша
      */
-    void addFinishLine(const String& line);
+    void addFinishLine(const String& line, bool spacerAbove);
 };
 
 // Глобальный объект mainArea
