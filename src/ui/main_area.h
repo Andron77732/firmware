@@ -66,6 +66,10 @@ public:
 
 private:
     TFT_eSPI* _tft = nullptr;
+    TFT_eSPI* _canvas = nullptr;
+    TFT_eSprite* _framebuffer = nullptr;
+    bool _framebufferDisabled = false;
+    uint16_t _canvasYOffset = UI_MAIN_AREA_Y_POS;
     MainAreaType _currentType = MainAreaType::LOADING;
     
     // Буфер для логов загрузки
@@ -99,6 +103,11 @@ private:
      * @brief Отрисовка списка отсечек финиша
      */
     void drawFinishLines();
+
+    /**
+     * @brief Преобразовать координату Y в координаты canvas
+     */
+    uint16_t canvasY(uint16_t localY) const { return localY + _canvasYOffset; }
 
     /**
      * @brief Отрисовка списка строк с форматированием как у лога
