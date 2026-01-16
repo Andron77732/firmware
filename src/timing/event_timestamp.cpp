@@ -30,7 +30,7 @@ EventTimestampData event_timestamp_process(int64_t esp_timestamp_us,
   data.success = true;
 
   // Вывод UTC времени
-  ESP_LOGD(TAG, "EVENT UTC = %lld us", (long long)t_utc_us);
+  ESP_LOGV(TAG, "EVENT UTC = %lld us", (long long)t_utc_us);
 
   // Вычисление локального времени в формате hh:mm:ss,mmm
   int8_t timezone = settings.getDevice().timezone;
@@ -71,9 +71,9 @@ EventTimestampData event_timestamp_process(int64_t esp_timestamp_us,
 
   // Вывод локального времени в зависимости от типа модуля
   if (data.module_type == ModuleType::START) {
-    ESP_LOGD(TAG, "START EVENT LOCAL = %s", data.local_time_str);
+    ESP_LOGV(TAG, "START EVENT LOCAL = %s", data.local_time_str);
   } else {
-    ESP_LOGD(TAG, "FINISH EVENT LOCAL = %s", data.local_time_str);
+    ESP_LOGV(TAG, "FINISH EVENT LOCAL = %s", data.local_time_str);
   }
 
   return data;

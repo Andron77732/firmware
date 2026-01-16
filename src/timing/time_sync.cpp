@@ -23,8 +23,8 @@ static constexpr int64_t kJitterAdjustThresholdUs = 1000;
 // Обязательная коррекция системного времени раз в N секунд (если включён settimeofday)
 static constexpr int64_t kMaxHoldoffUs = 30000000;
 
-// Phase alignment: окно доверия (±0.9s)
-static constexpr int64_t kPhaseWindowUs = 900000;
+// Phase alignment: окно доверия (±0.99s)
+static constexpr int64_t kPhaseWindowUs = 990000;
 
 // RTC fallback: как часто подправлять якорь по RTC (чтобы не уплывать)
 static constexpr int64_t kRtcResyncPeriodUs = 10000000; // 10 секунд
@@ -42,8 +42,10 @@ static uint32_t s_rtc_pps_target_sec = 0;
 static uint32_t s_rtc_pps_target_count = 0;
 
 // Оценка точности: базовые допуски на джиттер/латентность
-static constexpr int64_t kPpsIsrJitterUs = 20;   // ISR + чтение таймера
-static constexpr int64_t kRtcBaseJitterUs = 1500; // I2C + ISR + анти-±1с логика
+static constexpr int64_t kPpsIsrJitterUs     = 20;    // ISR + чтение таймера
+static constexpr int64_t kRtcBaseJitterUs    = 1500;  // I2C + ISR + анти-±1с логика
+static constexpr int64_t kGpsPhaseResidualUs = 200;   // остаточная неопределенность PPS<->UTC после phase lock
+static constexpr int64_t kRtcAgingCapUs      = 10000; // максимум +10ms штрафа за "просрочку" тика
 
 // Для определения “новый PPS или старый”
 static uint32_t s_last_pps_count = 0;
@@ -54,6 +56,8 @@ static uint32_t s_last_nmea_utc_sec = 0;
 static int64_t  s_last_nmea_esp_us  = 0;
 
 static uint32_t s_last_sqw_count = 0;
+static uint32_t s_rtc_anchor_sqw_count = 0; // sqw_count в момент set_anchor(RTC,...)
+static int64_t  s_last_sqw_edge_us = 0; // последний обработанный фронт SQW (для accuracy)
 static constexpr int64_t kSqwAgeWindowUs = 900000; // если обработали позже — лучше не переякориваться
 static bool s_in_rtc_fallback = false;
 
@@ -153,10 +157,23 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
   if (s_phase_delta_count == 5) {
     delta = median5(s_phase_deltas);
   }
+
   phase_delta_us_out = delta;
 
-  if (delta <= -kPhaseWindowUs || delta >= kPhaseWindowUs)
+  // --- "мёртвая зона" около ±1 секунды (защита от ±1s ошибки) ---
+  static constexpr int64_t kPhaseDeadbandUs = 5000; // 5 ms, можно 3000..10000
+
+  int64_t abs_delta = llabs(delta);
+
+  // 1) если слишком близко к ровно 1 секунде — не доверяем
+  if (abs_delta >= (1000000LL - kPhaseDeadbandUs)) {
     return false;
+  }
+
+  // 2) обычное окно доверия (kPhaseWindowUs)
+  if (abs_delta > kPhaseWindowUs) {
+    return false;
+  }
 
   if (delta >= 0) {
     pps_utc_sec_out = s_last_nmea_utc_sec + 1;
@@ -197,29 +214,68 @@ bool time_sync_esp_to_utc_us(int64_t esp_us, int64_t &utc_us_out) {
 static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) {
   if (!rtc.isReady()) return false;
 
-  uint32_t sec0 = rtc.unixTime();
-  int64_t  t0_us = esp_timer_get_time();
+  const int64_t t0_us = esp_timer_get_time();
+  int64_t  edge_us = 0;
+  uint32_t edge_count = 0;
 
-  // ждём, пока RTC секунда сменится
+  // 1) Ждём ЛЮБОЙ фронт SQW
   while ((esp_timer_get_time() - t0_us) < (int64_t)timeout_ms * 1000LL) {
-    uint32_t sec1 = rtc.unixTime();
-    if (sec1 != sec0) {
-      // секунда сменилась — выставляем ровно на границу новой секунды
-      timeval tv{};
-      tv.tv_sec  = (time_t)sec1;
-      tv.tv_usec = 0;
-      settimeofday(&tv, nullptr);
-      return true;
+    int64_t  e_us = 0;
+    uint32_t c = 0;
+    if (rtc_sqw_get_raw(e_us, c)) {
+      // edge "свежий"? (чтобы не взять старый)
+      int64_t now_us = esp_timer_get_time();
+      if ((now_us - e_us) >= 0 && (now_us - e_us) < 200000) { // <200ms
+        edge_us = e_us;
+        edge_count = c;
+        break;
+      }
     }
-    delay(5); // не грузим I2C/CPU
+    delay(1);
   }
 
-  // таймаут: ставим как есть (лучше, чем 1970), но без выравнивания
-  timeval tv{};
-  tv.tv_sec  = (time_t)sec0;
-  tv.tv_usec = 0;
+  if (edge_us == 0) {
+    uint32_t sec0 = rtc.unixTime();
+    timeval tv{ (time_t)sec0, 0 };
+    settimeofday(&tv, nullptr);
+
+    int64_t now_us = esp_timer_get_time();
+    set_anchor(TimeSource::RTC, (int64_t)sec0 * 1000000LL, now_us);
+
+    s_status.source = TimeSource::RTC;
+    s_status.synced = true;
+    s_status.last_sync_us = now_us;
+    s_status.last_offset_us = 0;
+    s_status.last_utc_second = sec0;
+
+    ESP_LOGW(TAG, "Boot RTC sync: SQW edge timeout, using rtc=%lu", (unsigned long)sec0);
+    return false;
+  }
+
+  // 2) На фронте читаем секунду RTC
+  uint32_t rtc_sec = rtc.unixTime();
+
+  // 3) Ставим ровно на границу
+  timeval tv{ (time_t)rtc_sec, 0 };
   settimeofday(&tv, nullptr);
-  return false;
+
+  // 4) Якорь + синхронизируем sqw-счётчики
+  set_anchor(TimeSource::RTC, (int64_t)rtc_sec * 1000000LL, edge_us);
+  s_last_sqw_count = edge_count;
+  s_rtc_anchor_sqw_count = edge_count;
+  s_last_sqw_edge_us = edge_us;
+  s_last_rtc_resync_us = esp_timer_get_time();
+
+  s_status.source = TimeSource::RTC;
+  s_status.synced = true;
+  s_status.last_sync_us = edge_us;
+  s_status.last_offset_us = 0;
+  s_status.last_utc_second = rtc_sec;
+
+  ESP_LOGI(TAG, "Boot RTC sync: aligned to SQW edge (rtc=%lu, sqw_cnt=%lu)",
+           (unsigned long)rtc_sec, (unsigned long)edge_count);
+
+  return true;
 }
 
 void time_sync_begin() {
@@ -239,6 +295,8 @@ void time_sync_begin() {
   s_rtc_pps_target_count = 0;
 
   s_last_sqw_count = 0;
+  s_rtc_anchor_sqw_count = 0;
+  s_last_sqw_edge_us = 0;
   rtc_sqw_begin(RTC_SQW_PIN, RISING);
 
   s_in_rtc_fallback = false;
@@ -393,35 +451,62 @@ void time_sync_update() {
     // реагируем только на новый фронт SQW
     if (sqw_count != s_last_sqw_count) {
       s_last_sqw_count = sqw_count;
+      s_last_sqw_edge_us = sqw_edge_us;
 
       int64_t now_us = esp_timer_get_time();
       int64_t age_us = now_us - sqw_edge_us;
       if (age_us < 0) age_us = 0;
 
-      // если слишком поздно обработали тик — можно промахнуться на секунду, не трогаем якорь
+      // если слишком поздно обработали тик — можно промахнуться на секунду
       if (age_us <= kSqwAgeWindowUs) {
-        uint32_t rtc_sec = rtc.unixTime();
-        int64_t rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
 
-        // ---- анти-±1 сек защита ----
-        // Сравниваем RTC секунду с нашей оценкой (если якорь уже был)
-        int64_t est_utc_us = 0;
-        if (time_sync_esp_to_utc_us(sqw_edge_us, est_utc_us)) {
-          int64_t diff = rtc_utc_us - est_utc_us;
-          // если очень похоже на +1 сек или -1 сек — поправим
-          if (diff > 500000 && diff < 1500000)      rtc_utc_us -= 1000000LL;
-          else if (diff < -500000 && diff > -1500000) rtc_utc_us += 1000000LL;
+        // -----------------------------------------------------------------------
+        // 1) Переякоривание по rtc.unixTime() РАЗ В kRtcResyncPeriodUs (10 сек)
+        // -----------------------------------------------------------------------
+        const bool have_rtc_anchor =
+            (s_status.source == TimeSource::RTC) && (s_status.anchor_utc_us != 0) && (s_status.anchor_esp_us != 0);
+
+        bool need_reanchor =
+            !have_rtc_anchor ||
+            (s_rtc_anchor_sqw_count == 0) ||         // <-- важно: иначе d может улететь
+            (s_last_rtc_resync_us == 0) ||
+            ((now_us - s_last_rtc_resync_us) >= kRtcResyncPeriodUs);
+
+
+        if (need_reanchor) {
+          uint32_t rtc_sec = rtc.unixTime();
+          int64_t rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
+
+          // ---- анти-±1 сек защита (оставляем твою) ----
+          int64_t est_utc_us = 0;
+          if (time_sync_esp_to_utc_us(sqw_edge_us, est_utc_us)) {
+            int64_t diff = rtc_utc_us - est_utc_us;
+            if (diff > 500000 && diff < 1500000)            rtc_utc_us -= 1000000LL;
+            else if (diff < -500000 && diff > -1500000)     rtc_utc_us += 1000000LL;
+          }
+
+          set_anchor(TimeSource::RTC, rtc_utc_us, sqw_edge_us);
+          s_rtc_anchor_sqw_count = sqw_count;   // важно: привязали якорь к этому sqw_count
+          s_last_rtc_resync_us = now_us;
         }
 
-        set_anchor(TimeSource::RTC, rtc_utc_us, sqw_edge_us);
-        s_last_rtc_resync_us = now_us;
+        // -----------------------------------------------------------------------
+        // 2) На КАЖДЫЙ SQW тик строим UTC по счётчику (без I2C)
+        //    edge_utc = anchor_utc + (sqw_count - anchor_sqw_count)*1s
+        // -----------------------------------------------------------------------
+        int32_t d = (int32_t)(sqw_count - s_rtc_anchor_sqw_count); // signed delta
+        int64_t edge_utc_us = s_status.anchor_utc_us + (int64_t)d * 1000000LL;
 
-        // (опционально) дисциплина системного времени
-        int64_t target_us = rtc_utc_us + age_us;
+        // цель "сейчас": момент edge + возраст обработки
+        int64_t target_us = edge_utc_us + age_us;
 
+        // -----------------------------------------------------------------------
+        // 3) Дисциплина системного времени (каждую секунду) — как было
+        // -----------------------------------------------------------------------
         timeval current_tv{};
         gettimeofday(&current_tv, nullptr);
-        int64_t current_us = (int64_t)current_tv.tv_sec * 1000000LL + (int64_t)current_tv.tv_usec;
+        int64_t current_us =
+            (int64_t)current_tv.tv_sec * 1000000LL + (int64_t)current_tv.tv_usec;
 
         int64_t delta_us = target_us - current_us;
 
@@ -585,19 +670,15 @@ void time_sync_update() {
 TimeSyncStatus time_sync_status() { return s_status; }
 
 TimeSyncState time_sync_state() {
-  if (!s_status.synced)
-    return TimeSyncState::NONE;
+  if (!s_status.synced) return TimeSyncState::NONE;
 
-  if (s_status.source == TimeSource::GPS_PPS) {
-    if (s_status.pps_locked && s_status.phase_aligned)
-      return TimeSyncState::GPS_OK;
-    return TimeSyncState::GPS_DEGRADED;
+  // PPS есть — это всегда GPS-* состояние, даже если anchor пока RTC
+  if (s_status.pps_locked) {
+    return s_status.phase_aligned ? TimeSyncState::GPS_OK : TimeSyncState::GPS_DEGRADED;
   }
 
   if (s_status.source == TimeSource::RTC) {
-    if (rtc_sqw_is_locked())
-      return TimeSyncState::RTC_OK;
-    return TimeSyncState::RTC_DEGRADED;
+    return rtc_sqw_is_locked() ? TimeSyncState::RTC_OK : TimeSyncState::RTC_DEGRADED;
   }
 
   return TimeSyncState::NONE;
@@ -607,31 +688,63 @@ int64_t time_sync_estimate_accuracy_us() {
   if (!s_status.synced)
     return -1;
 
-  switch (s_status.source) {
-    case TimeSource::GPS_PPS: {
-      int64_t acc = kPpsIsrJitterUs;
+  const bool auto_sync = is_auto_sync_enabled();
+  const int64_t now_us = esp_timer_get_time();
 
-      // если PPS был давно — чуть ухудшаем (дрейф esp_timer)
-      int64_t now_us = esp_timer_get_time();
+  switch (s_status.source) {
+
+    case TimeSource::GPS_PPS: {
+      // Без phase alignment мы не знаем, какая UTC секунда у PPS
+      if (!s_status.pps_locked || !s_status.phase_aligned)
+        return -1;
+
+      // База: ISR/таймер + остаток phase модели
+      int64_t acc = kPpsIsrJitterUs + kGpsPhaseResidualUs;
+
+      // "Свежесть" PPS якоря: esp_timer дрейфует, даём мягкий штраф
       int64_t age_us = now_us - s_status.last_pps_timestamp_us;
-      if (age_us > 0)
-        acc += age_us / 1000000; // ~1µs на секунду
+      if (age_us < 0) age_us = 0;
+
+      // допустим дрейф ~1..2 us/сек (консервативно 2 us/сек)
+      acc += (age_us / 1000000LL) * 2;
+
+      // Если авто-дисциплина выключена — системные часы могут быть с большим offset
+      // Тогда accuracy должна честно это показать.
+      if (!auto_sync) {
+        acc += llabs(s_status.last_offset_us);
+      }
 
       return acc;
     }
 
     case TimeSource::RTC: {
-      if (!rtc_sqw_is_locked()) return -1;
-    
-      // основная ошибка: ISR latency + чтение rtc.unixTime() (I2C) + анти-±1с логика
-      // Консервативно: 500–2000 us (зависит от нагрузки)
+      if (!rtc_sqw_is_locked())
+        return -1;
+
+      // База: SQW ISR/latency + (редкое) чтение RTC при реякоре
       int64_t acc = kRtcBaseJitterUs;
-    
-      // лёгкое ухудшение, если давно не было нового SQW тика
-      int64_t now_us = esp_timer_get_time();
-      int64_t age_us = now_us - s_status.anchor_esp_us;
-      if (age_us > 1000000) acc += age_us / 1000; // +1ms за каждую секунду просрочки
-    
+
+      // Если авто-дисциплина выключена — добавляем реальный offset
+      if (!auto_sync) {
+        acc += llabs(s_status.last_offset_us);
+        return acc;
+      }
+
+      // Мягкое ухудшение, если давно не было актуального SQW edge/anchor обновления
+      // (например loop сильно тормозит). Не "1ms за секунду", а аккуратнее и с потолком.
+      int64_t age_us = (s_last_sqw_edge_us != 0) ? (now_us - s_last_sqw_edge_us)
+                                                 : (now_us - s_status.anchor_esp_us);
+      if (age_us < 0) age_us = 0;
+
+      if (age_us > 1000000LL) {
+        // +1ms за каждые 5 секунд "просрочки" после первой секунды
+        int64_t extra_ms = (age_us - 1000000LL) / 5000000LL;
+        int64_t extra_us = extra_ms * 1000LL;
+
+        if (extra_us > kRtcAgingCapUs) extra_us = kRtcAgingCapUs;
+        acc += extra_us;
+      }
+
       return acc;
     }
 
