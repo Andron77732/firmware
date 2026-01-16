@@ -1,9 +1,16 @@
 #include "status_bar.h"
 #include "icons.h"
+#include "timing/time_sync.h"
 #include <time.h>
 
 // Глобальный объект статус-бара
 StatusBar statusBar;
+
+static uint16_t clockColorForState() {
+    return (time_sync_state() == TimeSyncState::NONE)
+               ? UI_STATUS_BAR_COLOR_CLOCK_NO_SYNC
+               : UI_STATUS_BAR_COLOR_CLOCK;
+}
 
 void StatusBar::begin(TFT_eSPI& tft) {
     _tft = &tft;
@@ -32,7 +39,7 @@ void StatusBar::updateTime(const struct tm &local_tm) {
     
     // Отрисовка времени
     _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
-    _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
+    _tft->setTextColor(clockColorForState(), UI_STATUS_BAR_COLOR_BACKGROUND);
     _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
     _tft->printf("%02d:%02d:%02d", local_tm.tm_hour, local_tm.tm_min, local_tm.tm_sec);
 }
@@ -40,7 +47,7 @@ void StatusBar::updateTime(const struct tm &local_tm) {
 void StatusBar::drawTimePlaceholder() {
     // Рисуем placeholder, если время еще не было установлено
     _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
-    _tft->setTextColor(UI_STATUS_BAR_COLOR_CLOCK, UI_STATUS_BAR_COLOR_BACKGROUND);
+    _tft->setTextColor(clockColorForState(), UI_STATUS_BAR_COLOR_BACKGROUND);
     _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
     _tft->print("--:--:--");
 }
