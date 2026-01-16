@@ -71,6 +71,10 @@ private:
     // Буфер для логов загрузки
     String _logLines[UI_MAIN_AREA_MAX_LOG_LINES];
     uint8_t _logLineCount = 0;
+
+    // Буфер для отсечек финиша (сверху вниз)
+    String _finishLines[UI_MAIN_AREA_FINISH_MAX_LOG_LINES];
+    uint8_t _finishLineCount = 0;
     
     // Данные последнего события
     EventTimestampData _lastEvent;
@@ -90,10 +94,28 @@ private:
      * @brief Отрисовка режима финиш
      */
     void drawFinish();
+
+    /**
+     * @brief Отрисовка списка отсечек финиша
+     */
+    void drawFinishLines();
+
+    /**
+     * @brief Отрисовка списка строк с форматированием как у лога
+     */
+    void drawLogLines(const String* lines,
+                      uint8_t lineCount,
+                      uint16_t startY,
+                      uint8_t maxVisibleLines,
+                      bool newestAtTop);
+
+    /**
+     * @brief Добавить строку в список отсечек финиша
+     */
+    void addFinishLine(const String& line);
 };
 
 // Глобальный объект mainArea
 extern MainArea mainArea;
 
 #endif // UI_MAIN_AREA_H
-

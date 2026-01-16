@@ -102,6 +102,16 @@
 #define UI_MAIN_AREA_LOG_COLOR_ERROR  TFT_RED
 #define UI_MAIN_AREA_LOG_COLOR_WARNING TFT_YELLOW
 
+// Параметры отображения финишного main_area
+#define UI_MAIN_AREA_FINISH_TIME_TEXT_SIZE 3
+#define UI_MAIN_AREA_FINISH_TIME_HEIGHT    (UI_CHAR_HEIGHT * UI_MAIN_AREA_FINISH_TIME_TEXT_SIZE)
+#define UI_MAIN_AREA_FINISH_TIME_X         12
+#define UI_MAIN_AREA_FINISH_TIME_Y         4
+#define UI_MAIN_AREA_FINISH_TIME_SPACING   6
+#define UI_MAIN_AREA_FINISH_LOG_Y          (UI_MAIN_AREA_FINISH_TIME_Y + UI_MAIN_AREA_FINISH_TIME_HEIGHT + UI_MAIN_AREA_FINISH_TIME_SPACING)
+#define UI_MAIN_AREA_FINISH_AVAILABLE_HEIGHT (UI_MAIN_AREA_HEIGHT - UI_MAIN_AREA_FINISH_LOG_Y)
+#define UI_MAIN_AREA_FINISH_MAX_LOG_LINES  (UI_MAIN_AREA_FINISH_AVAILABLE_HEIGHT / UI_MAIN_AREA_LOG_LINE_HEIGHT)
+
 // ============================================================================
 // Footer Settings
 // ============================================================================
