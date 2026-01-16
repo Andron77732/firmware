@@ -113,13 +113,15 @@ void MainArea::drawLoading() {
 }
 
 void MainArea::displayEventTimestamp(const EventTimestampData& data) {
+    if (!data.success)
+      return;
     if (_currentType == MainAreaType::FINISH && _hasEvent) {
-        bool spacerAbove = false;
-        if (data.success && _lastEvent.success) {
+        if (_lastEvent.success) {
+            bool spacerAbove = false;
             const int64_t gap_us = data.utc_timestamp_us - _lastEvent.utc_timestamp_us;
             spacerAbove = gap_us > (int64_t)UI_MAIN_AREA_FINISH_GAP_SPACER_MS * 1000LL;
+            addFinishLine(String(_lastEvent.local_time_str), spacerAbove);
         }
-        addFinishLine(String(_lastEvent.local_time_str), spacerAbove);
     }
     _lastEvent = data;
     _hasEvent = true;
