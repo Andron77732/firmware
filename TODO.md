@@ -73,6 +73,6 @@
 - `system.uptime_s`, `system.free_heap_bytes`, `system.reset_reason`
 - `wifi.ssid` (текущая сеть, не из настроек)
 - `ble.clients`
-- `rtc.drifting`
+- `rtc.last_sync_ms`
 - `gps.fix_age_ms`
 - `power.battery_voltage` (INA226)

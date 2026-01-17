@@ -208,7 +208,7 @@ V10:10:15#
   "rtc": {
     "ready": true,
     "lost_power": false,
-    "drifting": false,
+    "last_sync_ms": 600000,
     "temperature_c": 24.5
   },
   "gps": {
@@ -252,7 +252,7 @@ V10:10:15#
 - `ble.clients` — количество активных BLE клиентов
 - `rtc.ready` — готов ли RTC
 - `rtc.lost_power` — потеря питания RTC
-- `rtc.drifting` — дрейф RTC (true если >100ppm)
+- `rtc.last_sync_ms` — время с последней установки RTC (мс)
 - `rtc.temperature_c` — температура датчика RTC
 - `gps.state` — состояние GPS: `"off"`, `"searching"`, `"active"`
 - `gps.fix_age_ms` — давность последнего фикса в мс
@@ -639,7 +639,9 @@ V10:10:15#
   "cmd": "status",
   "id": 1,
   "sync_source": "rtc",
-  "rtc_drifting": true,
+  "rtc": {
+    "last_sync_ms": 1800000
+  },
   "status": "warning"
 }
 
