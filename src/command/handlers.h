@@ -86,6 +86,16 @@ void cmdWifi(JsonDocument& request, Stream& output);
 void cmdSyncSource(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды calibrate
+ *
+ * Сохраняет смещение RTC в ppm и возвращает оценку ошибки.
+ *
+ * @param request JSON запрос с полем "cmd": "calibrate"
+ * @param output Поток для отправки ответа
+ */
+void cmdCalibrate(JsonDocument& request, Stream& output);
+
+/**
  * @brief Обработчик команды factory_reset
  *
  * Сбрасывает все настройки к значениям по умолчанию и планирует перезагрузку.

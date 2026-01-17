@@ -76,6 +76,18 @@ public:
     float getTemperature();
 
     /**
+     * @brief Получить смещение RTC (ppm), записанное в DS3231 aging offset
+     * @return true если удалось прочитать
+     */
+    bool getAgingOffsetPpm(float &ppm);
+
+    /**
+     * @brief Установить смещение RTC (ppm) в DS3231 aging offset
+     * @return true если запись успешна
+     */
+    bool setAgingOffsetPpm(float ppm, float &applied_ppm);
+
+    /**
      * @brief Время последней установки RTC (esp_timer_get_time, us)
      * @return 0 если время еще ни разу не устанавливалось
      */
@@ -91,6 +103,9 @@ private:
     RTC_DS3231 _rtc;
     bool _initialized = false;
     int64_t _last_sync_us = 0;
+
+    bool readAgingOffsetRaw_(int8_t &raw);
+    bool writeAgingOffsetRaw_(int8_t raw);
 };
 
 // Глобальный объект RTC

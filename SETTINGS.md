@@ -32,9 +32,6 @@
       "active": ...,
       "ssid": "...",
       "passwd": "..."
-    },
-    "calibration": {
-      "rtc_offset_ppm": ...
     }
   }
 }
@@ -167,24 +164,6 @@
 
 ---
 
-### Настройки калибровки
-
-#### `calibration.rtc_offset_ppm`
-- **Путь в JSON:** `data.calibration.rtc_offset_ppm`
-- **Тип:** `float`
-- **По умолчанию:** `0.0`
-- **Описание:** Калибровочное смещение RTC в частях на миллион (ppm). Используется для компенсации дрейфа RTC. Положительное значение ускоряет часы, отрицательное — замедляет.
-- **Ограничения:**
-  - Диапазон: `-100.0` до `100.0` ppm
-  - Точность: 0.1 ppm
-- **Примеры:**
-  - `0.5` — RTC идёт медленнее на 0.5 ppm (нужно ускорить)
-  - `-0.3` — RTC идёт быстрее на 0.3 ppm (нужно замедлить)
-  - `0.0` — калибровка не применяется
-- **Примечание:** Калибровка применяется только при работе в RTC режиме. Значение сохраняется после калибровки через команду `calibrate`.
-
----
-
 ### Настройки WiFi
 
 #### `wifi.active`
@@ -234,7 +213,6 @@
 | `wifi.active` | `data.wifi.active` | boolean | `false` | true/false | WiFi |
 | `wifi.ssid` | `data.wifi.ssid` | string | `""` | до 32 символов | WiFi |
 | `wifi.passwd` | `data.wifi.passwd` | string | `""` | до 64 символов | WiFi |
-| `calibration.rtc_offset_ppm` | `data.calibration.rtc_offset_ppm` | float | `0.0` | -100.0..100.0 ppm | Калибровка |
 
 ---
 
@@ -264,9 +242,6 @@
       "active": false,
       "ssid": "",
       "passwd": ""
-    },
-    "calibration": {
-      "rtc_offset_ppm": 0.5
     }
   }
 }
@@ -311,9 +286,6 @@
       "active": false,
       "ssid": "",
       "passwd": ""
-    },
-    "calibration": {
-      "rtc_offset_ppm": 0.5
     }
   },
   "status": "ok"
@@ -356,9 +328,6 @@
   "data": {
     "device": {
       "name": "ENTime-New"
-    },
-    "calibration": {
-      "rtc_offset_ppm": 0.8
     }
   }
 }
@@ -384,7 +353,6 @@
 | `data.wifi.active` | `false` |
 | `data.wifi.ssid` | `""` |
 | `data.wifi.passwd` | `""` |
-| `data.calibration.rtc_offset_ppm` | `0.0` |
 
 После сброса устройство перезагрузится через 2 секунды.
 

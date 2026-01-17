@@ -138,20 +138,6 @@ bool SettingsManager::validateWifi(const WifiSettings &wifi) const {
   return true;
 }
 
-bool SettingsManager::validateCalibration(
-    const CalibrationSettings &calibration) const {
-  if (calibration.rtc_offset_ppm < -100.0f ||
-      calibration.rtc_offset_ppm > 100.0f) {
-    ESP_LOGE(
-        TAG,
-        "Invalid calibration.rtc_offset_ppm: must be -100.0 to 100.0, got %.1f",
-        calibration.rtc_offset_ppm);
-    return false;
-  }
-
-  return true;
-}
-
 // ============================================================================
 // Defaults
 // ============================================================================
@@ -172,7 +158,6 @@ void SettingsManager::setDefaults() {
   settings_.wifi.ssid = DEFAULT_WIFI_SSID;
   settings_.wifi.passwd = DEFAULT_WIFI_PASSWD;
 
-  settings_.calibration.rtc_offset_ppm = DEFAULT_CALIBRATION_RTC_OFFSET_PPM;
 }
 
 // ============================================================================
@@ -299,15 +284,6 @@ size_t SettingsManager::saveWifi() {
   return count;
 }
 
-size_t SettingsManager::saveCalibration() {
-  size_t count = 0;
-  if (putFloatIfChanged_("calibration.rtc_offset_ppm",
-                         settings_.calibration.rtc_offset_ppm,
-                         DEFAULT_CALIBRATION_RTC_OFFSET_PPM, 0.0001f))
-    count++;
-  return count;
-}
-
 void SettingsManager::loadDevice() {
   settings_.device.name = prefs_.getString("device.name", DEFAULT_DEVICE_NAME);
 
@@ -336,11 +312,6 @@ void SettingsManager::loadWifi() {
   settings_.wifi.ssid = prefs_.getString("wifi.ssid", DEFAULT_WIFI_SSID);
 
   settings_.wifi.passwd = prefs_.getString("wifi.passwd", DEFAULT_WIFI_PASSWD);
-}
-
-void SettingsManager::loadCalibration() {
-  settings_.calibration.rtc_offset_ppm = prefs_.getFloat(
-      "calibration.rtc_offset_ppm", DEFAULT_CALIBRATION_RTC_OFFSET_PPM);
 }
 
 // ============================================================================
@@ -386,12 +357,9 @@ bool SettingsManager::load() {
   loadDevice();
   loadSync();
   loadWifi();
-  loadCalibration();
-
   // Валидация загруженных настроек
   if (!validateDevice(settings_.device) || !validateSync(settings_.sync) ||
-      !validateWifi(settings_.wifi) ||
-      !validateCalibration(settings_.calibration)) {
+      !validateWifi(settings_.wifi)) {
     ESP_LOGW(TAG, "Loaded settings failed validation, using defaults");
     setDefaults();
     return false;
@@ -409,8 +377,7 @@ int SettingsManager::save() {
 
   // Валидация перед сохранением
   if (!validateDevice(settings_.device) || !validateSync(settings_.sync) ||
-      !validateWifi(settings_.wifi) ||
-      !validateCalibration(settings_.calibration)) {
+      !validateWifi(settings_.wifi)) {
     ESP_LOGE(TAG, "Settings validation failed, cannot save");
     return -1;
   }
@@ -419,7 +386,6 @@ int SettingsManager::save() {
   total += saveDevice();
   total += saveSync();
   total += saveWifi();
-  total += saveCalibration();
 
   ESP_LOGI(TAG, "Settings saved successfully (%zu keys)", total);
   return (int)total;
@@ -464,14 +430,6 @@ bool SettingsManager::setWifi(const WifiSettings &wifi) {
     return false;
   }
   settings_.wifi = wifi;
-  return true;
-}
-
-bool SettingsManager::setCalibration(const CalibrationSettings &calibration) {
-  if (!validateCalibration(calibration)) {
-    return false;
-  }
-  settings_.calibration = calibration;
   return true;
 }
 
@@ -534,9 +492,6 @@ JsonDocument SettingsManager::toJson() const {
   doc["wifi"]["ssid"] = settings_.wifi.ssid;
   doc["wifi"]["passwd"] = settings_.wifi.passwd;
 
-  // Calibration settings
-  doc["calibration"]["rtc_offset_ppm"] = settings_.calibration.rtc_offset_ppm;
-
   return doc;
 }
 
@@ -545,8 +500,6 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
   DeviceSettings device = settings_.device;
   SyncSettings sync = settings_.sync;
   WifiSettings wifi = settings_.wifi;
-  CalibrationSettings calibration = settings_.calibration;
-
   // Device settings
   if (!doc["device"].isNull()) {
     if (!doc["device"]["name"].isNull()) {
@@ -607,22 +560,10 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
     }
   }
 
-  // Calibration settings
-  if (!doc["calibration"].isNull()) {
-    if (!doc["calibration"]["rtc_offset_ppm"].isNull()) {
-      calibration.rtc_offset_ppm = doc["calibration"]["rtc_offset_ppm"].as<float>();
-    }
-
-    if (!validateCalibration(calibration)) {
-      return false;
-    }
-  }
-
   // Если все валидации прошли - применить изменения
   settings_.device = device;
   settings_.sync = sync;
   settings_.wifi = wifi;
-  settings_.calibration = calibration;
 
   return true;
 }

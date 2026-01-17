@@ -1,10 +1,14 @@
 #include "rtc.h"
 #include "config.h"
 #include "esp_log.h"
-#include <esp_timer.h>
 #include <Wire.h>
+#include <cmath>
+#include <esp_timer.h>
 
 static const char* TAG = "RTC";
+static const uint8_t kDs3231Address = 0x68;
+static const uint8_t kDs3231AgingOffsetReg = 0x10;
+static const float kDs3231AgingStepPpm = 0.1f;
 
 // Глобальный объект RTC
 RTC rtc;
@@ -102,4 +106,61 @@ float RTC::getTemperature() {
         return 0.0f;
     }
     return _rtc.getTemperature();
+}
+
+bool RTC::getAgingOffsetPpm(float &ppm) {
+    if (!_initialized) {
+        ESP_LOGW(TAG, "RTC not initialized");
+        return false;
+    }
+
+    int8_t raw = 0;
+    if (!readAgingOffsetRaw_(raw)) {
+        ESP_LOGW(TAG, "Failed to read DS3231 aging offset");
+        return false;
+    }
+
+    ppm = static_cast<float>(raw) * kDs3231AgingStepPpm;
+    return true;
+}
+
+bool RTC::setAgingOffsetPpm(float ppm, float &applied_ppm) {
+    if (!_initialized) {
+        ESP_LOGW(TAG, "RTC not initialized");
+        return false;
+    }
+
+    int raw = lroundf(ppm / kDs3231AgingStepPpm);
+    if (raw > 127) raw = 127;
+    if (raw < -128) raw = -128;
+
+    if (!writeAgingOffsetRaw_(static_cast<int8_t>(raw))) {
+        ESP_LOGW(TAG, "Failed to write DS3231 aging offset");
+        return false;
+    }
+
+    applied_ppm = static_cast<float>(raw) * kDs3231AgingStepPpm;
+    return true;
+}
+
+bool RTC::readAgingOffsetRaw_(int8_t &raw) {
+    Wire.beginTransmission(kDs3231Address);
+    Wire.write(kDs3231AgingOffsetReg);
+    if (Wire.endTransmission(false) != 0) {
+        return false;
+    }
+
+    if (Wire.requestFrom(kDs3231Address, static_cast<uint8_t>(1)) != 1) {
+        return false;
+    }
+
+    raw = static_cast<int8_t>(Wire.read());
+    return true;
+}
+
+bool RTC::writeAgingOffsetRaw_(int8_t raw) {
+    Wire.beginTransmission(kDs3231Address);
+    Wire.write(kDs3231AgingOffsetReg);
+    Wire.write(static_cast<uint8_t>(raw));
+    return Wire.endTransmission() == 0;
 }

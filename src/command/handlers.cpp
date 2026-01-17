@@ -9,6 +9,7 @@
 #include "timing/pps_isr.h"
 #include "esp_log.h"
 #include <ArduinoJson.h>
+#include <cstdlib>
 #include <esp_timer.h>
 #include <esp_system.h>
 
@@ -600,6 +601,59 @@ void cmdSyncSource(JsonDocument& request, Stream& output) {
 
     ESP_LOGI(TAG, "Sync_source command processed: requested=%s, active=%s, reason=%s",
              source_str, active_source, reason);
+}
+
+void cmdCalibrate(JsonDocument& request, Stream& output) {
+    if (request["offset"].isNull()) {
+        sendError("calibrate", 102, "Missing 'offset' field", request["id"], output);
+        ESP_LOGW(TAG, "Calibrate failed: missing offset");
+        return;
+    }
+
+    if (!request["offset"].is<float>() && !request["offset"].is<double>() && !request["offset"].is<int>()) {
+        sendError("calibrate", 103, "Invalid 'offset' field type", request["id"], output);
+        ESP_LOGW(TAG, "Calibrate failed: invalid offset type");
+        return;
+    }
+
+    if (!rtc.isReady()) {
+        sendError("calibrate", 201, "RTC not initialized", request["id"], output);
+        ESP_LOGW(TAG, "Calibrate failed: RTC not initialized");
+        return;
+    }
+
+    float offset = request["offset"].as<float>();
+    float previous_offset = 0.0f;
+    if (!rtc.getAgingOffsetPpm(previous_offset)) {
+        sendError("calibrate", 202, "Failed to read RTC calibration", request["id"], output);
+        ESP_LOGW(TAG, "Calibrate failed: RTC read error");
+        return;
+    }
+
+    float applied_offset = 0.0f;
+    if (!rtc.setAgingOffsetPpm(offset, applied_offset)) {
+        sendError("calibrate", 202, "Failed to write RTC calibration", request["id"], output);
+        ESP_LOGW(TAG, "Calibrate failed: RTC write error");
+        return;
+    }
+
+    JsonDocument response;
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "calibrate";
+    response["previous_offset"] = previous_offset;
+    response["new_offset"] = applied_offset;
+
+    TimeSyncStatus sync_status = time_sync_status();
+    response["estimated_error_us"] = llabs(sync_status.last_offset_us);
+    response["status"] = "ok";
+
+    sendResponse(response, output, true);
+
+    ESP_LOGI(TAG, "Calibrate command processed: previous=%.3f, new=%.3f",
+             previous_offset, offset);
 }
 
 void cmdFactoryReset(JsonDocument& request, Stream& output) {

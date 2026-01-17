@@ -25,8 +25,6 @@
 #define DEFAULT_WIFI_SSID ""
 #define DEFAULT_WIFI_PASSWD ""
 
-#define DEFAULT_CALIBRATION_RTC_OFFSET_PPM 0.0f
-
 // ============================================================================
 // Структуры данных
 // ============================================================================
@@ -62,21 +60,12 @@ struct WifiSettings {
 };
 
 /**
- * @brief Настройки калибровки
- */
-struct CalibrationSettings {
-  float rtc_offset_ppm =
-      DEFAULT_CALIBRATION_RTC_OFFSET_PPM; // -100.0 до 100.0 ppm
-};
-
-/**
  * @brief Полная структура настроек
  */
 struct Settings {
   DeviceSettings device;
   SyncSettings sync;
   WifiSettings wifi;
-  CalibrationSettings calibration;
 };
 
 /**
@@ -115,9 +104,6 @@ public:
   const DeviceSettings &getDevice() const { return settings_.device; }
   const SyncSettings &getSync() const { return settings_.sync; }
   const WifiSettings &getWifi() const { return settings_.wifi; }
-  const CalibrationSettings &getCalibration() const {
-    return settings_.calibration;
-  }
   const Settings &getAll() const { return settings_; }
 
   // Сеттеры с валидацией
@@ -144,14 +130,6 @@ public:
    * ошибке
    */
   bool setWifi(const WifiSettings &wifi);
-
-  /**
-   * @brief Установить настройки калибровки с валидацией
-   * @param calibration Настройки калибровки
-   * @return true если валидация прошла и настройки установлены, false при
-   * ошибке
-   */
-  bool setCalibration(const CalibrationSettings &calibration);
 
   /**
    * @brief Получить статистику использования хранилища
@@ -192,8 +170,6 @@ private:
   bool validateDevice(const DeviceSettings &device) const;
   bool validateSync(const SyncSettings &sync) const;
   bool validateWifi(const WifiSettings &wifi) const;
-  bool validateCalibration(const CalibrationSettings &calibration) const;
-
   // Вспомогательные функции валидации
   bool isValidAsciiName(const String &name) const;
   bool isValidDeviceType(uint8_t type) const;
@@ -204,12 +180,9 @@ private:
   size_t saveDevice();
   size_t saveSync();
   size_t saveWifi();
-  size_t saveCalibration();
-
   void loadDevice();
   void loadSync();
   void loadWifi();
-  void loadCalibration();
 
   // Установка значений по умолчанию
   void setDefaults();
