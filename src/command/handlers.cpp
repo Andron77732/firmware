@@ -523,6 +523,85 @@ void cmdWifi(JsonDocument& request, Stream& output) {
     ESP_LOGI(TAG, "WiFi enabled via command: ssid=%s", ssid.c_str());
 }
 
+void cmdSyncSource(JsonDocument& request, Stream& output) {
+    if (request["source"].isNull()) {
+        sendError("sync_source", 102, "Missing 'source' field", request["id"], output);
+        ESP_LOGW(TAG, "Sync_source failed: missing source");
+        return;
+    }
+
+    if (!request["source"].is<const char*>()) {
+        sendError("sync_source", 103, "Invalid 'source' field type", request["id"], output);
+        ESP_LOGW(TAG, "Sync_source failed: invalid source type");
+        return;
+    }
+
+    const char* source_str = request["source"].as<const char*>();
+    uint8_t source_value = 0;
+    if (strcmp(source_str, "auto") == 0) {
+        source_value = 0;
+    } else if (strcmp(source_str, "gps") == 0) {
+        source_value = 1;
+    } else if (strcmp(source_str, "rtc") == 0) {
+        source_value = 2;
+    } else {
+        sendError("sync_source", 103, "Invalid 'source' value", request["id"], output);
+        ESP_LOGW(TAG, "Sync_source failed: invalid source value '%s'", source_str);
+        return;
+    }
+
+    SyncSettings sync = settings.getSync();
+    sync.source = source_value;
+    if (!settings.setSync(sync)) {
+        sendError("sync_source", 103, "Invalid sync settings", request["id"], output);
+        ESP_LOGW(TAG, "Sync_source failed: settings validation error");
+        return;
+    }
+
+    if (settings.save() < 0) {
+        sendError("sync_source", 202, "Failed to save settings", request["id"], output);
+        ESP_LOGW(TAG, "Sync_source failed: storage error");
+        return;
+    }
+
+    const TimeSyncStatus sync_status = time_sync_status();
+    const char* active_source = "none";
+    if (sync_status.source == TimeSource::GPS_PPS) {
+        active_source = "gps";
+    } else if (sync_status.source == TimeSource::RTC) {
+        active_source = "rtc";
+    }
+
+    const char* reason = "ok";
+    if (source_value == 0) {
+        reason = "auto";
+    } else if (source_value == 1 && strcmp(active_source, "gps") != 0) {
+        reason = "no_gps_signal";
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    int64_t utc_us = 0;
+    if (!time_sync_esp_to_utc_us(now_us, utc_us)) {
+        utc_us = 0;
+    }
+
+    JsonDocument response;
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "sync_source";
+    response["active_source"] = active_source;
+    response["reason"] = reason;
+    response["timestamp"] = utc_us;
+    response["status"] = "ok";
+
+    sendResponse(response, output, true);
+
+    ESP_LOGI(TAG, "Sync_source command processed: requested=%s, active=%s, reason=%s",
+             source_str, active_source, reason);
+}
+
 void cmdFactoryReset(JsonDocument& request, Stream& output) {
     if (!settings.factoryReset()) {
         sendError("factory_reset", 202, "Failed to reset settings", request["id"], output);

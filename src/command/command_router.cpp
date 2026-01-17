@@ -15,6 +15,7 @@ static const CommandRoute commandRoutes[] = {
     {"save_config", cmdSaveConfig},
     {"sync_ntp", cmdSyncNtp},
     {"wifi", cmdWifi},
+    {"sync_source", cmdSyncSource},
     {"factory_reset", cmdFactoryReset},
     // Добавьте здесь новые команды:
     // {"setNumber", cmdSetNumber},

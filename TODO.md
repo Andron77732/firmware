@@ -19,7 +19,7 @@
   - [ ] [gps](PROTOCOL.md#gps---управление-gps-модулем)
   - [x] [wifi](PROTOCOL.md#wifi---управление-wifi)
   - [ ] [calibrate](PROTOCOL.md#calibrate---калибровка-rtc)
-  - [ ] [sync_source](PROTOCOL.md#sync_source---переключить-источник-синхронизации)
+  - [x] [sync_source](PROTOCOL.md#sync_source---переключить-источник-синхронизации)
   - [x] [sync_ntp](PROTOCOL.md#sync_ntp---синхронизация-rtc-по-ntp)
   - [x] [save_config](PROTOCOL.md#save_config---сохранить-конфигурацию)
   - [x] [load_config](PROTOCOL.md#load_config---загрузить-конфигурацию)

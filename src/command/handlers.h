@@ -76,6 +76,16 @@ void cmdSyncNtp(JsonDocument& request, Stream& output);
 void cmdWifi(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды sync_source
+ *
+ * Переключает источник синхронизации (gps/rtc) и возвращает активный источник.
+ *
+ * @param request JSON запрос с полем "cmd": "sync_source"
+ * @param output Поток для отправки ответа
+ */
+void cmdSyncSource(JsonDocument& request, Stream& output);
+
+/**
  * @brief Обработчик команды factory_reset
  *
  * Сбрасывает все настройки к значениям по умолчанию и планирует перезагрузку.

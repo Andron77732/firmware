@@ -378,6 +378,11 @@ V10:10:15#
 {"cmd": "sync_source", "source": "gps"}
 ```
 
+**Запрос (авто):**
+```json
+{"cmd": "sync_source", "source": "auto"}
+```
+
 **Запрос (на RTC):**
 ```json
 {"cmd": "sync_source", "source": "rtc"}
@@ -393,6 +398,11 @@ V10:10:15#
   "status": "ok"
 }
 ```
+
+**Параметры ответа:**
+- `active_source` — активный источник синхронизации: `"gps"`, `"rtc"`, `"none"`
+- `reason` — причина выбора источника: `"ok"`, `"no_gps_signal"`, `"auto"`
+- `timestamp` — текущий UTC timestamp (мкс) или 0 если время недоступно
 
 ---
 
