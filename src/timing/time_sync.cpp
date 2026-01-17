@@ -231,7 +231,8 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
         break;
       }
     }
-    delay(1);
+  // Небольшая пауза без blockinging
+  esp_rom_delay_us(100);
   }
 
   if (edge_us == 0) {
@@ -365,6 +366,9 @@ void time_sync_update() {
   s_status.pps_locked = allow_gps && pps_is_locked();
   if (!s_status.pps_locked) {
     reset_phase_delta_filter();
+
+    // PPS пропал -> отменяем запланированную установку RTC по "следующему PPS"
+    s_rtc_pps_pending = false;
   }
 
   // --- 3) Если PPS нет — fallback на RTC (через SQW 1Hz) ---
