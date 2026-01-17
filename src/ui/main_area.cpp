@@ -1,6 +1,7 @@
 #include "main_area.h"
 #include "storage/settings.h"
 #include "esp_log.h"
+#include <string.h>
 
 // Глобальный объект mainArea
 MainArea mainArea;
@@ -11,9 +12,13 @@ void MainArea::begin(TFT_eSPI& tft) {
     _canvas = _tft;
     _canvasYOffset = UI_MAIN_AREA_Y_POS;
     _logLineCount = 0;
+    _startLineCount = 0;
+    _startEventCounter = 0;
     _finishLineCount = 0;
     _finishEventCounter = 0;
     _hasEvent = false;
+    _countdownMode = StartCountdownMode::HIDDEN;
+    _countdownValue = 0;
 
     if (!_framebuffer) {
         _framebuffer = new TFT_eSprite(_tft);
@@ -115,46 +120,109 @@ void MainArea::drawLoading() {
 void MainArea::displayEventTimestamp(const EventTimestampData& data) {
     if (!data.success)
       return;
-    if (_currentType == MainAreaType::FINISH && _hasEvent) {
-        if (_lastEvent.success) {
-            bool spacerAbove = false;
-            const int64_t gap_us = data.utc_timestamp_us - _lastEvent.utc_timestamp_us;
-            spacerAbove = gap_us > (int64_t)UI_MAIN_AREA_FINISH_GAP_SPACER_MS * 1000LL;
-            addFinishLine(String(_lastEvent.local_time_str), spacerAbove);
+    if (data.module_type == ModuleType::FINISH) {
+        if (_currentType == MainAreaType::FINISH && _hasEvent) {
+            if (_lastEvent.success) {
+                bool spacerAbove = false;
+                const int64_t gap_us = data.utc_timestamp_us - _lastEvent.utc_timestamp_us;
+                spacerAbove = gap_us > (int64_t)UI_MAIN_AREA_FINISH_GAP_SPACER_MS * 1000LL;
+                addFinishLine(String(_lastEvent.local_time_str), spacerAbove);
+            }
         }
+        _lastEvent = data;
+        _hasEvent = true;
+        draw(); // Перерисовываем экран
+        return;
     }
-    _lastEvent = data;
-    _hasEvent = true;
-    draw(); // Перерисовываем экран
+
+    if (data.module_type == ModuleType::START) {
+        int32_t correction_ms = data.correction_ms;
+        int32_t abs_corr = (correction_ms < 0) ? -correction_ms : correction_ms;
+        char line[UI_MAIN_AREA_LOG_LINE_LENGTH];
+        if (abs_corr <= (int32_t)MAX_CORRECTION_MS) {
+            snprintf(line, sizeof(line), "%s  %+ld", data.local_time_str, (long)correction_ms);
+        } else {
+            snprintf(line, sizeof(line), "%s", data.local_time_str);
+        }
+        addStartLine(String(line));
+        _lastEvent = data;
+        _hasEvent = true;
+        draw(); // Перерисовываем экран
+        return;
+    }
 }
 
 void MainArea::drawStart() {
     if (!_canvas) return;
-    
-    if (!_hasEvent) {
-        // Нет события - пустой экран
-        return;
+
+    char countdown[3] = "";
+    bool showCountdown = false;
+    if (_countdownMode == StartCountdownMode::GO) {
+        snprintf(countdown, sizeof(countdown), "GO");
+        showCountdown = true;
+    } else if (_countdownMode == StartCountdownMode::COUNTDOWN) {
+        snprintf(countdown, sizeof(countdown), "%u", (unsigned)_countdownValue);
+        showCountdown = true;
     }
-    
-    // Отображение локального времени события
-    // Используем крупный шрифт для лучшей читаемости
-    _canvas->setTextSize(3);
-    
-    // Определяем цвет в зависимости от успешности
-    uint16_t text_color = _lastEvent.success ? TFT_GREEN : TFT_YELLOW;
-    _canvas->setTextColor(text_color, UI_MAIN_AREA_COLOR_BACKGROUND);
-    
-    // Центрируем текст по горизонтали
-    // Ширина символа для размера 3: примерно 18px
-    // "HH:MM:SS,mmm" = 12 символов = ~216px
-    // Центр: (240 - 216) / 2 = 12px от левого края
-    uint16_t text_x = 12;
-    
-    // Позиция по вертикали: примерно в верхней трети экрана
-    uint16_t text_y = canvasY(60);
-    
-    _canvas->setCursor(text_x, text_y);
-    _canvas->print(_lastEvent.local_time_str);
+
+    _canvas->setTextSize(UI_MAIN_AREA_START_COUNTDOWN_TEXT_SIZE);
+    _canvas->setTextColor(TFT_WHITE, UI_MAIN_AREA_COLOR_BACKGROUND);
+
+    uint16_t countdown_char_width = UI_CHAR_WIDTH * UI_MAIN_AREA_START_COUNTDOWN_TEXT_SIZE;
+    uint16_t countdown_width = countdown_char_width * strlen(countdown);
+    uint16_t countdown_x = (UI_MAIN_AREA_WIDTH - countdown_width) / 2;
+    uint16_t countdown_y = UI_MAIN_AREA_START_COUNTDOWN_Y;
+    if (showCountdown) {
+        _canvas->setCursor(countdown_x, canvasY(countdown_y));
+        _canvas->print(countdown);
+    }
+
+    uint16_t next_y = countdown_y + UI_MAIN_AREA_START_COUNTDOWN_HEIGHT +
+                      UI_MAIN_AREA_START_COUNTDOWN_SPACING;
+
+    uint16_t rect_height = UI_MAIN_AREA_START_CORRECTION_HEIGHT +
+                           UI_MAIN_AREA_START_CORRECTION_PADDING * 2;
+    _canvas->fillRect(0, canvasY(next_y), UI_MAIN_AREA_WIDTH, rect_height,
+                      UI_MAIN_AREA_START_CORRECTION_COLOR_BACKGROUND);
+
+    _canvas->setTextSize(UI_MAIN_AREA_START_CORRECTION_TEXT_SIZE);
+    _canvas->setTextColor(UI_MAIN_AREA_START_CORRECTION_COLOR_TEXT,
+                          UI_MAIN_AREA_START_CORRECTION_COLOR_BACKGROUND);
+
+    char correction_text[12];
+    bool has_valid_correction = false;
+    int32_t correction_ms = 0;
+    if (_hasEvent && _lastEvent.success) {
+        correction_ms = _lastEvent.correction_ms;
+        int32_t abs_corr = (correction_ms < 0) ? -correction_ms : correction_ms;
+        has_valid_correction = abs_corr <= (int32_t)MAX_CORRECTION_MS;
+    }
+
+    if (has_valid_correction) {
+        snprintf(correction_text, sizeof(correction_text), "%ld",
+                 (long)correction_ms);
+    } else {
+        snprintf(correction_text, sizeof(correction_text), "--");
+    }
+
+    uint16_t correction_x = UI_MAIN_AREA_START_CORRECTION_PADDING;
+    uint16_t correction_y = next_y + UI_MAIN_AREA_START_CORRECTION_PADDING +
+                            UI_MAIN_AREA_START_CORRECTION_TEXT_Y_OFFSET;
+    _canvas->setCursor(correction_x, canvasY(correction_y));
+    _canvas->print(correction_text);
+
+    next_y += rect_height + UI_MAIN_AREA_START_CORRECTION_SPACING;
+
+    if (_startLineCount > 0) {
+        uint16_t available_height = 0;
+        if (next_y < UI_MAIN_AREA_HEIGHT) {
+            available_height = UI_MAIN_AREA_HEIGHT - next_y;
+        }
+        uint8_t max_lines = available_height / UI_MAIN_AREA_LOG_LINE_HEIGHT;
+        if (max_lines > 0) {
+            drawStartLines(next_y, max_lines);
+        }
+    }
 }
 
 void MainArea::drawFinish() {
@@ -282,4 +350,81 @@ void MainArea::addFinishLine(const String& line, bool spacerAbove) {
         _finishLines[spacerAbove ? 1 : 0] = line;
     }
     _finishLineNumbers[spacerAbove ? 1 : 0] = _finishEventCounter;
+}
+
+void MainArea::updateCountdown(uint8_t seconds) {
+    StartCountdownMode nextMode = StartCountdownMode::HIDDEN;
+    uint8_t nextValue = 0;
+    if (seconds <= 10) {
+        nextMode = StartCountdownMode::GO;
+    } else if (seconds >= 30) {
+        nextMode = StartCountdownMode::COUNTDOWN;
+        nextValue = (uint8_t)(60 - seconds);
+    }
+
+    if (nextMode == _countdownMode && nextValue == _countdownValue) {
+        return;
+    }
+    _countdownMode = nextMode;
+    _countdownValue = nextValue;
+    if (_currentType == MainAreaType::START) {
+        draw();
+    }
+}
+
+void MainArea::addStartLine(const String& line) {
+    if (line.length() == 0) return;
+
+    uint8_t maxLines = UI_MAIN_AREA_MAX_LOG_LINES;
+    if (maxLines == 0) return;
+
+    _startEventCounter++;
+    uint8_t newCount = _startLineCount + 1;
+    if (newCount > maxLines) {
+        newCount = maxLines;
+    }
+
+    for (int i = newCount - 1; i >= 1; i--) {
+        _startLines[i] = _startLines[i - 1];
+        _startLineNumbers[i] = _startLineNumbers[i - 1];
+    }
+
+    if (line.length() > UI_MAIN_AREA_LOG_LINE_LENGTH - 1) {
+        _startLines[0] = line.substring(0, UI_MAIN_AREA_LOG_LINE_LENGTH - 1);
+    } else {
+        _startLines[0] = line;
+    }
+    _startLineNumbers[0] = _startEventCounter;
+
+    _startLineCount = newCount;
+}
+
+void MainArea::drawStartLines(uint16_t startY, uint8_t maxVisibleLines) {
+    if (!_canvas || _startLineCount == 0 || maxVisibleLines == 0) return;
+
+    _canvas->setTextSize(UI_MAIN_AREA_LOG_TEXT_SIZE);
+    _canvas->setTextColor(UI_MAIN_AREA_LOG_COLOR, UI_MAIN_AREA_COLOR_BACKGROUND);
+
+    uint8_t visibleLines = _startLineCount;
+    if (visibleLines > maxVisibleLines) {
+        visibleLines = maxVisibleLines;
+    }
+
+    for (uint8_t i = 0; i < visibleLines; i++) {
+        uint16_t y = canvasY(startY + i * UI_MAIN_AREA_LOG_LINE_HEIGHT);
+        uint32_t number = _startLineNumbers[i];
+        if (number == 0 && _startLines[i].length() == 0) {
+            continue;
+        }
+
+        _canvas->setCursor(UI_MAIN_AREA_LOG_X, y);
+        if (number < 10) {
+            _canvas->print("  ");
+        } else if (number < 100) {
+            _canvas->print(" ");
+        }
+        _canvas->print(number);
+        _canvas->print(".   ");
+        _canvas->print(_startLines[i]);
+    }
 }

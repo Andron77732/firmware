@@ -3,6 +3,7 @@
 #include "storage/settings.h"
 #include "timing/event_dispatcher.h"
 #include "ui/status_bar.h"
+#include "ui/main_area.h"
 #include <Arduino.h>
 #include <time.h>
 
@@ -27,6 +28,8 @@ void second_events_handle_tick(ModuleType module_type) {
 
     if (module_type != ModuleType::START)
       return;
+
+    mainArea.updateCountdown(tm.tm_sec);
 
     switch (tm.tm_sec) {
     case 56:

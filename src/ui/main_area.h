@@ -15,6 +15,12 @@ enum class MainAreaType {
     FINISH    // Финиш
 };
 
+enum class StartCountdownMode {
+    COUNTDOWN,
+    GO,
+    HIDDEN
+};
+
 /**
  * @brief Основная область экрана между status_bar и footer
  * 
@@ -64,6 +70,12 @@ public:
      */
     void displayEventTimestamp(const EventTimestampData& data);
 
+    /**
+     * @brief Обновить обратный отсчет для режима START
+     * @param seconds Секунды текущей минуты
+     */
+    void updateCountdown(uint8_t seconds);
+
 private:
     TFT_eSPI* _tft = nullptr;
     TFT_eSPI* _canvas = nullptr;
@@ -76,6 +88,12 @@ private:
     String _logLines[UI_MAIN_AREA_MAX_LOG_LINES];
     uint8_t _logLineCount = 0;
 
+    // Буфер для стартовых событий (сверху вниз, новые сверху)
+    String _startLines[UI_MAIN_AREA_MAX_LOG_LINES];
+    uint32_t _startLineNumbers[UI_MAIN_AREA_MAX_LOG_LINES];
+    uint8_t _startLineCount = 0;
+    uint32_t _startEventCounter = 0;
+
     // Буфер для отсечек финиша (сверху вниз)
     String _finishLines[UI_MAIN_AREA_FINISH_MAX_LOG_LINES];
     uint32_t _finishLineNumbers[UI_MAIN_AREA_FINISH_MAX_LOG_LINES];
@@ -85,6 +103,8 @@ private:
     // Данные последнего события
     EventTimestampData _lastEvent;
     bool _hasEvent = false;
+    StartCountdownMode _countdownMode = StartCountdownMode::HIDDEN;
+    uint8_t _countdownValue = 0;
     
     /**
      * @brief Отрисовка режима загрузки (логи)
@@ -124,6 +144,16 @@ private:
      * @brief Добавить строку в список отсечек финиша
      */
     void addFinishLine(const String& line, bool spacerAbove);
+
+    /**
+     * @brief Добавить строку в список стартовых событий
+     */
+    void addStartLine(const String& line);
+
+    /**
+     * @brief Отрисовка списка стартовых событий
+     */
+    void drawStartLines(uint16_t startY, uint8_t maxVisibleLines);
 };
 
 // Глобальный объект mainArea

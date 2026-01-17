@@ -59,7 +59,7 @@
 #define VOICE_HEADER 'V'
 #define PACKET_ENDER '#'
 
-#define MAX_CORRECTION_MS 10000U
+#define MAX_CORRECTION_MS 15000U
 #define START_EVENT_DELAY_US 2000000U
 
 // --- Module Type ---
