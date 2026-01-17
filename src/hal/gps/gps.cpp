@@ -61,6 +61,10 @@ void GPS::update() {
         _nmea.process(c);
     }
 
+    if (_nmea.isValid()) {
+        _last_fix_us = esp_timer_get_time();
+    }
+
     updateState_();
     updateSats_();
 }

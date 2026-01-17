@@ -193,6 +193,15 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     gps_obj["fix"] = gps.nmea().isValid();
     gps_obj["satellites"] = gps.nmea().getNumSatellites();
     gps_obj["pps_signal"] = pps_is_locked();
+    int64_t gps_fix_us = gps.lastFixUs();
+    if (gps_fix_us > 0) {
+        int64_t now_us = esp_timer_get_time();
+        int64_t age_ms = (now_us - gps_fix_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        gps_obj["fix_age_ms"] = age_ms;
+    }
 
     JsonObject sync_obj = response["sync"].to<JsonObject>();
     TimeSyncStatus sync_status = time_sync_status();

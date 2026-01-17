@@ -59,6 +59,12 @@ public:
     GPSState getState() const;
 
     /**
+     * @brief Время последнего валидного фикса (esp_timer_get_time, us)
+     * @return 0 если фикса еще не было
+     */
+    int64_t lastFixUs() const { return _last_fix_us; }
+
+    /**
      * @brief Установить callback для уведомления об изменении состояния GPS
      * @param callback Функция, которая будет вызвана при изменении состояния
      */
@@ -85,6 +91,8 @@ private:
     // Callback для уведомления об изменении числа спутников
     void (*_satsCallback)(int8_t sats) = nullptr;
     int8_t _lastSats = -127;
+
+    int64_t _last_fix_us = 0;
 
     // Мягкий таймстампинг NMEA: время начала последнего полного предложения
     int64_t _last_sentence_start_us = 0;
