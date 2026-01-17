@@ -52,9 +52,18 @@ static void sendEventPacket(const EventTimestampData &data) {
 }
 
 void event_dispatcher_handle_event_isr(ModuleType module_type) {
+  static int64_t last_start_event_us = 0;
   int64_t t_esp_us = 0;
 
   if (event_isr_get(t_esp_us)) {
+    if (module_type == ModuleType::START) {
+      if (last_start_event_us != 0 &&
+          (t_esp_us - last_start_event_us) <
+              (int64_t)START_EVENT_DELAY_US) {
+        return;
+      }
+      last_start_event_us = t_esp_us;
+    }
     EventTimestampData data = event_timestamp_process(t_esp_us, module_type);
     sendEventPacket(data);
     mainArea.displayEventTimestamp(data);
