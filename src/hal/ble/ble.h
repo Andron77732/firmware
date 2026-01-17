@@ -86,6 +86,11 @@ public:
      * @return BLEState Текущее состояние
      */
     BLEState getState();
+
+    /**
+     * @brief Количество активных BLE клиентов
+     */
+    uint16_t getClientCount() const { return _clientCount; }
     
     /**
      * @brief Установить callback для уведомления об изменении состояния подключения
@@ -135,6 +140,7 @@ private:
     bool _connected = false;
     bool _notifyEnabled = false;  // Клиент подписан на notify
     uint16_t _mtu = 23;  // Минимальный BLE MTU по умолчанию
+    uint16_t _clientCount = 0;
     
     String _deviceName;
     // Callback для уведомления об изменении состояния
@@ -152,4 +158,3 @@ private:
 extern BLESerial bleSerial;
 
 #endif // BLE_H
-

@@ -154,6 +154,7 @@ void cmdStatus(JsonDocument& request, Stream& output) {
             break;
     }
     ble_obj["state"] = ble_state_str;
+    ble_obj["clients"] = bleSerial.getClientCount();
 
     JsonObject rtc_obj = response["rtc"].to<JsonObject>();
     bool rtc_ready = rtc.isReady();

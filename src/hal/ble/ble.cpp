@@ -132,6 +132,7 @@ void BLESerial::init(const String &deviceName) {
   _connected = false;
   _notifyEnabled = false;
   _mtu = 23;
+  _clientCount = 0;
   _hasPeeked = false;
   _peekedByte = -1;
   _advConfigured = false;
@@ -266,6 +267,7 @@ void BLESerial::end() {
   _connected = false;
   _notifyEnabled = false;
   _advConfigured = false;
+  _clientCount = 0;
 
     // plugins
   _pluginCount = 0;
@@ -433,6 +435,9 @@ void BLESerial::onConnect(NimBLEConnInfo& connInfo, uint16_t mtu) {
   _connected = true;
   _notifyEnabled = false; // до subscribe
   _mtu = mtu;
+  if (_clientCount < UINT16_MAX) {
+    ++_clientCount;
+  }
 
   pluginsOnConnect(connInfo, mtu);
   notifyStateChanged();
@@ -441,6 +446,9 @@ void BLESerial::onConnect(NimBLEConnInfo& connInfo, uint16_t mtu) {
 void BLESerial::onDisconnect(int reason) {
   _connected = false;
   _notifyEnabled = false;
+  if (_clientCount > 0) {
+    --_clientCount;
+  }
 
   pluginsOnDisconnect(reason);
   notifyStateChanged();
