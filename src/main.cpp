@@ -76,6 +76,7 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
 
   ESP_LOGI(TAG, "ENTime v%s starting...", VERSION);
+  ESP_LOGI(TAG, "Build date: %s", FIRMWARE_BUILD_DATE);
 
   ESP_LOGI(TAG, "tick rate: %d Hz", configTICK_RATE_HZ);
 
@@ -98,6 +99,9 @@ void setup() {
   mainArea.setType(MainAreaType::LOADING);
   mainArea.draw();
   mainArea.addLogLine("ENTime v" VERSION " starting...");
+  mainArea.addLogLine(String("Build date: ") + FIRMWARE_BUILD_DATE);
+  ESP_LOGI(TAG, "ENTime v" VERSION " starting...");
+  ESP_LOGI(TAG, "Build date: %s", FIRMWARE_BUILD_DATE);
 
   // Инициализация настроек (загрузка из NVS)
   mainArea.addLogLine("Loading settings...");

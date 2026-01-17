@@ -26,6 +26,16 @@ void cmdPing(JsonDocument& request, Stream& output);
 void cmdTime(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды status
+ *
+ * Возвращает базовый статус устройства (включая версию и дату сборки).
+ *
+ * @param request JSON запрос с полем "cmd": "status"
+ * @param output Поток для отправки ответа
+ */
+void cmdStatus(JsonDocument& request, Stream& output);
+
+/**
  * @brief Обработчик команды load_config
  *
  * Возвращает текущие настройки устройства в JSON формате.

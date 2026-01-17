@@ -2,7 +2,11 @@
 #include "timing/sntp.h"
 #include "storage/settings.h"
 #include "hal/wifi/wifi.h"
+#include "hal/ble/ble.h"
+#include "hal/gps/gps.h"
+#include "hal/rtc/rtc.h"
 #include "timing/time_sync.h"
+#include "timing/pps_isr.h"
 #include "esp_log.h"
 #include <ArduinoJson.h>
 #include <esp_timer.h>
@@ -76,6 +80,165 @@ void cmdTime(JsonDocument& request, Stream& output) {
     
     ESP_LOGI(TAG, "Time command processed: time=%lld us, source=%s, accuracy=%lld us, status=%s",
              (long long)utc_time_us, source_str, (long long)accuracy_us, status_str);
+}
+
+void cmdStatus(JsonDocument& request, Stream& output) {
+    JsonDocument response;
+
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "status";
+
+    const DeviceSettings &device = settings.getDevice();
+    JsonObject device_obj = response["device"].to<JsonObject>();
+    device_obj["name"] = device.name;
+    device_obj["number"] = device.number;
+    const char* type_str = "unknown";
+    if (device.type == 1) {
+        type_str = "start";
+    } else if (device.type == 2) {
+        type_str = "finish";
+    }
+    device_obj["type"] = type_str;
+
+    JsonObject firmware_obj = response["firmware"].to<JsonObject>();
+    firmware_obj["version"] = VERSION;
+    firmware_obj["build_date"] = FIRMWARE_BUILD_DATE;
+
+    JsonObject wifi_obj = response["wifi"].to<JsonObject>();
+    WiFiState wifi_state = wifiManager.getState();
+    const char* wifi_state_str = "off";
+    switch (wifi_state) {
+        case WiFiState::CONNECTING:
+            wifi_state_str = "connecting";
+            break;
+        case WiFiState::CONNECTED:
+            wifi_state_str = "connected";
+            break;
+        case WiFiState::DISCONNECTED:
+        case WiFiState::ERROR:
+            wifi_state_str = "error";
+            break;
+        case WiFiState::UNINITIALIZED:
+        case WiFiState::OFF:
+        default:
+            wifi_state_str = "off";
+            break;
+    }
+    wifi_obj["state"] = wifi_state_str;
+    wifi_obj["rssi"] = wifiManager.getRSSI();
+    String ip = wifiManager.getIP();
+    if (ip.length() > 0) {
+        wifi_obj["ip"] = ip;
+    }
+
+    JsonObject ble_obj = response["ble"].to<JsonObject>();
+    BLEState ble_state = bleSerial.getState();
+    const char* ble_state_str = "off";
+    switch (ble_state) {
+        case BLEState::ADVERTISING:
+            ble_state_str = "advertising";
+            break;
+        case BLEState::CONNECTED:
+            ble_state_str = "connected";
+            break;
+        case BLEState::DISCONNECTED:
+        default:
+            ble_state_str = "off";
+            break;
+    }
+    ble_obj["state"] = ble_state_str;
+
+    JsonObject rtc_obj = response["rtc"].to<JsonObject>();
+    bool rtc_ready = rtc.isReady();
+    rtc_obj["ready"] = rtc_ready;
+    rtc_obj["lost_power"] = rtc_ready ? rtc.lostPower() : false;
+    if (rtc_ready) {
+        rtc_obj["temperature_c"] = rtc.getTemperature();
+    }
+
+    JsonObject gps_obj = response["gps"].to<JsonObject>();
+    GPSState gps_state = gps.getState();
+    const char* gps_state_str = "off";
+    switch (gps_state) {
+        case GPSState::SEARCHING:
+            gps_state_str = "searching";
+            break;
+        case GPSState::ACTIVE:
+            gps_state_str = "active";
+            break;
+        case GPSState::OFF:
+        default:
+            gps_state_str = "off";
+            break;
+    }
+    gps_obj["state"] = gps_state_str;
+    gps_obj["fix"] = gps.nmea().isValid();
+    gps_obj["satellites"] = gps.nmea().getNumSatellites();
+    gps_obj["pps_signal"] = pps_is_locked();
+
+    JsonObject sync_obj = response["sync"].to<JsonObject>();
+    TimeSyncStatus sync_status = time_sync_status();
+    TimeSyncState sync_state = time_sync_state();
+    const char* sync_state_str = "nosync";
+    switch (sync_state) {
+        case TimeSyncState::GPS_OK:
+            sync_state_str = "gps_ok";
+            break;
+        case TimeSyncState::GPS_DEGRADED:
+            sync_state_str = "gps_degraded";
+            break;
+        case TimeSyncState::RTC_OK:
+            sync_state_str = "rtc_ok";
+            break;
+        case TimeSyncState::RTC_DEGRADED:
+            sync_state_str = "rtc_degraded";
+            break;
+        case TimeSyncState::NONE:
+        default:
+            sync_state_str = "nosync";
+            break;
+    }
+    sync_obj["state"] = sync_state_str;
+    int64_t accuracy_us = time_sync_estimate_accuracy_us();
+    if (accuracy_us >= 0) {
+        sync_obj["accuracy_us"] = accuracy_us;
+    }
+    const char* sync_source_str = "none";
+    if (sync_status.source == TimeSource::GPS_PPS) {
+        sync_source_str = "gps";
+    } else if (sync_status.source == TimeSource::RTC) {
+        sync_source_str = "rtc";
+    }
+    sync_obj["source"] = sync_source_str;
+    if (sync_status.last_sync_us > 0) {
+        int64_t now_us = esp_timer_get_time();
+        int64_t age_ms = (now_us - sync_status.last_sync_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        sync_obj["last_ms"] = age_ms;
+    } else {
+        sync_obj["last_ms"] = 0;
+    }
+
+    JsonObject storage_obj = response["storage"].to<JsonObject>();
+    size_t used_bytes = 0;
+    size_t total_bytes = 0;
+    bool storage_ok = settings.getStorageStats(used_bytes, total_bytes);
+    storage_obj["ok"] = storage_ok;
+    if (storage_ok && total_bytes > 0) {
+        storage_obj["used_pct"] =
+            static_cast<int>((used_bytes * 100U) / total_bytes);
+    }
+
+    response["status"] = "ok";
+
+    sendResponse(response, output, true);
+
+    ESP_LOGI(TAG, "Status command processed");
 }
 
 void cmdLoadConfig(JsonDocument& request, Stream& output) {

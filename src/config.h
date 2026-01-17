@@ -5,9 +5,12 @@
 // ENTime Firmware Configuration
 // ============================================================================
 
+#include "runtime/build_info.h"
+
 #define VERSION "0.1.0"
 #define HARDWARE "v1"
 #define PROTOCOL "v1"
+#define FIRMWARE_BUILD_DATE firmware_build_date_iso()
 
 // --- TFT Display (ILI9341) ---
 // Пины определены в platformio.ini через build_flags для TFT_eSPI
