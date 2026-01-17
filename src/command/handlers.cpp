@@ -107,6 +107,45 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     firmware_obj["version"] = VERSION;
     firmware_obj["build_date"] = FIRMWARE_BUILD_DATE;
 
+    JsonObject system_obj = response["system"].to<JsonObject>();
+    system_obj["uptime_s"] = static_cast<uint32_t>(esp_timer_get_time() / 1000000LL);
+    system_obj["free_heap_bytes"] = esp_get_free_heap_size();
+    const char* reset_reason_str = "unknown";
+    switch (esp_reset_reason()) {
+        case ESP_RST_POWERON:
+            reset_reason_str = "power_on";
+            break;
+        case ESP_RST_SW:
+            reset_reason_str = "software";
+            break;
+        case ESP_RST_PANIC:
+            reset_reason_str = "panic";
+            break;
+        case ESP_RST_INT_WDT:
+            reset_reason_str = "int_wdt";
+            break;
+        case ESP_RST_TASK_WDT:
+            reset_reason_str = "task_wdt";
+            break;
+        case ESP_RST_WDT:
+            reset_reason_str = "wdt";
+            break;
+        case ESP_RST_DEEPSLEEP:
+            reset_reason_str = "deep_sleep";
+            break;
+        case ESP_RST_BROWNOUT:
+            reset_reason_str = "brownout";
+            break;
+        case ESP_RST_SDIO:
+            reset_reason_str = "sdio";
+            break;
+        case ESP_RST_UNKNOWN:
+        default:
+            reset_reason_str = "unknown";
+            break;
+    }
+    system_obj["reset_reason"] = reset_reason_str;
+
     JsonObject wifi_obj = response["wifi"].to<JsonObject>();
     WiFiState wifi_state = wifiManager.getState();
     const char* wifi_state_str = "off";

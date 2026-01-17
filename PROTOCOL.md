@@ -243,7 +243,7 @@ V10:10:15#
 - `firmware.build_date` — дата сборки
 - `system.uptime_s` — время работы в секундах
 - `system.free_heap_bytes` — свободная куча
-- `system.reset_reason` — причина последней перезагрузки
+- `system.reset_reason` — причина последней перезагрузки: `"power_on"`, `"software"`, `"panic"`, `"int_wdt"`, `"task_wdt"`, `"wdt"`, `"deep_sleep"`, `"brownout"`, `"sdio"`, `"unknown"`
 - `wifi.state` — состояние WiFi: `"off"`, `"connecting"`, `"connected"`, `"error"`
 - `wifi.rssi` — уровень сигнала WiFi в dBm
 - `wifi.ip` — IP адрес (если подключено)

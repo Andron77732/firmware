@@ -15,7 +15,7 @@
 - [ ] Serial (UART0) команды
   - [x] [ping](PROTOCOL.md#ping---проверка-связи)
   - [x] [time](PROTOCOL.md#time---получить-текущее-время)
-  - [ ] [status](PROTOCOL.md#status---получить-статус-синхронизации)
+  - [x] [status](PROTOCOL.md#status---получить-статус-синхронизации)
   - [ ] [gps](PROTOCOL.md#gps---управление-gps-модулем)
   - [x] [wifi](PROTOCOL.md#wifi---управление-wifi)
   - [ ] [calibrate](PROTOCOL.md#calibrate---калибровка-rtc)
@@ -43,6 +43,7 @@
 - [x] Вынести NTP сервера из дефайнов в настройки
 - [x] Добавить в ответ `sync_ntp` список используемых NTP серверов
 - [ ] Обновление значка заряда батареи (данные с INA226)
+- [ ] Реализация `power.battery_voltage` в команде status (INA226)
 - [x] Обновление значка GPS
 - [x] Настройка UI стартового экрана
 - [x] Настройка UI финишного экрана
@@ -52,27 +53,3 @@
 - [x] Отправка метки "voice" для стартового модуля
 - [x] Отправка метки "beep" для стартового модуля
 - [ ] Управление GPS модулем через транзистор
-
----
-
-## Протокол: status — доступность полей
-
-**Доступно в коде без новых хелперов:**
-- `device.name`, `device.number`, `device.type` (settings; нужен маппинг type->start/finish)
-- `firmware.version` (VERSION)
-- `wifi.state`, `wifi.rssi`, `wifi.ip` (wifiManager)
-- `ble.state` (bleSerial)
-- `rtc.ready`, `rtc.lost_power`, `rtc.temperature_c` (rtc)
-- `gps.state`, `gps.fix`, `gps.satellites` (gps)
-- `gps.pps_signal` (pps_is_locked)
-- `sync.last_ms`, `sync.state`, `sync.accuracy_us`, `sync.source` (time_sync)
-- `storage.used_pct`, `storage.ok` (settings.getStorageStats)
-
-**Нужны новые хелперы/источники:**
-- `firmware.build_date`
-- `system.uptime_s`, `system.free_heap_bytes`, `system.reset_reason`
-- `wifi.ssid` (текущая сеть, не из настроек)
-- `ble.clients`
-- `rtc.last_sync_ms`
-- `gps.fix_age_ms`
-- `power.battery_voltage` (INA226)
