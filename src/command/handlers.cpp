@@ -133,6 +133,10 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     if (ip.length() > 0) {
         wifi_obj["ip"] = ip;
     }
+    String ssid = wifiManager.getSSID();
+    if (ssid.length() > 0) {
+        wifi_obj["ssid"] = ssid;
+    }
 
     JsonObject ble_obj = response["ble"].to<JsonObject>();
     BLEState ble_state = bleSerial.getState();

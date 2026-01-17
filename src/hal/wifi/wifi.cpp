@@ -177,6 +177,13 @@ String WiFiManager::getIP() {
     return String("");
 }
 
+String WiFiManager::getSSID() {
+    if (isConnected()) {
+        return WiFi.SSID();
+    }
+    return String("");
+}
+
 void WiFiManager::onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
     // Ранний выход если WiFiManager не инициализирован
     // Это защищает от обработки событий после вызова end() или до begin()
