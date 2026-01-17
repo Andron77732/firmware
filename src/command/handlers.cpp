@@ -162,6 +162,17 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     if (rtc_ready) {
         rtc_obj["temperature_c"] = rtc.getTemperature();
     }
+    int64_t rtc_sync_us = rtc.lastSyncUs();
+    if (rtc_sync_us > 0) {
+        int64_t now_us = esp_timer_get_time();
+        int64_t age_ms = (now_us - rtc_sync_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        rtc_obj["last_sync_ms"] = age_ms;
+    } else {
+        rtc_obj["last_sync_ms"] = 0;
+    }
 
     JsonObject gps_obj = response["gps"].to<JsonObject>();
     GPSState gps_state = gps.getState();

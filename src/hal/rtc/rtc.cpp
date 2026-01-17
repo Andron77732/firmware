@@ -1,6 +1,7 @@
 #include "rtc.h"
 #include "config.h"
 #include "esp_log.h"
+#include <esp_timer.h>
 #include <Wire.h>
 
 static const char* TAG = "RTC";
@@ -69,6 +70,7 @@ void RTC::setTime(const DateTime& dt) {
     }
     
     _rtc.adjust(dt);
+    _last_sync_us = esp_timer_get_time();
     
     ESP_LOGI(TAG, "Time set to: %04d-%02d-%02d %02d:%02d:%02d",
              dt.year(), dt.month(), dt.day(),
@@ -88,6 +90,7 @@ void RTC::setTime(uint16_t year, uint8_t month, uint8_t day,
     
     DateTime dt(year, month, day, hour, minute, second);
     _rtc.adjust(dt);
+    _last_sync_us = esp_timer_get_time();
     
     ESP_LOGI(TAG, "Time set to: %04d-%02d-%02d %02d:%02d:%02d",
              year, month, day, hour, minute, second);

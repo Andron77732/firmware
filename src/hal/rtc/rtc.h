@@ -74,6 +74,12 @@ public:
      * @return Температура в °C (точность ±3°C)
      */
     float getTemperature();
+
+    /**
+     * @brief Время последней установки RTC (esp_timer_get_time, us)
+     * @return 0 если время еще ни разу не устанавливалось
+     */
+    int64_t lastSyncUs() const { return _last_sync_us; }
     
     /**
      * @brief Доступ к RTC_DS3231 объекту напрямую
@@ -84,10 +90,10 @@ public:
 private:
     RTC_DS3231 _rtc;
     bool _initialized = false;
+    int64_t _last_sync_us = 0;
 };
 
 // Глобальный объект RTC
 extern RTC rtc;
 
 #endif // HAL_RTC_H
-
