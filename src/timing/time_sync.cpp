@@ -66,6 +66,7 @@ static bool s_prev_sqw_locked = false;
 static bool s_prev_have_sqw_edge = false; // чтобы логировать "signal acquired" или "signal lost"
 static bool s_logged_sqw_warmup = false;
 static bool s_logged_rtc_only = false;
+static bool s_log_rtc_fallback_delta = false;
 
 static bool is_auto_sync_enabled() {
   return settings.getSync().auto_sync;
@@ -306,6 +307,7 @@ void time_sync_begin() {
   s_prev_have_sqw_edge = false;
   s_logged_sqw_warmup = false;
   s_logged_rtc_only = false;
+  s_log_rtc_fallback_delta = false;
   reset_phase_delta_filter();
 
   // Инициализация системного времени по RTC
@@ -441,6 +443,7 @@ void time_sync_update() {
     // Переход в RTC fallback (один раз)
     if (!s_in_rtc_fallback) {
       s_in_rtc_fallback = true;
+      s_log_rtc_fallback_delta = true;
 
       // Для красивого лога вытащим секунду RTC
       uint32_t rtc_sec = rtc.unixTime();
@@ -517,6 +520,12 @@ void time_sync_update() {
         bool need_adjust = !s_status.synced ||
                           (delta_us < -kJitterAdjustThresholdUs || delta_us > kJitterAdjustThresholdUs) ||
                           ((now_us - s_status.last_sync_us) > kMaxHoldoffUs);
+
+        if (s_log_rtc_fallback_delta) {
+          ESP_LOGI(TAG, "RTC fallback initial delta_us=%lld (target=%lld, current=%lld, age_us=%lld)",
+                   (long long)delta_us, (long long)target_us, (long long)current_us, (long long)age_us);
+          s_log_rtc_fallback_delta = false;
+        }
 
         if (need_adjust) {
           if (auto_sync_enabled) {
