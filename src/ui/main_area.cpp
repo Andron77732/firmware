@@ -201,15 +201,15 @@ void MainArea::drawStart() {
     if (has_valid_correction) {
         snprintf(correction_text, sizeof(correction_text), "%ld",
                  (long)correction_ms);
-    } else {
-        snprintf(correction_text, sizeof(correction_text), "--");
     }
 
     uint16_t correction_x = UI_MAIN_AREA_START_CORRECTION_PADDING;
     uint16_t correction_y = next_y + UI_MAIN_AREA_START_CORRECTION_PADDING +
                             UI_MAIN_AREA_START_CORRECTION_TEXT_Y_OFFSET;
-    _canvas->setCursor(correction_x, canvasY(correction_y));
-    _canvas->print(correction_text);
+    if (has_valid_correction) {
+        _canvas->setCursor(correction_x, canvasY(correction_y));
+        _canvas->print(correction_text);
+    }
 
     next_y += rect_height + UI_MAIN_AREA_START_CORRECTION_SPACING;
 
