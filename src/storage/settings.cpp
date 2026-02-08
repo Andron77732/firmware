@@ -490,7 +490,9 @@ JsonDocument SettingsManager::toJson() const {
   // WiFi settings
   doc["wifi"]["active"] = settings_.wifi.active;
   doc["wifi"]["ssid"] = settings_.wifi.ssid;
-  doc["wifi"]["passwd"] = settings_.wifi.passwd;
+  // doc["wifi"]["passwd"] = settings_.wifi.passwd;
+  // Do not show wifi password
+  doc["wifi"]["passwd"] = "";
 
   return doc;
 }
