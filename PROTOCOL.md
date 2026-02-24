@@ -1,6 +1,6 @@
 # ENTime - Протокол команд
 
-Все команды передаются в формате JSON через Serial (UART0) или BluetoothSerial. Ответы также в JSON.
+Все команды передаются в формате JSON через Serial (UART0) или BLE NUS. Ответы также в JSON.
 
 ---
 
@@ -297,7 +297,7 @@ V10:10:15#
 
 **Запрос (отключить):**
 ```json
-{"cmd": "gps", "disable": false, "id": 4}
+{"cmd": "gps", "disable": true, "id": 4}
 ```
 
 ---

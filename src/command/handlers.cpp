@@ -62,7 +62,19 @@ void cmdTime(JsonDocument& request, Stream& output) {
     }
     
     // Определяем источник времени и точность
-    const char* source_str = "rtc";
+    const char* source_str = "none";
+    switch (sync_status.source) {
+        case TimeSource::GPS_PPS:
+            source_str = "gps";
+            break;
+        case TimeSource::RTC:
+            source_str = "rtc";
+            break;
+        case TimeSource::NONE:
+        default:
+            source_str = "none";
+            break;
+    }
     int64_t accuracy_us = time_sync_estimate_accuracy_us();
     
     // Определяем статус ответа
