@@ -33,7 +33,7 @@ public:
 
   void setRotation(uint8_t rotation);
   bool applyCalibration(const TouchCalibration &cal);
-  bool runCalibrationWizard(TouchCalibration &outCalibration);
+  bool calibrate(TouchCalibration &outCalibration);
 
   bool isReady() const { return _initialized; }
   bool isCalibrated() const { return _calibrated; }

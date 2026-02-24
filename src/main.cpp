@@ -1,4 +1,5 @@
 #include "config.h"
+#include "app/touch_calibration_service.h"
 #include "command/command_parser.h"
 #include "esp_log.h"
 #include "hal/ble/battery_service.h"
@@ -86,6 +87,36 @@ static bool routeTouchEvent(const TouchEvent &event) {
   return false;
 }
 
+static const char *touchCalibrationStatusText(
+    TouchCalibrationFlowStatus status) {
+  switch (status) {
+  case TouchCalibrationFlowStatus::TouchNotReady:
+    return "Touch not ready";
+  case TouchCalibrationFlowStatus::WizardFailed:
+    return "Wizard failed";
+  case TouchCalibrationFlowStatus::InvalidSettings:
+    return "Invalid settings";
+  case TouchCalibrationFlowStatus::SaveFailed:
+    return "Save failed";
+  case TouchCalibrationFlowStatus::ApplyFailed:
+    return "Apply failed";
+  case TouchCalibrationFlowStatus::Ok:
+  default:
+    return "OK";
+  }
+}
+
+static void redrawMainUi() {
+  statusBar.draw();
+  statusBar.updateBluetoothIcon(bleSerial.getState());
+  statusBar.updateWiFiIcon(wifiManager.getState(), wifiManager.getRSSI());
+  onGPSStateChanged(gps.getState());
+  mainArea.draw();
+  footer.draw(module_type, String(VERSION));
+  footer.updateTimeSyncState(time_sync_state());
+  footer.updateSats(footer_sats);
+}
+
 void setup() {
   Serial.begin(SERIAL_BAUD);
 
@@ -130,6 +161,26 @@ void setup() {
   }
 
   touch.begin(display.tft(), settings.getTouch(), DISPLAY_ROTATION);
+
+  const TouchSettings &touchSettings = settings.getTouch();
+  if (touchSettings.enabled && !touch.isCalibrated()) {
+    mainArea.addLogLine("Touch calibration required");
+    ESP_LOGW(TAG,
+             "Touch is enabled but not calibrated, running calibration wizard");
+
+    while (true) {
+      TouchCalibrationFlowResult calibrationResult = runTouchCalibrationFlow(true);
+      if (calibrationResult.status == TouchCalibrationFlowStatus::Ok) {
+        mainArea.addLogLine("Touch calibration complete");
+        ESP_LOGI(TAG, "Touch calibration saved, keys updated: %d",
+                 calibrationResult.savedKeys);
+        break;
+      }
+
+      ESP_LOGE(TAG, "Touch calibration failed: %s",
+               touchCalibrationStatusText(calibrationResult.status));
+    }
+  }
 
   // Инициализация типа модуля из настроек и формирование имени устройства
   const DeviceSettings &device = settings.getDevice();
@@ -289,6 +340,10 @@ void loop() {
   }
   if (bleParser) {
     bleParser->update();
+  }
+
+  if (consumeTouchCalibrationUiRedrawRequest()) {
+    redrawMainUi();
   }
 
   // Проверка события и обработка временного штампа

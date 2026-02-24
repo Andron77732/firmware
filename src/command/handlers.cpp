@@ -1,4 +1,5 @@
 #include "handlers.h"
+#include "app/touch_calibration_service.h"
 #include "timing/sntp.h"
 #include "storage/settings.h"
 #include "hal/wifi/wifi.h"
@@ -677,38 +678,33 @@ void cmdCalibrate(JsonDocument& request, Stream& output) {
 }
 
 void cmdTouchCalibrate(JsonDocument& request, Stream& output) {
-    if (!touch.isReady()) {
-        sendError("touch_calibrate", 201, "Touch is not initialized", request["id"], output);
-        ESP_LOGW(TAG, "Touch_calibrate failed: touch is not initialized");
-        return;
-    }
-
-    TouchCalibration calibration;
-    if (!touch.runCalibrationWizard(calibration)) {
-        sendError("touch_calibrate", 202, "Touch calibration failed", request["id"], output);
-        ESP_LOGW(TAG, "Touch_calibrate failed: wizard returned error");
-        return;
-    }
-
-    TouchSettings touchSettings = settings.getTouch();
-    touchSettings.calibration = calibration;
-    if (!settings.setTouch(touchSettings)) {
-        sendError("touch_calibrate", 103, "Invalid touch settings", request["id"], output);
-        ESP_LOGW(TAG, "Touch_calibrate failed: settings validation error");
-        return;
-    }
-
-    int saved_keys = settings.save();
-    if (saved_keys < 0) {
-        sendError("touch_calibrate", 202, "Failed to save touch calibration", request["id"], output);
-        ESP_LOGW(TAG, "Touch_calibrate failed: settings save error");
-        return;
-    }
-
-    if (!touch.applyCalibration(touchSettings.calibration)) {
-        sendError("touch_calibrate", 202, "Failed to apply touch calibration", request["id"], output);
-        ESP_LOGW(TAG, "Touch_calibrate failed: apply calibration error");
-        return;
+    TouchCalibrationFlowResult result = runTouchCalibrationFlow(true);
+    if (result.status != TouchCalibrationFlowStatus::Ok) {
+        switch (result.status) {
+            case TouchCalibrationFlowStatus::TouchNotReady:
+                sendError("touch_calibrate", 201, "Touch is not initialized", request["id"], output);
+                ESP_LOGW(TAG, "Touch_calibrate failed: touch is not initialized");
+                return;
+            case TouchCalibrationFlowStatus::WizardFailed:
+                sendError("touch_calibrate", 202, "Touch calibration failed", request["id"], output);
+                ESP_LOGW(TAG, "Touch_calibrate failed: wizard returned error");
+                return;
+            case TouchCalibrationFlowStatus::InvalidSettings:
+                sendError("touch_calibrate", 103, "Invalid touch settings", request["id"], output);
+                ESP_LOGW(TAG, "Touch_calibrate failed: settings validation error");
+                return;
+            case TouchCalibrationFlowStatus::SaveFailed:
+                sendError("touch_calibrate", 202, "Failed to save touch calibration", request["id"], output);
+                ESP_LOGW(TAG, "Touch_calibrate failed: settings save error");
+                return;
+            case TouchCalibrationFlowStatus::ApplyFailed:
+                sendError("touch_calibrate", 202, "Failed to apply touch calibration", request["id"], output);
+                ESP_LOGW(TAG, "Touch_calibrate failed: apply calibration error");
+                return;
+            case TouchCalibrationFlowStatus::Ok:
+            default:
+                break;
+        }
     }
 
     JsonDocument response;
@@ -718,15 +714,16 @@ void cmdTouchCalibrate(JsonDocument& request, Stream& output) {
 
     response["cmd"] = "touch_calibrate";
     response["status"] = "ok";
-    response["saved_keys"] = saved_keys;
-    response["cal_valid"] = touchSettings.calibration.valid;
+    response["saved_keys"] = result.savedKeys;
+    response["cal_valid"] = result.calibration.valid;
     JsonArray cal = response["calibration"].to<JsonArray>();
     for (uint8_t i = 0; i < 5; i++) {
-        cal.add(touchSettings.calibration.data[i]);
+        cal.add(result.calibration.data[i]);
     }
 
     sendResponse(response, output, true);
-    ESP_LOGI(TAG, "Touch_calibrate command processed: saved_keys=%d", saved_keys);
+    ESP_LOGI(TAG, "Touch_calibrate command processed: saved_keys=%d",
+             result.savedKeys);
 }
 
 void cmdFactoryReset(JsonDocument& request, Stream& output) {

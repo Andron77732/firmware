@@ -133,29 +133,31 @@ bool Touch::applyCalibration(const TouchCalibration &cal) {
   return true;
 }
 
-bool Touch::runCalibrationWizard(TouchCalibration &outCalibration) {
+bool Touch::calibrate(TouchCalibration &outCalibration) {
   if (!_tft) {
     return false;
   }
 
   uint16_t data[5] = {0, 0, 0, 0, 0};
-  _tft->fillScreen(TFT_BLACK);
-  _tft->setTextColor(TFT_WHITE, TFT_BLACK);
-  _tft->setTextSize(2);
-  _tft->setCursor(8, 8);
-  _tft->print("Touch calibration");
-  _tft->setTextSize(1);
-  _tft->setCursor(8, 32);
-  _tft->print("Tap corners as requested");
-
   _tft->calibrateTouch(data, TFT_MAGENTA, TFT_BLACK, 15);
+
+  bool hasData = false;
+  for (uint8_t i = 0; i < 5; i++) {
+    if (data[i] != 0) {
+      hasData = true;
+      break;
+    }
+  }
+
+  if (!hasData) {
+    return false;
+  }
 
   for (uint8_t i = 0; i < 5; i++) {
     outCalibration.data[i] = data[i];
   }
   outCalibration.valid = true;
-
-  return applyCalibration(outCalibration);
+  return true;
 }
 
 bool Touch::readRaw_(TouchPoint &point) {
