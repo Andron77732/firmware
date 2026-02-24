@@ -138,6 +138,11 @@ bool SettingsManager::validateWifi(const WifiSettings &wifi) const {
   return true;
 }
 
+bool SettingsManager::validateTouch(const TouchSettings &touch) const {
+  (void)touch;
+  return true;
+}
+
 // ============================================================================
 // Defaults
 // ============================================================================
@@ -158,6 +163,13 @@ void SettingsManager::setDefaults() {
   settings_.wifi.ssid = DEFAULT_WIFI_SSID;
   settings_.wifi.passwd = DEFAULT_WIFI_PASSWD;
 
+  settings_.touch.enabled = DEFAULT_TOUCH_ENABLED;
+  settings_.touch.calibration.valid = DEFAULT_TOUCH_CAL_VALID;
+  settings_.touch.calibration.data[0] = DEFAULT_TOUCH_CAL0;
+  settings_.touch.calibration.data[1] = DEFAULT_TOUCH_CAL1;
+  settings_.touch.calibration.data[2] = DEFAULT_TOUCH_CAL2;
+  settings_.touch.calibration.data[3] = DEFAULT_TOUCH_CAL3;
+  settings_.touch.calibration.data[4] = DEFAULT_TOUCH_CAL4;
 }
 
 // ============================================================================
@@ -216,6 +228,19 @@ bool SettingsManager::putCharIfChanged_(const char *key, int8_t v, int8_t def) {
 
   prefs_.putChar(key, v);
   SETTINGS_LOG_NVS_FMT(key, "%d", v);
+  return true;
+}
+
+bool SettingsManager::putUShortIfChanged_(const char *key, uint16_t v,
+                                          uint16_t def) {
+  uint16_t cur = prefs_.getUShort(key, def);
+  if (cur == v) {
+    SETTINGS_LOG_NVS_SKIP(key);
+    return false;
+  }
+
+  prefs_.putUShort(key, v);
+  SETTINGS_LOG_NVS_FMT(key, "%u", (unsigned)v);
   return true;
 }
 
@@ -284,6 +309,32 @@ size_t SettingsManager::saveWifi() {
   return count;
 }
 
+size_t SettingsManager::saveTouch() {
+  size_t count = 0;
+  if (putBoolIfChanged_("touch.enabled", settings_.touch.enabled,
+                        DEFAULT_TOUCH_ENABLED))
+    count++;
+  if (putBoolIfChanged_("touch.cal_valid", settings_.touch.calibration.valid,
+                        DEFAULT_TOUCH_CAL_VALID))
+    count++;
+  if (putUShortIfChanged_("touch.cal0", settings_.touch.calibration.data[0],
+                          DEFAULT_TOUCH_CAL0))
+    count++;
+  if (putUShortIfChanged_("touch.cal1", settings_.touch.calibration.data[1],
+                          DEFAULT_TOUCH_CAL1))
+    count++;
+  if (putUShortIfChanged_("touch.cal2", settings_.touch.calibration.data[2],
+                          DEFAULT_TOUCH_CAL2))
+    count++;
+  if (putUShortIfChanged_("touch.cal3", settings_.touch.calibration.data[3],
+                          DEFAULT_TOUCH_CAL3))
+    count++;
+  if (putUShortIfChanged_("touch.cal4", settings_.touch.calibration.data[4],
+                          DEFAULT_TOUCH_CAL4))
+    count++;
+  return count;
+}
+
 void SettingsManager::loadDevice() {
   settings_.device.name = prefs_.getString("device.name", DEFAULT_DEVICE_NAME);
 
@@ -312,6 +363,22 @@ void SettingsManager::loadWifi() {
   settings_.wifi.ssid = prefs_.getString("wifi.ssid", DEFAULT_WIFI_SSID);
 
   settings_.wifi.passwd = prefs_.getString("wifi.passwd", DEFAULT_WIFI_PASSWD);
+}
+
+void SettingsManager::loadTouch() {
+  settings_.touch.enabled = prefs_.getBool("touch.enabled", DEFAULT_TOUCH_ENABLED);
+  settings_.touch.calibration.valid =
+      prefs_.getBool("touch.cal_valid", DEFAULT_TOUCH_CAL_VALID);
+  settings_.touch.calibration.data[0] =
+      prefs_.getUShort("touch.cal0", DEFAULT_TOUCH_CAL0);
+  settings_.touch.calibration.data[1] =
+      prefs_.getUShort("touch.cal1", DEFAULT_TOUCH_CAL1);
+  settings_.touch.calibration.data[2] =
+      prefs_.getUShort("touch.cal2", DEFAULT_TOUCH_CAL2);
+  settings_.touch.calibration.data[3] =
+      prefs_.getUShort("touch.cal3", DEFAULT_TOUCH_CAL3);
+  settings_.touch.calibration.data[4] =
+      prefs_.getUShort("touch.cal4", DEFAULT_TOUCH_CAL4);
 }
 
 // ============================================================================
@@ -357,9 +424,10 @@ bool SettingsManager::load() {
   loadDevice();
   loadSync();
   loadWifi();
+  loadTouch();
   // Валидация загруженных настроек
   if (!validateDevice(settings_.device) || !validateSync(settings_.sync) ||
-      !validateWifi(settings_.wifi)) {
+      !validateWifi(settings_.wifi) || !validateTouch(settings_.touch)) {
     ESP_LOGW(TAG, "Loaded settings failed validation, using defaults");
     setDefaults();
     return false;
@@ -377,7 +445,7 @@ int SettingsManager::save() {
 
   // Валидация перед сохранением
   if (!validateDevice(settings_.device) || !validateSync(settings_.sync) ||
-      !validateWifi(settings_.wifi)) {
+      !validateWifi(settings_.wifi) || !validateTouch(settings_.touch)) {
     ESP_LOGE(TAG, "Settings validation failed, cannot save");
     return -1;
   }
@@ -386,6 +454,7 @@ int SettingsManager::save() {
   total += saveDevice();
   total += saveSync();
   total += saveWifi();
+  total += saveTouch();
 
   ESP_LOGI(TAG, "Settings saved successfully (%zu keys)", total);
   return (int)total;
@@ -430,6 +499,14 @@ bool SettingsManager::setWifi(const WifiSettings &wifi) {
     return false;
   }
   settings_.wifi = wifi;
+  return true;
+}
+
+bool SettingsManager::setTouch(const TouchSettings &touch) {
+  if (!validateTouch(touch)) {
+    return false;
+  }
+  settings_.touch = touch;
   return true;
 }
 
@@ -494,6 +571,14 @@ JsonDocument SettingsManager::toJson() const {
   // Do not show wifi password
   doc["wifi"]["passwd"] = "";
 
+  // Touch settings
+  doc["touch"]["enabled"] = settings_.touch.enabled;
+  doc["touch"]["cal_valid"] = settings_.touch.calibration.valid;
+  JsonArray touch_cal = doc["touch"]["calibration"].to<JsonArray>();
+  for (uint8_t i = 0; i < 5; i++) {
+    touch_cal.add(settings_.touch.calibration.data[i]);
+  }
+
   return doc;
 }
 
@@ -502,6 +587,7 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
   DeviceSettings device = settings_.device;
   SyncSettings sync = settings_.sync;
   WifiSettings wifi = settings_.wifi;
+  TouchSettings touch = settings_.touch;
   // Device settings
   if (!doc["device"].isNull()) {
     if (!doc["device"]["name"].isNull()) {
@@ -562,10 +648,53 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
     }
   }
 
+  // Touch settings
+  if (!doc["touch"].isNull()) {
+    if (!doc["touch"]["enabled"].isNull()) {
+      touch.enabled = doc["touch"]["enabled"].as<bool>();
+    }
+    if (!doc["touch"]["cal_valid"].isNull()) {
+      touch.calibration.valid = doc["touch"]["cal_valid"].as<bool>();
+    }
+    if (!doc["touch"]["calibration"].isNull()) {
+      if (!doc["touch"]["calibration"].is<JsonArrayConst>()) {
+        return false;
+      }
+      JsonArrayConst cal_array = doc["touch"]["calibration"].as<JsonArrayConst>();
+      if (cal_array.size() != 5) {
+        return false;
+      }
+      for (uint8_t i = 0; i < 5; i++) {
+        touch.calibration.data[i] = cal_array[i].as<uint16_t>();
+      }
+    } else {
+      if (!doc["touch"]["cal0"].isNull()) {
+        touch.calibration.data[0] = doc["touch"]["cal0"].as<uint16_t>();
+      }
+      if (!doc["touch"]["cal1"].isNull()) {
+        touch.calibration.data[1] = doc["touch"]["cal1"].as<uint16_t>();
+      }
+      if (!doc["touch"]["cal2"].isNull()) {
+        touch.calibration.data[2] = doc["touch"]["cal2"].as<uint16_t>();
+      }
+      if (!doc["touch"]["cal3"].isNull()) {
+        touch.calibration.data[3] = doc["touch"]["cal3"].as<uint16_t>();
+      }
+      if (!doc["touch"]["cal4"].isNull()) {
+        touch.calibration.data[4] = doc["touch"]["cal4"].as<uint16_t>();
+      }
+    }
+
+    if (!validateTouch(touch)) {
+      return false;
+    }
+  }
+
   // Если все валидации прошли - применить изменения
   settings_.device = device;
   settings_.sync = sync;
   settings_.wifi = wifi;
+  settings_.touch = touch;
 
   return true;
 }

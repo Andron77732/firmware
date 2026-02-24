@@ -5,6 +5,7 @@
 #include "hal/ble/ble.h"
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
+#include "hal/touch/touch.h"
 #include "timing/time_sync.h"
 #include "timing/pps_isr.h"
 #include "esp_log.h"
@@ -288,6 +289,13 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     } else {
         sync_obj["last_ms"] = 0;
     }
+
+    JsonObject touch_obj = response["touch"].to<JsonObject>();
+    const TouchSettings &touch_settings = settings.getTouch();
+    touch_obj["ready"] = touch.isReady();
+    touch_obj["enabled"] = touch_settings.enabled;
+    touch_obj["calibrated"] =
+        touch_settings.calibration.valid && touch.isCalibrated();
 
     JsonObject storage_obj = response["storage"].to<JsonObject>();
     size_t used_bytes = 0;
@@ -654,6 +662,59 @@ void cmdCalibrate(JsonDocument& request, Stream& output) {
 
     ESP_LOGI(TAG, "Calibrate command processed: previous=%.3f, new=%.3f",
              previous_offset, offset);
+}
+
+void cmdTouchCalibrate(JsonDocument& request, Stream& output) {
+    if (!touch.isReady()) {
+        sendError("touch_calibrate", 201, "Touch is not initialized", request["id"], output);
+        ESP_LOGW(TAG, "Touch_calibrate failed: touch is not initialized");
+        return;
+    }
+
+    TouchCalibration calibration;
+    if (!touch.runCalibrationWizard(calibration)) {
+        sendError("touch_calibrate", 202, "Touch calibration failed", request["id"], output);
+        ESP_LOGW(TAG, "Touch_calibrate failed: wizard returned error");
+        return;
+    }
+
+    TouchSettings touchSettings = settings.getTouch();
+    touchSettings.calibration = calibration;
+    if (!settings.setTouch(touchSettings)) {
+        sendError("touch_calibrate", 103, "Invalid touch settings", request["id"], output);
+        ESP_LOGW(TAG, "Touch_calibrate failed: settings validation error");
+        return;
+    }
+
+    int saved_keys = settings.save();
+    if (saved_keys < 0) {
+        sendError("touch_calibrate", 202, "Failed to save touch calibration", request["id"], output);
+        ESP_LOGW(TAG, "Touch_calibrate failed: settings save error");
+        return;
+    }
+
+    if (!touch.applyCalibration(touchSettings.calibration)) {
+        sendError("touch_calibrate", 202, "Failed to apply touch calibration", request["id"], output);
+        ESP_LOGW(TAG, "Touch_calibrate failed: apply calibration error");
+        return;
+    }
+
+    JsonDocument response;
+    if (!request["id"].isNull()) {
+        response["id"] = request["id"];
+    }
+
+    response["cmd"] = "touch_calibrate";
+    response["status"] = "ok";
+    response["saved_keys"] = saved_keys;
+    response["cal_valid"] = touchSettings.calibration.valid;
+    JsonArray cal = response["calibration"].to<JsonArray>();
+    for (uint8_t i = 0; i < 5; i++) {
+        cal.add(touchSettings.calibration.data[i]);
+    }
+
+    sendResponse(response, output, true);
+    ESP_LOGI(TAG, "Touch_calibrate command processed: saved_keys=%d", saved_keys);
 }
 
 void cmdFactoryReset(JsonDocument& request, Stream& output) {

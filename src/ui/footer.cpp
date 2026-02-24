@@ -92,3 +92,8 @@ void Footer::updateTimeSyncState(TimeSyncState state) {
     _tft->setCursor(x2, y);
     _tft->print(label);
 }
+
+bool Footer::onTouchEvent(const TouchEvent& event) {
+    (void)event;
+    return false;
+}

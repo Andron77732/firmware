@@ -428,3 +428,8 @@ void MainArea::drawStartLines(uint16_t startY, uint8_t maxVisibleLines) {
         _canvas->print(_startLines[i]);
     }
 }
+
+bool MainArea::onTouchEvent(const TouchEvent& event) {
+    (void)event;
+    return false;
+}

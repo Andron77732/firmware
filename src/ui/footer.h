@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "config.h"
+#include "hal/touch/touch.h"
 #include "ui_config.h"
 #include "timing/time_sync.h"
 
@@ -44,6 +45,12 @@ public:
      * @param state Состояние синхронизации
      */
     void updateTimeSyncState(TimeSyncState state);
+
+    /**
+     * @brief Обработчик touch-событий
+     * @return true если событие обработано
+     */
+    bool onTouchEvent(const TouchEvent& event);
 
 private:
     TFT_eSPI* _tft = nullptr;

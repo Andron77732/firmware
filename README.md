@@ -9,6 +9,8 @@
 - Синхронизирует время по GPS PPS + NMEA, с fallback на RTC DS3231 (SQW 1 Hz).
 - Может синхронизировать RTC по NTP через WiFi командой `sync_ntp`.
 - Рисует UI на TFT: статус-бар с временем и иконками, лог загрузки, отображение событий.
+- Поддерживает touch HAL: события `Press/Move/Release`, polling, debounce и очередь событий.
+- Поддерживает калибровку тача командой `touch_calibrate` с сохранением параметров в NVS.
 - Работает как BLE NUS (UART over BLE) с сервисами Battery и Device Info.
 - Хранит настройки в NVS и управляется JSON-протоколом.
 
@@ -28,6 +30,7 @@
 
 - ESP32-S3 DevKitC-1
 - TFT ILI9341 (SPI, пины см. `platformio.ini`)
+- Touch контроллер (через `TFT_eSPI`, `TOUCH_CS` в `platformio.ini`)
 - GPS NEO-6M (UART1 + PPS)
 - RTC DS3231 (I2C + SQW 1 Hz)
 - INA226 (I2C, мониторинг питания)

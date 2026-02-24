@@ -25,6 +25,14 @@
 #define DEFAULT_WIFI_SSID ""
 #define DEFAULT_WIFI_PASSWD ""
 
+#define DEFAULT_TOUCH_ENABLED true
+#define DEFAULT_TOUCH_CAL_VALID false
+#define DEFAULT_TOUCH_CAL0 0
+#define DEFAULT_TOUCH_CAL1 0
+#define DEFAULT_TOUCH_CAL2 0
+#define DEFAULT_TOUCH_CAL3 0
+#define DEFAULT_TOUCH_CAL4 0
+
 // ============================================================================
 // Структуры данных
 // ============================================================================
@@ -60,12 +68,30 @@ struct WifiSettings {
 };
 
 /**
+ * @brief Калибровка touch-панели
+ */
+struct TouchCalibration {
+  uint16_t data[5] = {DEFAULT_TOUCH_CAL0, DEFAULT_TOUCH_CAL1, DEFAULT_TOUCH_CAL2,
+                      DEFAULT_TOUCH_CAL3, DEFAULT_TOUCH_CAL4};
+  bool valid = DEFAULT_TOUCH_CAL_VALID;
+};
+
+/**
+ * @brief Настройки touch-панели
+ */
+struct TouchSettings {
+  bool enabled = DEFAULT_TOUCH_ENABLED;
+  TouchCalibration calibration;
+};
+
+/**
  * @brief Полная структура настроек
  */
 struct Settings {
   DeviceSettings device;
   SyncSettings sync;
   WifiSettings wifi;
+  TouchSettings touch;
 };
 
 /**
@@ -104,6 +130,7 @@ public:
   const DeviceSettings &getDevice() const { return settings_.device; }
   const SyncSettings &getSync() const { return settings_.sync; }
   const WifiSettings &getWifi() const { return settings_.wifi; }
+  const TouchSettings &getTouch() const { return settings_.touch; }
   const Settings &getAll() const { return settings_; }
 
   // Сеттеры с валидацией
@@ -130,6 +157,14 @@ public:
    * ошибке
    */
   bool setWifi(const WifiSettings &wifi);
+
+  /**
+   * @brief Установить настройки touch с валидацией
+   * @param touch Настройки touch
+   * @return true если валидация прошла и настройки установлены, false при
+   * ошибке
+   */
+  bool setTouch(const TouchSettings &touch);
 
   /**
    * @brief Получить статистику использования хранилища
@@ -163,6 +198,7 @@ private:
   bool putBoolIfChanged_(const char *key, bool v, bool def);
   bool putUCharIfChanged_(const char *key, uint8_t v, uint8_t def);
   bool putCharIfChanged_(const char *key, int8_t v, int8_t def);
+  bool putUShortIfChanged_(const char *key, uint16_t v, uint16_t def);
   bool putFloatIfChanged_(const char *key, float v, float def,
                           float eps = 0.0001f);
 
@@ -170,6 +206,7 @@ private:
   bool validateDevice(const DeviceSettings &device) const;
   bool validateSync(const SyncSettings &sync) const;
   bool validateWifi(const WifiSettings &wifi) const;
+  bool validateTouch(const TouchSettings &touch) const;
   // Вспомогательные функции валидации
   bool isValidAsciiName(const String &name) const;
   bool isValidDeviceType(uint8_t type) const;
@@ -180,9 +217,11 @@ private:
   size_t saveDevice();
   size_t saveSync();
   size_t saveWifi();
+  size_t saveTouch();
   void loadDevice();
   void loadSync();
   void loadWifi();
+  void loadTouch();
 
   // Установка значений по умолчанию
   void setDefaults();

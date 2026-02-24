@@ -8,6 +8,7 @@
 #include "hal/gps/gps.h"
 #include "hal/rtc/rtc.h"
 #include "hal/tft/tft.h"
+#include "hal/touch/touch.h"
 #include "storage/settings.h"
 #include "timing/event_isr.h"
 #include "timing/event_dispatcher.h"
@@ -25,6 +26,7 @@
 #include <time.h>
 
 static const char *TAG = "MAIN";
+static constexpr uint8_t DISPLAY_ROTATION = 2;
 
 static ModuleType module_type = ModuleType::START; // значение по умолчанию
 
@@ -72,6 +74,19 @@ void onTimeSyncStateChanged(TimeSyncState state) {
   footer.updateTimeSyncState(state);
 }
 
+static bool routeTouchEvent(const TouchEvent &event) {
+  if (statusBar.onTouchEvent(event)) {
+    return true;
+  }
+  if (mainArea.onTouchEvent(event)) {
+    return true;
+  }
+  if (footer.onTouchEvent(event)) {
+    return true;
+  }
+  return false;
+}
+
 void setup() {
   Serial.begin(SERIAL_BAUD);
 
@@ -81,7 +96,7 @@ void setup() {
   ESP_LOGI(TAG, "tick rate: %d Hz", configTICK_RATE_HZ);
 
   // Инициализация дисплея (раньше, чтобы можно было показывать логи)
-  display.begin();
+  display.begin(DISPLAY_ROTATION);
 
   // Инициализация статус-бара
   statusBar.begin(display.tft());
@@ -114,6 +129,8 @@ void setup() {
   } else {
     mainArea.addLogLine("Settings loaded");
   }
+
+  touch.begin(display.tft(), settings.getTouch(), DISPLAY_ROTATION);
 
   // Инициализация типа модуля из настроек и формирование имени устройства
   const DeviceSettings &device = settings.getDevice();
@@ -250,6 +267,12 @@ void setup() {
 void loop() {
   // Секундные события (BEEP/VOICE/Часы/Countdown и др.)
   second_events_handle_tick(module_type);
+
+  touch.update();
+  TouchEvent touchEvent;
+  while (touch.pollEvent(touchEvent)) {
+    routeTouchEvent(touchEvent);
+  }
 
   // Обновление состояния синхронизации времени в footer
   // Обновление GPS

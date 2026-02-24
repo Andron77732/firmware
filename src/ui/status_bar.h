@@ -7,6 +7,7 @@
 #include "hal/ble/ble.h"
 #include "hal/wifi/wifi.h"
 #include "hal/gps/gps.h"
+#include "hal/touch/touch.h"
 #include "ui_config.h"
 
 /**
@@ -62,6 +63,12 @@ public:
      * @param state Текущее состояние GPS
      */
     void updateGPSIcon(GPSState state);
+
+    /**
+     * @brief Обработчик touch-событий
+     * @return true если событие обработано
+     */
+    bool onTouchEvent(const TouchEvent& event);
 
 private:
     TFT_eSPI* _tft = nullptr;

@@ -96,6 +96,16 @@ void cmdSyncSource(JsonDocument& request, Stream& output);
 void cmdCalibrate(JsonDocument& request, Stream& output);
 
 /**
+ * @brief Обработчик команды touch_calibrate
+ *
+ * Запускает мастер калибровки touch и сохраняет параметры в настройках.
+ *
+ * @param request JSON запрос с полем "cmd": "touch_calibrate"
+ * @param output Поток для отправки ответа
+ */
+void cmdTouchCalibrate(JsonDocument& request, Stream& output);
+
+/**
  * @brief Обработчик команды factory_reset
  *
  * Сбрасывает все настройки к значениям по умолчанию и планирует перезагрузку.

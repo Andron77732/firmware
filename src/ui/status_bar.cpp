@@ -254,3 +254,8 @@ void StatusBar::drawIconWiFi(const uint8_t* bitmap, uint16_t color, uint16_t bgC
 void StatusBar::drawIconBattery(uint16_t color, uint16_t bgColor) {
     drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, ICON_BAT_FULL, color, bgColor);
 }
+
+bool StatusBar::onTouchEvent(const TouchEvent& event) {
+    (void)event;
+    return false;
+}

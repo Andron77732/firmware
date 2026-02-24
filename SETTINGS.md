@@ -32,6 +32,11 @@
       "active": ...,
       "ssid": "...",
       "passwd": "..."
+    },
+    "touch": {
+      "enabled": ...,
+      "cal_valid": ...,
+      "calibration": [0, 0, 0, 0, 0]
     }
   }
 }
@@ -41,6 +46,7 @@
 - Настройки сохраняются только после явного вызова команды `save_config`
 - При первом запуске используются значения по умолчанию
 - Команда `factory_reset` сбрасывает все настройки к значениям по умолчанию
+- Команда `touch_calibrate` выполняет калибровку и сохраняет `touch.calibration`/`touch.cal_valid`
 - При частичном обновлении можно указывать только нужные группы или параметры внутри групп
 
 ---
@@ -197,6 +203,35 @@
 
 ---
 
+### Настройки Touch
+
+#### `touch.enabled`
+- **Путь в JSON:** `data.touch.enabled`
+- **Тип:** `boolean`
+- **По умолчанию:** `true`
+- **Описание:** Включает или отключает обработку touch-событий в HAL.
+- **Ограничения:** Только `true` или `false`
+- **Применение:** Применяется сразу, без перезагрузки
+
+#### `touch.cal_valid`
+- **Путь в JSON:** `data.touch.cal_valid`
+- **Тип:** `boolean`
+- **По умолчанию:** `false`
+- **Описание:** Признак валидной калибровки touch. Пока `false`, пользовательский ввод touch блокируется.
+- **Ограничения:** Только `true` или `false`
+
+#### `touch.calibration`
+- **Путь в JSON:** `data.touch.calibration`
+- **Тип:** `array[5]` (`uint16`)
+- **По умолчанию:** `[0, 0, 0, 0, 0]`
+- **Описание:** Массив коэффициентов калибровки, совместимый с `TFT_eSPI::setTouch`.
+- **Ограничения:**
+  - Ровно 5 элементов
+  - Каждый элемент — целое беззнаковое 16-битное число (`0..65535`)
+- **Примечание:** Для обратной совместимости также поддерживается передача отдельных полей `touch.cal0..touch.cal4`.
+
+---
+
 ## 📊 Таблица всех настроек
 
 | Параметр | Путь в JSON | Тип | По умолчанию | Диапазон/Ограничения | Группа |
@@ -213,6 +248,9 @@
 | `wifi.active` | `data.wifi.active` | boolean | `false` | true/false | WiFi |
 | `wifi.ssid` | `data.wifi.ssid` | string | `""` | до 32 символов | WiFi |
 | `wifi.passwd` | `data.wifi.passwd` | string | `""` | до 64 символов | WiFi |
+| `touch.enabled` | `data.touch.enabled` | boolean | `true` | true/false | Touch |
+| `touch.cal_valid` | `data.touch.cal_valid` | boolean | `false` | true/false | Touch |
+| `touch.calibration` | `data.touch.calibration` | array[5] uint16 | `[0,0,0,0,0]` | ровно 5 чисел `0..65535` | Touch |
 
 ---
 
@@ -242,6 +280,11 @@
       "active": false,
       "ssid": "",
       "passwd": ""
+    },
+    "touch": {
+      "enabled": true,
+      "cal_valid": false,
+      "calibration": [0, 0, 0, 0, 0]
     }
   }
 }
@@ -286,6 +329,11 @@
       "active": false,
       "ssid": "",
       "passwd": ""
+    },
+    "touch": {
+      "enabled": true,
+      "cal_valid": false,
+      "calibration": [0, 0, 0, 0, 0]
     }
   },
   "status": "ok"
@@ -315,19 +363,21 @@
   "data": {
     "sync": {
       "auto": false,
-      "source": "gps"
+      "source": 1
     }
   }
 }
 ```
 
-**Пример 3: Обновление нескольких групп**
+**Пример 3: Обновление touch-калибровки**
 ```json
 {
   "cmd": "save_config",
   "data": {
-    "device": {
-      "name": "ENTime-New"
+    "touch": {
+      "enabled": true,
+      "cal_valid": true,
+      "calibration": [3800, 220, 3700, 240, 7]
     }
   }
 }
@@ -353,6 +403,9 @@
 | `data.wifi.active` | `false` |
 | `data.wifi.ssid` | `""` |
 | `data.wifi.passwd` | `""` |
+| `data.touch.enabled` | `true` |
+| `data.touch.cal_valid` | `false` |
+| `data.touch.calibration` | `[0, 0, 0, 0, 0]` |
 
 После сброса устройство перезагрузится через 2 секунды.
 
@@ -364,8 +417,8 @@
 2. **Валидация:** При сохранении проверяется корректность типов и диапазонов значений
 3. **Обратная совместимость:** При отсутствии настройки в NVS используется значение по умолчанию
 4. **Размер:** NVS namespace ограничен 4000 байт. Текущие настройки занимают:
-   - Минимум (заводские значения): ~230 байт
-   - Максимум (при заполнении всех строковых полей): ~380 байт
+   - Минимум (заводские значения): ~260 байт
+   - Максимум (при заполнении всех строковых полей): ~420 байт
 
 ---
 

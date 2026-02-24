@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <TFT_eSPI.h>
+#include "hal/touch/touch.h"
 #include "ui_config.h"
 #include "timing/event_timestamp.h"
 
@@ -75,6 +76,12 @@ public:
      * @param seconds Секунды текущей минуты
      */
     void updateCountdown(uint8_t seconds);
+
+    /**
+     * @brief Обработчик touch-событий
+     * @return true если событие обработано
+     */
+    bool onTouchEvent(const TouchEvent& event);
 
 private:
     TFT_eSPI* _tft = nullptr;
