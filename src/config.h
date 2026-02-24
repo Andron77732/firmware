@@ -17,6 +17,7 @@
 // TFT_CS=10, TFT_DC=18, TFT_RST=14
 // TFT_MOSI=11, TFT_MISO=13, TFT_SCLK=12
 // TOUCH_CS=17
+#define DISPLAY_ROTATION 2 // 0..3 (по умолчанию portrait)
 
 // --- GPS NEO-6M (UART1) ---
 // Внимание: GPIO 19/20 заняты USB! Используем 4/5/6

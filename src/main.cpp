@@ -26,7 +26,6 @@
 #include <time.h>
 
 static const char *TAG = "MAIN";
-static constexpr uint8_t DISPLAY_ROTATION = 2;
 
 static ModuleType module_type = ModuleType::START; // значение по умолчанию
 

@@ -13,9 +13,9 @@ class Display {
 public:
     /**
      * @brief Инициализация дисплея
-     * @param rotation Ориентация (0-3), по умолчанию 2 (portrait)
+     * @param rotation Ориентация (0-3)
      */
-    void begin(uint8_t rotation = 2);
+    void begin(uint8_t rotation);
     
     /**
      * @brief Очистить экран
