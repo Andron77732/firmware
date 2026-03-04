@@ -24,22 +24,20 @@ static uint16_t timeSyncColor(TimeSyncState s) {
     }
 }
 
-void Footer::begin(TFT_eSPI& tft) {
+void Footer::begin(TFT_eSPI& tft, ModuleType moduleType, const String& version) {
     _tft = &tft;
+    _moduleType = moduleType;
+    _version = version;
 }
 
-void Footer::draw(ModuleType moduleType, const String& version) {
+void Footer::draw() {
     if (!_tft) return;
-
-    // Сбрасываем последние значения
-    _lastSats = -127;
-    _lastState = (TimeSyncState)255;
     
     // Отрисовка фона footer
     _tft->fillRect(0, UI_FOOTER_Y_POS, UI_FOOTER_WIDTH, UI_FOOTER_HEIGHT, UI_FOOTER_COLOR_BACKGROUND);
     
     // Подготовка текста
-    const char* moduleTypeStr = (moduleType == ModuleType::START) ? "START" : "FINISH";
+    const char* moduleTypeStr = (_moduleType == ModuleType::START) ? "START" : "FINISH";
     
     // Настройка текста
     _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
@@ -47,17 +45,18 @@ void Footer::draw(ModuleType moduleType, const String& version) {
     _tft->setCursor(UI_FOOTER_TEXT_X, UI_FOOTER_Y_POS + UI_FOOTER_PADDING);
     
     // Вывод текста: "START v0.1.0" или "FINISH v0.1.0"
-    _tft->printf("%s v%s", moduleTypeStr, version.c_str());
+    _tft->printf("%s v%s", moduleTypeStr, _version.c_str());
+
+    drawSatsValue(_sats, _state);
+    drawTimeSyncValue(_state, _sats);
 }
 
-void Footer::updateSats(int8_t sats) {
-    if (!_tft || sats == _lastSats) {
+void Footer::drawSatsValue(int8_t sats, TimeSyncState state) {
+    if (!_tft) {
         return;
     }
 
-    _lastSats = sats;
-
-    const char* label = timeSyncLabel(_lastState);
+    const char* label = timeSyncLabel(state);
     int16_t x = UI_FOOTER_WIDTH - 6 * (4 + (int)strlen(label)) * UI_FOOTER_TEXT_SIZE;
     int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_PADDING;
 
@@ -67,30 +66,54 @@ void Footer::updateSats(int8_t sats) {
 
     if (sats < 0) {
         _tft->print("S-- ");
-    } else {
-        _tft->printf("S%02d ", (int)sats);
-    }
-}
-
-void Footer::updateTimeSyncState(TimeSyncState state) {
-    // Обновляем только если что-то изменилось
-    if (!_tft || state == _lastState) {
         return;
     }
-    
-    _lastState = state;
-    
-    const char* label = timeSyncLabel(state);
-    uint16_t color    = timeSyncColor(state);
 
-    // статус — цветной
+    _tft->printf("S%02d ", (int)sats);
+}
+
+void Footer::drawTimeSyncValue(TimeSyncState state, int8_t sats) {
+    if (!_tft) {
+        return;
+    }
+
+    const char* label = timeSyncLabel(state);
+    uint16_t color = timeSyncColor(state);
     int16_t x = UI_FOOTER_WIDTH - 6 * (4 + (int)strlen(label)) * UI_FOOTER_TEXT_SIZE;
     int16_t y = UI_FOOTER_Y_POS + UI_FOOTER_PADDING;
-    int16_t x2 = x + 6 * 4 * UI_FOOTER_TEXT_SIZE; // "Sxx " = 4 символа
+
+    // "Sxx " = 4 символа для стандартного формата.
+    int16_t satsChars = 4;
+    if (sats >= 100) {
+        satsChars = 5;
+    }
+    int16_t x2 = x + 6 * satsChars * UI_FOOTER_TEXT_SIZE;
+
     _tft->setTextSize(UI_FOOTER_TEXT_SIZE);
     _tft->setTextColor(color, UI_FOOTER_COLOR_BACKGROUND);
     _tft->setCursor(x2, y);
     _tft->print(label);
+}
+
+void Footer::updateSats(int8_t sats) {
+    if (!_tft || sats == _sats) {
+        return;
+    }
+
+    _sats = sats;
+    drawSatsValue(_sats, _state);
+    drawTimeSyncValue(_state, _sats);
+}
+
+void Footer::updateTimeSyncState(TimeSyncState state) {
+    // Обновляем только если что-то изменилось
+    if (!_tft || state == _state) {
+        return;
+    }
+    
+    _state = state;
+    drawSatsValue(_sats, _state);
+    drawTimeSyncValue(_state, _sats);
 }
 
 bool Footer::onTouchEvent(const TouchEvent& event) {

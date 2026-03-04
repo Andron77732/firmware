@@ -24,15 +24,15 @@ public:
     /**
      * @brief Инициализация footer
      * @param tft Ссылка на TFT объект
-     */
-    void begin(TFT_eSPI& tft);
-    
-    /**
-     * @brief Полная отрисовка footer (фон + текст)
      * @param moduleType Тип модуля (START/FINISH)
      * @param version Версия прошивки (например, "0.1.0")
      */
-    void draw(ModuleType moduleType, const String& version);
+    void begin(TFT_eSPI& tft, ModuleType moduleType, const String& version);
+    
+    /**
+     * @brief Полная отрисовка footer (фон + текст)
+     */
+    void draw();
 
     /**
      * @brief Обновление количества спутников
@@ -54,8 +54,13 @@ public:
 
 private:
     TFT_eSPI* _tft = nullptr;
-    TimeSyncState _lastState = TimeSyncState::NONE;
-    int8_t _lastSats = -127;
+    ModuleType _moduleType = ModuleType::START;
+    String _version;
+    TimeSyncState _state = TimeSyncState::NONE;
+    int8_t _sats = -1;
+
+    void drawSatsValue(int8_t sats, TimeSyncState state);
+    void drawTimeSyncValue(TimeSyncState state, int8_t sats);
 };
 
 // Глобальный объект footer

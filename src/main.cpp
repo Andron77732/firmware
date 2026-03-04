@@ -112,7 +112,7 @@ static void redrawMainUi() {
   statusBar.updateWiFiIcon(wifiManager.getState(), wifiManager.getRSSI());
   onGPSStateChanged(gps.getState());
   mainArea.draw();
-  footer.draw(module_type, String(VERSION));
+  footer.draw();
   footer.updateTimeSyncState(time_sync_state());
   footer.updateSats(footer_sats);
 }
@@ -135,9 +135,6 @@ void setup() {
   // Установка callback для мгновенного обновления иконки WiFi при
   // изменении состояния (независимо от текущих настроек)
   wifiManager.setStateCallback(onWiFiStateChanged);
-
-  // Инициализация footer
-  footer.begin(display.tft());
 
   // Инициализация mainArea в режиме загрузки
   mainArea.begin(display.tft());
@@ -198,6 +195,9 @@ void setup() {
       "Module type: " +
       String(module_type == ModuleType::START ? "START" : "FINISH");
   mainArea.addLogLine(moduleTypeStr);
+
+  // Инициализация footer после определения типа модуля.
+  footer.begin(display.tft(), module_type, String(VERSION));
 
   // Инициализация прерывания на событие
   event_isr_init(EXT_INT_PIN);
@@ -309,7 +309,7 @@ void setup() {
   }
   mainArea.draw();
   // Отрисовка footer с типом модуля
-  footer.draw(module_type, String(VERSION));
+  footer.draw();
   footer.updateTimeSyncState(time_sync_state());
   footer.updateSats(footer_sats);
 }
