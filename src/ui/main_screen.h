@@ -59,7 +59,4 @@ private:
     PendingState _pending;
 };
 
-// Глобальный объект главного экрана
-extern MainScreen mainScreen;
-
 #endif // UI_MAIN_SCREEN_H

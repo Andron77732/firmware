@@ -63,7 +63,4 @@ private:
     void drawTimeSyncValue(TimeSyncState state, int8_t sats);
 };
 
-// Глобальный объект footer
-extern Footer footer;
-
 #endif // UI_FOOTER_H

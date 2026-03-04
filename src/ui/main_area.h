@@ -163,7 +163,4 @@ private:
     void drawStartLines(uint16_t startY, uint8_t maxVisibleLines);
 };
 
-// Глобальный объект mainArea
-extern MainArea mainArea;
-
 #endif // UI_MAIN_AREA_H

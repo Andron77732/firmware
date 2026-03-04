@@ -51,7 +51,8 @@ static void sendEventPacket(const EventTimestampData &data) {
   bleSerial.write((const uint8_t *)packet, send_len);
 }
 
-void event_dispatcher_handle_event_isr(ModuleType module_type) {
+void event_dispatcher_handle_event_isr(ModuleType module_type,
+                                       MainArea &mainArea) {
   static int64_t last_start_event_us = 0;
   int64_t t_esp_us = 0;
 

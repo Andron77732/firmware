@@ -2,8 +2,6 @@
 
 #include "esp_log.h"
 
-// Глобальный объект главного экрана
-MainScreen mainScreen;
 static const char* TAG = "MainScreen";
 
 void MainScreen::init(Footer& footer, MainArea& mainArea, StatusBar& statusBar) {

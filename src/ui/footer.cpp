@@ -1,9 +1,6 @@
 #include "footer.h"
 #include "TFT_eSPI.h"
 
-// Глобальный объект footer
-Footer footer;
-
 static const char* timeSyncLabel(TimeSyncState s) {
     switch (s) {
         case TimeSyncState::GPS_OK:        return "GPS OK ";

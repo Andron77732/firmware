@@ -2,9 +2,6 @@
 #include "storage/settings.h"
 #include "esp_log.h"
 #include <string.h>
-
-// Глобальный объект mainArea
-MainArea mainArea;
 static const char* TAG = "MainArea";
 
 void MainArea::init(TFT_eSPI& tft) {

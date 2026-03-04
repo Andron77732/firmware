@@ -3,9 +3,6 @@
 #include "timing/time_sync.h"
 #include <time.h>
 
-// Глобальный объект статус-бара
-StatusBar statusBar;
-
 static uint16_t clockColorForState() {
     return (time_sync_state() == TimeSyncState::NONE)
                ? UI_STATUS_BAR_COLOR_CLOCK_NO_SYNC

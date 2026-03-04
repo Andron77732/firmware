@@ -7,7 +7,8 @@
 #include <Arduino.h>
 #include <time.h>
 
-void second_events_handle_tick(ModuleType module_type) {
+void second_events_handle_tick(ModuleType module_type, StatusBar& statusBar,
+                               MainArea& mainArea) {
   static time_t lastTimeSec = 0;
 
   time_t nowSec = time(nullptr);

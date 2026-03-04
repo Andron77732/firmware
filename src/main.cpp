@@ -35,6 +35,13 @@ static ModuleType module_type = ModuleType::START; // значение по ум
 static CommandParser* serialParser = nullptr;
 static CommandParser* bleParser = nullptr;
 
+namespace {
+Footer footer;
+MainArea mainArea;
+StatusBar statusBar;
+MainScreen mainScreen;
+} // namespace
+
 /**
  * @brief Callback для обновления иконки Bluetooth при изменении состояния BLE
  * @param state Текущее состояние Bluetooth
@@ -303,7 +310,7 @@ void setup() {
 
 void loop() {
   // Секундные события (BEEP/VOICE/Часы/Countdown и др.)
-  second_events_handle_tick(module_type);
+  second_events_handle_tick(module_type, statusBar, mainArea);
 
   touch.update();
   TouchEvent touchEvent;
@@ -337,5 +344,5 @@ void loop() {
   }
 
   // Проверка события и обработка временного штампа
-  event_dispatcher_handle_event_isr(module_type);
+  event_dispatcher_handle_event_isr(module_type, mainArea);
 }

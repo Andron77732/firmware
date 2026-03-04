@@ -97,7 +97,4 @@ private:
     void drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
 };
 
-// Глобальный объект статус-бара
-extern StatusBar statusBar;
-
 #endif // UI_STATUS_BAR_H
