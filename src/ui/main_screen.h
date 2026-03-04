@@ -10,6 +10,10 @@
  */
 class MainScreen {
 public:
+    Footer* footer = nullptr;
+    MainArea* mainArea = nullptr;
+    StatusBar* statusBar = nullptr;
+
     /**
      * @brief Инициализация зависимостей главного экрана
      */
@@ -24,11 +28,6 @@ public:
      * @brief Обновление состояния главного экрана
      */
     void update();
-
-private:
-    Footer* _footer = nullptr;
-    MainArea* _mainArea = nullptr;
-    StatusBar* _statusBar = nullptr;
 };
 
 // Глобальный объект главного экрана
