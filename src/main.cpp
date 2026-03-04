@@ -18,6 +18,7 @@
 #include "timing/second_events.h"
 #include "timing/sntp.h"
 #include "timing/time_sync.h"
+#include "ui/main_screen.h"
 #include "ui/footer.h"
 #include "ui/main_area.h"
 #include "ui/status_bar.h"
@@ -104,17 +105,6 @@ static const char *touchCalibrationStatusText(
   default:
     return "OK";
   }
-}
-
-static void redrawMainUi() {
-  statusBar.draw();
-  statusBar.updateBluetoothIcon(bleSerial.getState());
-  statusBar.updateWiFiIcon(wifiManager.getState(), wifiManager.getRSSI());
-  onGPSStateChanged(gps.getState());
-  mainArea.draw();
-  footer.draw();
-  footer.updateTimeSyncState(time_sync_state());
-  footer.updateSats(footer_sats);
 }
 
 void setup() {
@@ -343,7 +333,7 @@ void loop() {
   }
 
   if (consumeTouchCalibrationUiRedrawRequest()) {
-    redrawMainUi();
+    mainScreen.draw();
   }
 
   // Проверка события и обработка временного штампа
