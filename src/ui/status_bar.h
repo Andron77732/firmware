@@ -72,21 +72,18 @@ public:
 
 private:
     TFT_eSPI* _tft = nullptr;
-    
-    // Кэш состояния Bluetooth для оптимизации перерисовки
-    BLEState _lastBtState = BLEState::DISCONNECTED;
-    
-    // Кэш состояния WiFi для оптимизации перерисовки
-    WiFiState _lastWiFiState = WiFiState::UNINITIALIZED;
-    uint8_t _lastWiFiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
+    BLEState _btState = BLEState::DISCONNECTED;
+    WiFiState _wifiState = WiFiState::UNINITIALIZED;
+    uint8_t _wifiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
+    GPSState _gpsState = GPSState::OFF;
+    bool _hasTime = false;
+    tm _time = {};
 
-    // Кэш состояния GPS для оптимизации перерисовки
-    GPSState _lastGpsState = GPSState::OFF;
-    
-    /**
-     * @brief Отрисовка всех иконок
-     */
-    void drawIcons();
+    uint8_t wifiSignalLevelFromRssi(WiFiState state, int8_t rssi) const;
+    void drawTimeValue();
+    void drawBluetoothValue(BLEState state);
+    void drawWiFiValue(WiFiState state, uint8_t signalLevel);
+    void drawGpsValue(GPSState state);
     
     void drawIconGPS(uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);

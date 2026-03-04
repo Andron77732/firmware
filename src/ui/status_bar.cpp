@@ -14,11 +14,12 @@ static uint16_t clockColorForState() {
 
 void StatusBar::begin(TFT_eSPI& tft) {
     _tft = &tft;
-    
-    // Сброс кэша
-    _lastBtState = BLEState::DISCONNECTED;
-    _lastWiFiState = WiFiState::UNINITIALIZED;
-    _lastWiFiSignalLevel = 255;
+    _btState = BLEState::DISCONNECTED;
+    _wifiState = WiFiState::UNINITIALIZED;
+    _wifiSignalLevel = 255;
+    _gpsState = GPSState::OFF;
+    _hasTime = false;
+    _time = {};
 }
 
 void StatusBar::draw() {
@@ -27,182 +28,139 @@ void StatusBar::draw() {
     // Фон статус-бара
     _tft->fillRect(0, UI_STATUS_BAR_Y_POS, UI_STATUS_BAR_WIDTH, UI_STATUS_BAR_HEIGHT, UI_STATUS_BAR_COLOR_BACKGROUND);
     
-    // Иконки
-    drawIcons();
-    
-    // Принудительная отрисовка времени
-    drawTimePlaceholder();
+    drawTimeValue();
+    drawBluetoothValue(_btState);
+    drawWiFiValue(_wifiState, _wifiSignalLevel);
+    drawGpsValue(_gpsState);
+    drawIconBattery(UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
 void StatusBar::updateTime(const struct tm &local_tm) {
     if (!_tft) return;
-    
-    // Отрисовка времени
-    _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
-    _tft->setTextColor(clockColorForState(), UI_STATUS_BAR_COLOR_BACKGROUND);
-    _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
-    _tft->printf("%02d:%02d:%02d", local_tm.tm_hour, local_tm.tm_min, local_tm.tm_sec);
+    _time = local_tm;
+    _hasTime = true;
+    drawTimeValue();
 }
 
 void StatusBar::drawTimePlaceholder() {
     // Рисуем placeholder, если время еще не было установлено
+    if (!_tft) return;
+
     _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
     _tft->setTextColor(clockColorForState(), UI_STATUS_BAR_COLOR_BACKGROUND);
     _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
     _tft->print("--:--:--");
 }
 
-void StatusBar::drawIcons() {
-    // Пока все иконки неактивны (серые)
-    drawIconGPS(UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
-    drawIconBluetooth(ICON_BT_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
-    drawIconWiFi(ICON_WIFI_OFF, UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
-    drawIconBattery(UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
+uint8_t StatusBar::wifiSignalLevelFromRssi(WiFiState state, int8_t rssi) const {
+    if (state != WiFiState::CONNECTED) {
+        return 255;
+    }
+
+    if (rssi > UI_WIFI_RSSI_LEVEL_4) {
+        return 4;
+    }
+    if (rssi > UI_WIFI_RSSI_LEVEL_3) {
+        return 3;
+    }
+    if (rssi > UI_WIFI_RSSI_LEVEL_2) {
+        return 2;
+    }
+    if (rssi > UI_WIFI_RSSI_LEVEL_1) {
+        return 1;
+    }
+    return 0;
 }
 
-void StatusBar::updateBluetoothIcon(BLEState state) {
+void StatusBar::drawTimeValue() {
     if (!_tft) return;
-    
-    // Проверяем, изменилось ли состояние
-    if (state == _lastBtState) {
-        return;  // Ничего не изменилось
+
+    if (!_hasTime) {
+        drawTimePlaceholder();
+        return;
     }
-    
-    // Сохраняем текущее значение
-    _lastBtState = state;
-    
-    // Выбираем иконку и цвет в зависимости от состояния
-    const uint8_t* bitmap;
-    uint16_t color;
-    
+
+    _tft->setTextSize(UI_STATUS_BAR_CLOCK_TEXT_SIZE);
+    _tft->setTextColor(clockColorForState(), UI_STATUS_BAR_COLOR_BACKGROUND);
+    _tft->setCursor(UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y);
+    _tft->printf("%02d:%02d:%02d", _time.tm_hour, _time.tm_min, _time.tm_sec);
+}
+
+void StatusBar::drawBluetoothValue(BLEState state) {
+    const uint8_t* bitmap = ICON_BT_OFF;
+    uint16_t color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+
     switch (state) {
         case BLEState::CONNECTED:
-            // Подключено - используем иконку с подключением, синий цвет
             bitmap = ICON_BT_CONNECTED;
             color = UI_STATUS_BAR_COLOR_ICON_BLUETOOTH_ACTIVE;
             break;
-            
         case BLEState::ADVERTISING:
-            // Реклама активна, но нет подключения - обычная иконка, синий цвет
             bitmap = ICON_BT;
             color = UI_STATUS_BAR_COLOR_ICON_BLUETOOTH_ACTIVE;
             break;
-            
         case BLEState::DISCONNECTED:
         default:
-            // Реклама не активна - иконка выключена, серый цвет
             bitmap = ICON_BT_OFF;
             color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
             break;
     }
-    
-    // Отрисовка иконки с фоном за один проход
+
     drawIconBluetooth(bitmap, color, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
-void StatusBar::updateWiFiIcon(WiFiState state, int8_t rssi) {
-    if (!_tft) return;
-    
-    // Определяем уровень сигнала (0-4) на основе RSSI
-    uint8_t signalLevel = 255; // 255 = не определен
-    if (state == WiFiState::CONNECTED) {
-        if (rssi > UI_WIFI_RSSI_LEVEL_4) {
-            signalLevel = 4;  // Отличный сигнал
-        } else if (rssi > UI_WIFI_RSSI_LEVEL_3) {
-            signalLevel = 3;  // Хороший сигнал
-        } else if (rssi > UI_WIFI_RSSI_LEVEL_2) {
-            signalLevel = 2;  // Средний сигнал
-        } else if (rssi > UI_WIFI_RSSI_LEVEL_1) {
-            signalLevel = 1;  // Слабый сигнал
-        } else {
-            signalLevel = 0;  // Очень слабый сигнал
-        }
-    }
-    
-    // Проверяем, изменилось ли состояние или уровень сигнала
-    // (сравниваем уровень сигнала, а не точное значение RSSI)
-    if (state == _lastWiFiState && signalLevel == _lastWiFiSignalLevel) {
-        return;  // Ничего не изменилось
-    }
-    
-    // Сохраняем текущие значения
-    _lastWiFiState = state;
-    _lastWiFiSignalLevel = signalLevel;
-    
-    // Выбираем иконку и цвет в зависимости от состояния
-    const uint8_t* bitmap;
-    uint16_t color;
-    
+void StatusBar::drawWiFiValue(WiFiState state, uint8_t signalLevel) {
+    const uint8_t* bitmap = ICON_WIFI_OFF;
+    uint16_t color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+
     switch (state) {
         case WiFiState::UNINITIALIZED:
-            // WiFiManager не инициализирован - иконка выключена, серый цвет
-            bitmap = ICON_WIFI_OFF;
-            color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
-            break;
-            
         case WiFiState::OFF:
-            // WiFi выключен - иконка выключена, серый цвет
             bitmap = ICON_WIFI_OFF;
             color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
             break;
-            
         case WiFiState::ERROR:
-            // Ошибка подключения - иконка с предупреждением, желтый/красный цвет
             bitmap = ICON_WIFI_ALERT;
             color = TFT_YELLOW;
             break;
-            
         case WiFiState::CONNECTING:
-            // Идет подключение - минимальная иконка, желтый цвет
             bitmap = ICON_WIFI_0;
             color = TFT_YELLOW;
             break;
-            
         case WiFiState::CONNECTED:
-            // Подключено - выбираем иконку по уровню сигнала, белый/зеленый цвет
             switch (signalLevel) {
                 case 4:
-                    bitmap = ICON_WIFI_4;  // Отличный сигнал
+                    bitmap = ICON_WIFI_4;
                     break;
                 case 3:
-                    bitmap = ICON_WIFI_3;  // Хороший сигнал
+                    bitmap = ICON_WIFI_3;
                     break;
                 case 2:
-                    bitmap = ICON_WIFI_2;  // Средний сигнал
+                    bitmap = ICON_WIFI_2;
                     break;
                 case 1:
-                    bitmap = ICON_WIFI_1;  // Слабый сигнал
+                    bitmap = ICON_WIFI_1;
                     break;
                 case 0:
                 default:
-                    bitmap = ICON_WIFI_0;  // Очень слабый сигнал
+                    bitmap = ICON_WIFI_0;
                     break;
             }
             color = UI_STATUS_BAR_COLOR_ICON_WIFI_ACTIVE;
             break;
-            
         case WiFiState::DISCONNECTED:
         default:
-            // Не подключено (но WiFi включен) - минимальная иконка, серый цвет
             bitmap = ICON_WIFI_0;
             color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
             break;
     }
-    
-    // Отрисовка иконки с фоном за один проход
+
     drawIconWiFi(bitmap, color, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
-void StatusBar::updateGPSIcon(GPSState state) {
-    if (!_tft) return;
-
-    if (state == _lastGpsState) {
-        return;
-    }
-
-    _lastGpsState = state;
-
+void StatusBar::drawGpsValue(GPSState state) {
     uint16_t color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+
     switch (state) {
         case GPSState::ACTIVE:
             color = UI_STATUS_BAR_COLOR_ICON_GPS_ACTIVE;
@@ -217,6 +175,41 @@ void StatusBar::updateGPSIcon(GPSState state) {
     }
 
     drawIconGPS(color, UI_STATUS_BAR_COLOR_BACKGROUND);
+}
+
+void StatusBar::updateBluetoothIcon(BLEState state) {
+    if (!_tft) return;
+
+    if (state == _btState) {
+        return;
+    }
+
+    _btState = state;
+    drawBluetoothValue(_btState);
+}
+
+void StatusBar::updateWiFiIcon(WiFiState state, int8_t rssi) {
+    if (!_tft) return;
+
+    const uint8_t signalLevel = wifiSignalLevelFromRssi(state, rssi);
+    if (state == _wifiState && signalLevel == _wifiSignalLevel) {
+        return;
+    }
+
+    _wifiState = state;
+    _wifiSignalLevel = signalLevel;
+    drawWiFiValue(_wifiState, _wifiSignalLevel);
+}
+
+void StatusBar::updateGPSIcon(GPSState state) {
+    if (!_tft) return;
+
+    if (state == _gpsState) {
+        return;
+    }
+
+    _gpsState = state;
+    drawGpsValue(_gpsState);
 }
 
 void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
