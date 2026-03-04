@@ -25,6 +25,7 @@
 #include "ui/ui_config.h"
 #include <Arduino.h>
 #include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
 #include <time.h>
 
 static const char *TAG = "MAIN";
@@ -35,11 +36,111 @@ static ModuleType module_type = ModuleType::START; // значение по ум
 static CommandParser* serialParser = nullptr;
 static CommandParser* bleParser = nullptr;
 
+namespace {
+
+enum UiDirtyBit : uint32_t {
+  UI_DIRTY_BLE = 1u << 0,
+  UI_DIRTY_WIFI = 1u << 1,
+  UI_DIRTY_GPS = 1u << 2,
+  UI_DIRTY_TIME_SYNC = 1u << 3,
+  UI_DIRTY_SATS = 1u << 4,
+};
+
+struct UiPendingState {
+  BLEState bleState = BLEState::DISCONNECTED;
+  WiFiState wifiState = WiFiState::UNINITIALIZED;
+  int8_t wifiRssi = 0;
+  GPSState gpsState = GPSState::OFF;
+  TimeSyncState timeSyncState = TimeSyncState::NONE;
+  int8_t sats = -1;
+  uint32_t dirtyMask = 0;
+};
+
+static portMUX_TYPE s_uiPendingMux = portMUX_INITIALIZER_UNLOCKED;
+static UiPendingState s_uiPendingState;
+
+void postBleState(BLEState state) {
+  portENTER_CRITICAL(&s_uiPendingMux);
+  if (s_uiPendingState.bleState != state) {
+    s_uiPendingState.bleState = state;
+    s_uiPendingState.dirtyMask |= UI_DIRTY_BLE;
+  }
+  portEXIT_CRITICAL(&s_uiPendingMux);
+}
+
+void postWiFiState(WiFiState state, int8_t rssi) {
+  portENTER_CRITICAL(&s_uiPendingMux);
+  if (s_uiPendingState.wifiState != state || s_uiPendingState.wifiRssi != rssi) {
+    s_uiPendingState.wifiState = state;
+    s_uiPendingState.wifiRssi = rssi;
+    s_uiPendingState.dirtyMask |= UI_DIRTY_WIFI;
+  }
+  portEXIT_CRITICAL(&s_uiPendingMux);
+}
+
+void postGpsState(GPSState state) {
+  portENTER_CRITICAL(&s_uiPendingMux);
+  if (s_uiPendingState.gpsState != state) {
+    s_uiPendingState.gpsState = state;
+    s_uiPendingState.dirtyMask |= UI_DIRTY_GPS;
+  }
+  portEXIT_CRITICAL(&s_uiPendingMux);
+}
+
+void postTimeSyncState(TimeSyncState state) {
+  portENTER_CRITICAL(&s_uiPendingMux);
+  if (s_uiPendingState.timeSyncState != state) {
+    s_uiPendingState.timeSyncState = state;
+    s_uiPendingState.dirtyMask |= UI_DIRTY_TIME_SYNC;
+  }
+  portEXIT_CRITICAL(&s_uiPendingMux);
+}
+
+void postSats(int8_t sats) {
+  portENTER_CRITICAL(&s_uiPendingMux);
+  if (s_uiPendingState.sats != sats) {
+    s_uiPendingState.sats = sats;
+    s_uiPendingState.dirtyMask |= UI_DIRTY_SATS;
+  }
+  portEXIT_CRITICAL(&s_uiPendingMux);
+}
+
+void processUiUpdates() {
+  UiPendingState snapshot;
+
+  portENTER_CRITICAL(&s_uiPendingMux);
+  if (s_uiPendingState.dirtyMask == 0) {
+    portEXIT_CRITICAL(&s_uiPendingMux);
+    return;
+  }
+  snapshot = s_uiPendingState;
+  s_uiPendingState.dirtyMask = 0;
+  portEXIT_CRITICAL(&s_uiPendingMux);
+
+  if (snapshot.dirtyMask & UI_DIRTY_BLE) {
+    statusBar.updateBluetoothIcon(snapshot.bleState);
+  }
+  if (snapshot.dirtyMask & UI_DIRTY_WIFI) {
+    statusBar.updateWiFiIcon(snapshot.wifiState, snapshot.wifiRssi);
+  }
+  if (snapshot.dirtyMask & UI_DIRTY_GPS) {
+    statusBar.updateGPSIcon(snapshot.gpsState);
+  }
+  if (snapshot.dirtyMask & UI_DIRTY_TIME_SYNC) {
+    footer.updateTimeSyncState(snapshot.timeSyncState);
+  }
+  if (snapshot.dirtyMask & UI_DIRTY_SATS) {
+    footer.updateSats(snapshot.sats);
+  }
+}
+
+} // namespace
+
 /**
  * @brief Callback для обновления иконки Bluetooth при изменении состояния BLE
  * @param state Текущее состояние Bluetooth
  */
-void onBLEStateChanged(BLEState state) { statusBar.updateBluetoothIcon(state); }
+void onBLEStateChanged(BLEState state) { postBleState(state); }
 
 /**
  * @brief Callback для обновления иконки WiFi при изменении состояния WiFi
@@ -47,7 +148,7 @@ void onBLEStateChanged(BLEState state) { statusBar.updateBluetoothIcon(state); }
  * @param rssi Уровень сигнала в dBm
  */
 void onWiFiStateChanged(WiFiState state, int8_t rssi) {
-  statusBar.updateWiFiIcon(state, rssi);
+  postWiFiState(state, rssi);
 }
 
 /**
@@ -57,22 +158,19 @@ void onWiFiStateChanged(WiFiState state, int8_t rssi) {
 void onGPSStateChanged(GPSState state) {
   const SyncSettings &sync = settings.getSync();
   if (sync.source == 2) {
-    statusBar.updateGPSIcon(GPSState::OFF);
+    postGpsState(GPSState::OFF);
     return;
   }
 
-  statusBar.updateGPSIcon(state);
+  postGpsState(state);
 }
 
-static int8_t footer_sats = -1;
-
 void onGPSSatsChanged(int8_t sats) {
-  footer_sats = sats;
-  footer.updateSats(footer_sats);
+  postSats(sats);
 }
 
 void onTimeSyncStateChanged(TimeSyncState state) {
-  footer.updateTimeSyncState(state);
+  postTimeSyncState(state);
 }
 
 static bool routeTouchEvent(const TouchEvent &event) {
@@ -281,8 +379,7 @@ void setup() {
     }
   } else {
     ESP_LOGI(TAG, "WiFi disabled in settings");
-    // Обновляем иконку WiFi до состояния OFF
-    statusBar.updateWiFiIcon(WiFiState::OFF, 0);
+    postWiFiState(WiFiState::OFF, 0);
   }
 
   ESP_LOGI(TAG, "Setup complete");
@@ -297,11 +394,13 @@ void setup() {
   } else {
     mainArea.setType(MainAreaType::FINISH);
   }
-  mainArea.draw();
-  // Отрисовка footer с типом модуля
-  footer.draw();
-  footer.updateTimeSyncState(time_sync_state());
-  footer.updateSats(footer_sats);
+
+  // Всё UI собрано, инициализируем mainScreen и перерисовываем всё
+  mainScreen.init(footer, mainArea, statusBar);
+  mainScreen.draw();
+
+  // postTimeSyncState(time_sync_state());
+  // processUiUpdates();
 }
 
 void loop() {
@@ -323,6 +422,9 @@ void loop() {
 
   // Обновление WiFi (обработка событий, обновление RSSI)
   wifiManager.update();
+
+  // Весь UI-рендер из одного контекста (loop task).
+  processUiUpdates();
 
   // Обработка команд из Serial и BLE
   if (serialParser) {
