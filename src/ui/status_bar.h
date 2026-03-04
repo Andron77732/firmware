@@ -27,7 +27,7 @@ public:
      * @brief Инициализация статус-бара
      * @param tft Ссылка на TFT объект
      */
-    void begin(TFT_eSPI& tft);
+    void init(TFT_eSPI& tft);
     
     /**
      * @brief Полная отрисовка статус-бара (фон + все элементы)

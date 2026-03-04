@@ -24,7 +24,7 @@ static uint16_t timeSyncColor(TimeSyncState s) {
     }
 }
 
-void Footer::begin(TFT_eSPI& tft, ModuleType moduleType, const String& version) {
+void Footer::init(TFT_eSPI& tft, ModuleType moduleType, const String& version) {
     _tft = &tft;
     _moduleType = moduleType;
     _version = version;

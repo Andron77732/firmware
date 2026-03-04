@@ -7,7 +7,7 @@
 MainArea mainArea;
 static const char* TAG = "MainArea";
 
-void MainArea::begin(TFT_eSPI& tft) {
+void MainArea::init(TFT_eSPI& tft) {
     _tft = &tft;
     _canvas = _tft;
     _canvasYOffset = UI_MAIN_AREA_Y_POS;

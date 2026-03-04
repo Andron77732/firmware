@@ -41,7 +41,7 @@ public:
      * @brief Инициализация mainArea
      * @param tft Ссылка на TFT объект
      */
-    void begin(TFT_eSPI& tft);
+    void init(TFT_eSPI& tft);
     
     /**
      * @brief Установка типа отображения

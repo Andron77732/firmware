@@ -129,7 +129,7 @@ void setup() {
   display.begin(DISPLAY_ROTATION);
 
   // Инициализация статус-бара
-  statusBar.begin(display.tft());
+  statusBar.init(display.tft());
   statusBar.draw();
 
   // Установка callback для мгновенного обновления иконки WiFi при
@@ -137,7 +137,7 @@ void setup() {
   wifiManager.setStateCallback(onWiFiStateChanged);
 
   // Инициализация mainArea в режиме загрузки
-  mainArea.begin(display.tft());
+  mainArea.init(display.tft());
   mainArea.setType(MainAreaType::LOADING);
   mainArea.draw();
   mainArea.addLogLine("ENTime v" VERSION " starting...");
@@ -197,7 +197,7 @@ void setup() {
   mainArea.addLogLine(moduleTypeStr);
 
   // Инициализация footer после определения типа модуля.
-  footer.begin(display.tft(), module_type, String(VERSION));
+  footer.init(display.tft(), module_type, String(VERSION));
 
   // Инициализация прерывания на событие
   event_isr_init(EXT_INT_PIN);

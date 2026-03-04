@@ -27,7 +27,7 @@ public:
      * @param moduleType Тип модуля (START/FINISH)
      * @param version Версия прошивки (например, "0.1.0")
      */
-    void begin(TFT_eSPI& tft, ModuleType moduleType, const String& version);
+    void init(TFT_eSPI& tft, ModuleType moduleType, const String& version);
     
     /**
      * @brief Полная отрисовка footer (фон + текст)

@@ -10,8 +10,6 @@
  */
 class MainScreen {
 public:
-    MainScreen() = default;
-
     /**
      * @brief Инициализация зависимостей главного экрана
      */

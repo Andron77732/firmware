@@ -12,7 +12,7 @@ static uint16_t clockColorForState() {
                : UI_STATUS_BAR_COLOR_CLOCK;
 }
 
-void StatusBar::begin(TFT_eSPI& tft) {
+void StatusBar::init(TFT_eSPI& tft) {
     _tft = &tft;
     _btState = BLEState::DISCONNECTED;
     _wifiState = WiFiState::UNINITIALIZED;
