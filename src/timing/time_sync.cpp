@@ -299,7 +299,7 @@ void time_sync_begin() {
   s_last_sqw_count = 0;
   s_rtc_anchor_sqw_count = 0;
   s_last_sqw_edge_us = 0;
-  rtc_sqw_begin(RTC_SQW_PIN, RISING);
+  rtc_sqw_begin(RTC_SQW_PIN, FALLING);
 
   s_in_rtc_fallback = false;
   s_logged_no_sqw = false;
