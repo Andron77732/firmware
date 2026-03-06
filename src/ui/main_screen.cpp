@@ -1,6 +1,7 @@
 #include "main_screen.h"
 
 #include "esp_log.h"
+#include <cmath>
 
 static const char* TAG = "MainScreen";
 
@@ -53,6 +54,9 @@ void MainScreen::update() {
     if (snapshot.dirtyMask & DIRTY_SATS) {
         footer->updateSats(snapshot.sats);
     }
+    if (snapshot.dirtyMask & DIRTY_BATTERY) {
+        statusBar->updateBatteryVoltage(snapshot.batteryVoltage, snapshot.batteryValid);
+    }
 }
 
 void MainScreen::postBleState(BLEState state) {
@@ -97,6 +101,21 @@ void MainScreen::postSats(int8_t sats) {
     if (_pending.sats != sats) {
         _pending.sats = sats;
         _pending.dirtyMask |= DIRTY_SATS;
+    }
+    portEXIT_CRITICAL(&_pendingMux);
+}
+
+void MainScreen::postBatteryVoltage(float voltage, bool valid) {
+    portENTER_CRITICAL(&_pendingMux);
+    const bool validChanged = (_pending.batteryValid != valid);
+    const bool voltageChanged =
+        valid && (!std::isfinite(_pending.batteryVoltage) ||
+                  fabsf(_pending.batteryVoltage - voltage) >= 0.01f);
+
+    if (validChanged || voltageChanged) {
+        _pending.batteryValid = valid;
+        _pending.batteryVoltage = voltage;
+        _pending.dirtyMask |= DIRTY_BATTERY;
     }
     portEXIT_CRITICAL(&_pendingMux);
 }

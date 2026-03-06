@@ -7,6 +7,7 @@
 #include "hal/ble/device_info_service.h"
 #include "hal/wifi/wifi.h"
 #include "hal/gps/gps.h"
+#include "hal/ina226/ina226.h"
 #include "hal/rtc/rtc.h"
 #include "hal/tft/tft.h"
 #include "hal/touch/touch.h"
@@ -220,6 +221,17 @@ void setup() {
     delay(5000);
   }
 
+  // Инициализация INA226
+  mainArea.addLogLine("Initializing INA226...");
+  if (ina226.begin()) {
+    mainArea.addLogLine("INA226 initialized");
+    ESP_LOGI(TAG, "INA226 initialized");
+  } else {
+    mainArea.addLogLine("WARN: INA226 init failed");
+    ESP_LOGW(TAG, "INA226 init failed: %s", ina226.lastError());
+    mainScreen.postBatteryVoltage(0.0f, false);
+  }
+
   // PPS синхронизация от GPS
   pps_init(GPS_PPS_PIN);
 
@@ -327,6 +339,14 @@ void loop() {
 
   // Обновление WiFi (обработка событий, обновление RSSI)
   wifiManager.update();
+
+  // Обновление INA226 (новые значения батареи по DATA_READY)
+  ina226.update();
+  if (ina226.hasNewSample()) {
+    mainScreen.postBatteryVoltage(ina226.getBusVoltage(), ina226.hasValidSample());
+  } else if (!ina226.hasValidSample()) {
+    mainScreen.postBatteryVoltage(0.0f, false);
+  }
 
   // Весь UI-рендер из одного контекста (loop task).
   mainScreen.update();

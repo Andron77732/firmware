@@ -65,17 +65,34 @@ public:
     void updateGPSIcon(GPSState state);
 
     /**
+     * @brief Обновить иконку батареи по напряжению
+     * @param voltage Напряжение батареи (В)
+     * @param valid Есть ли валидные данные INA226
+     */
+    void updateBatteryVoltage(float voltage, bool valid);
+
+    /**
      * @brief Обработчик touch-событий
      * @return true если событие обработано
      */
     bool onTouchEvent(const TouchEvent& event);
 
 private:
+    enum class BatteryLevel : uint8_t {
+        Empty = 0,
+        Low = 1,
+        Mid = 2,
+        Full = 3,
+    };
+
     TFT_eSPI* _tft = nullptr;
     BLEState _btState = BLEState::DISCONNECTED;
     WiFiState _wifiState = WiFiState::UNINITIALIZED;
     uint8_t _wifiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
     GPSState _gpsState = GPSState::OFF;
+    bool _batteryValid = false;
+    float _batteryVoltage = NAN;
+    BatteryLevel _batteryLevel = BatteryLevel::Empty;
     bool _hasTime = false;
     tm _time = {};
 
@@ -84,11 +101,13 @@ private:
     void drawBluetoothValue(BLEState state);
     void drawWiFiValue(WiFiState state, uint8_t signalLevel);
     void drawGpsValue(GPSState state);
+    void drawBatteryValue(bool valid, BatteryLevel level);
+    BatteryLevel batteryLevelFromVoltage(float voltage) const;
     
     void drawIconGPS(uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconBluetooth(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     void drawIconWiFi(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
-    void drawIconBattery(uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
+    void drawIconBattery(const uint8_t* bitmap, uint16_t color, uint16_t bgColor = UI_STATUS_BAR_COLOR_BACKGROUND);
     
     /**
      * @brief Отрисовка bitmap 16x16

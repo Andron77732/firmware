@@ -1,6 +1,7 @@
 #include "status_bar.h"
 #include "icons.h"
 #include "timing/time_sync.h"
+#include <cmath>
 #include <time.h>
 
 static uint16_t clockColorForState() {
@@ -15,6 +16,9 @@ void StatusBar::init(TFT_eSPI& tft) {
     _wifiState = WiFiState::UNINITIALIZED;
     _wifiSignalLevel = 255;
     _gpsState = GPSState::OFF;
+    _batteryValid = false;
+    _batteryVoltage = NAN;
+    _batteryLevel = BatteryLevel::Empty;
     _hasTime = false;
     _time = {};
 }
@@ -29,7 +33,7 @@ void StatusBar::draw() {
     drawBluetoothValue(_btState);
     drawWiFiValue(_wifiState, _wifiSignalLevel);
     drawGpsValue(_gpsState);
-    drawIconBattery(UI_STATUS_BAR_COLOR_ICON_INACTIVE, UI_STATUS_BAR_COLOR_BACKGROUND);
+    drawBatteryValue(_batteryValid, _batteryLevel);
 }
 
 void StatusBar::updateTime(const struct tm &local_tm) {
@@ -174,6 +178,45 @@ void StatusBar::drawGpsValue(GPSState state) {
     drawIconGPS(color, UI_STATUS_BAR_COLOR_BACKGROUND);
 }
 
+StatusBar::BatteryLevel StatusBar::batteryLevelFromVoltage(float voltage) const {
+    if (voltage < UI_BATTERY_2S_EMPTY_MAX_V) {
+        return BatteryLevel::Empty;
+    }
+    if (voltage < UI_BATTERY_2S_LOW_MAX_V) {
+        return BatteryLevel::Low;
+    }
+    if (voltage < UI_BATTERY_2S_MID_MAX_V) {
+        return BatteryLevel::Mid;
+    }
+    return BatteryLevel::Full;
+}
+
+void StatusBar::drawBatteryValue(bool valid, BatteryLevel level) {
+    const uint8_t* bitmap = ICON_BAT_EMPTY;
+    uint16_t color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+
+    if (valid) {
+        color = UI_STATUS_BAR_COLOR_ICON_ACTIVE;
+        switch (level) {
+            case BatteryLevel::Empty:
+                bitmap = ICON_BAT_EMPTY;
+                break;
+            case BatteryLevel::Low:
+                bitmap = ICON_BAT_LOW;
+                break;
+            case BatteryLevel::Mid:
+                bitmap = ICON_BAT_MID;
+                break;
+            case BatteryLevel::Full:
+            default:
+                bitmap = ICON_BAT_FULL;
+                break;
+        }
+    }
+
+    drawIconBattery(bitmap, color, UI_STATUS_BAR_COLOR_BACKGROUND);
+}
+
 void StatusBar::updateBluetoothIcon(BLEState state) {
     if (!_tft) return;
 
@@ -209,6 +252,24 @@ void StatusBar::updateGPSIcon(GPSState state) {
     drawGpsValue(_gpsState);
 }
 
+void StatusBar::updateBatteryVoltage(float voltage, bool valid) {
+    if (!_tft) return;
+
+    const bool normalizedValid = valid && std::isfinite(voltage);
+    const BatteryLevel normalizedLevel =
+        normalizedValid ? batteryLevelFromVoltage(voltage) : BatteryLevel::Empty;
+
+    if (normalizedValid == _batteryValid && normalizedLevel == _batteryLevel) {
+        _batteryVoltage = voltage;
+        return;
+    }
+
+    _batteryValid = normalizedValid;
+    _batteryVoltage = normalizedValid ? voltage : NAN;
+    _batteryLevel = normalizedLevel;
+    drawBatteryValue(_batteryValid, _batteryLevel);
+}
+
 void StatusBar::drawBitmap16(uint16_t x, uint16_t y, const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
     for (int row = 0; row < 16; row++) {
         uint8_t b1 = bitmap[row * 2];
@@ -241,8 +302,8 @@ void StatusBar::drawIconWiFi(const uint8_t* bitmap, uint16_t color, uint16_t bgC
     drawBitmap16(UI_STATUS_BAR_ICON_WIFI_X, UI_STATUS_BAR_ICON_Y, bitmap, color, bgColor);
 }
 
-void StatusBar::drawIconBattery(uint16_t color, uint16_t bgColor) {
-    drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, ICON_BAT_FULL, color, bgColor);
+void StatusBar::drawIconBattery(const uint8_t* bitmap, uint16_t color, uint16_t bgColor) {
+    drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, bitmap, color, bgColor);
 }
 
 bool StatusBar::onTouchEvent(const TouchEvent& event) {
