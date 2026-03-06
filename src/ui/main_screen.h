@@ -2,6 +2,7 @@
 #define UI_MAIN_SCREEN_H
 
 #include "footer.h"
+#include "hal/ina226/ina226.h"
 #include "main_area.h"
 #include "status_bar.h"
 #include <freertos/FreeRTOS.h>
@@ -31,7 +32,7 @@ public:
     void postGpsState(GPSState state);
     void postTimeSyncState(TimeSyncState state);
     void postSats(int8_t sats);
-    void postBatteryVoltage(float voltage, bool valid);
+    void postBatteryLevel(InaBatteryLevel level);
 
 private:
     enum DirtyBit : uint32_t {
@@ -40,7 +41,7 @@ private:
         DIRTY_GPS = 1u << 2,
         DIRTY_TIME_SYNC = 1u << 3,
         DIRTY_SATS = 1u << 4,
-        DIRTY_BATTERY = 1u << 5,
+        DIRTY_BATTERY_LEVEL = 1u << 5,
     };
 
     struct PendingState {
@@ -50,8 +51,7 @@ private:
         GPSState gpsState = GPSState::OFF;
         TimeSyncState timeSyncState = TimeSyncState::NONE;
         int8_t sats = -1;
-        float batteryVoltage = 0.0f;
-        bool batteryValid = false;
+        InaBatteryLevel batteryLevel = InaBatteryLevel::NoData;
         uint32_t dirtyMask = 0;
     };
 

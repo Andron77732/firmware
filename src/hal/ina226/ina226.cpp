@@ -69,15 +69,17 @@ bool Ina226Hal::begin() {
         ESP_LOGE(TAG, "%s: GPIO%d", _lastError, INA226_ALERT_PIN);
         return false;
     }
-    attachInterrupt(irq, Ina226Hal::onAlertIsr, FALLING);
-    _dataReadyFlag = false;
 
     _initialized = true;
     _hasValidSample = false;
-    _hasNewSample = false;
     _busVoltage = NAN;
     _current = NAN;
     _power = NAN;
+    _batteryLevel = InaBatteryLevel::NoData;
+    _dataReadyFlag = false;
+
+    attachInterrupt(irq, Ina226Hal::onAlertIsr, FALLING);
+
     clearError_();
 
     ESP_LOGI(TAG,
@@ -86,6 +88,10 @@ bool Ina226Hal::begin() {
              I2C_SDA_PIN, I2C_SCL_PIN, INA226_I2C_ADDRESS, INA226_ALERT_PIN,
              INA226_SHUNT_OHMS, INA226_MAX_CURRENT_A);
     return true;
+}
+
+void Ina226Hal::setLevelChangedCallback(InaLevelChangedCallback callback) {
+    _levelChangedCallback = callback;
 }
 
 void Ina226Hal::update() {
@@ -103,13 +109,15 @@ void Ina226Hal::update() {
         return;
     }
 
+    processDataReady_();
+}
+
+void Ina226Hal::processDataReady_() {
+    if (!_initialized) {
+        return;
+    }
+
     if (!_sensor.isConversionReady()) {
-        setError_("Spurious DATA_READY interrupt");
-        _hasValidSample = false;
-        _hasNewSample = false;
-        _busVoltage = NAN;
-        _current = NAN;
-        _power = NAN;
         return;
     }
 
@@ -124,10 +132,10 @@ void Ina226Hal::update() {
                  "Read failed, err=%d, V=%f, I=%f, P=%f", readError, busVoltage,
                  current, power);
         _hasValidSample = false;
-        _hasNewSample = false;
         _busVoltage = NAN;
         _current = NAN;
         _power = NAN;
+        publishLevelIfChanged_(InaBatteryLevel::NoData);
         ESP_LOGW(TAG, "%s", _lastError);
         return;
     }
@@ -136,14 +144,58 @@ void Ina226Hal::update() {
     _current = current;
     _power = power;
     _hasValidSample = true;
-    _hasNewSample = true;
     clearError_();
+
+    const InaBatteryLevel nextLevel = applyHysteresis_(busVoltage);
+    publishLevelIfChanged_(nextLevel);
 }
 
-bool Ina226Hal::hasNewSample() {
-    const bool hasNew = _hasNewSample;
-    _hasNewSample = false;
-    return hasNew;
+InaBatteryLevel Ina226Hal::levelFromVoltage_(float voltage) const {
+    if (voltage < INA226_BAT_EMPTY_MAX_V) {
+        return InaBatteryLevel::Empty;
+    }
+    if (voltage < INA226_BAT_LOW_MAX_V) {
+        return InaBatteryLevel::Low;
+    }
+    if (voltage < INA226_BAT_MID_MAX_V) {
+        return InaBatteryLevel::Mid;
+    }
+    return InaBatteryLevel::Full;
+}
+
+InaBatteryLevel Ina226Hal::applyHysteresis_(float voltage) const {
+    const float h = INA226_BAT_HYSTERESIS_V;
+
+    switch (_batteryLevel) {
+        case InaBatteryLevel::NoData:
+            return levelFromVoltage_(voltage);
+        case InaBatteryLevel::Empty:
+            return (voltage >= (INA226_BAT_EMPTY_MAX_V + h)) ? InaBatteryLevel::Low
+                                                             : InaBatteryLevel::Empty;
+        case InaBatteryLevel::Low:
+            if (voltage < (INA226_BAT_EMPTY_MAX_V - h)) return InaBatteryLevel::Empty;
+            if (voltage >= (INA226_BAT_LOW_MAX_V + h)) return InaBatteryLevel::Mid;
+            return InaBatteryLevel::Low;
+        case InaBatteryLevel::Mid:
+            if (voltage < (INA226_BAT_LOW_MAX_V - h)) return InaBatteryLevel::Low;
+            if (voltage >= (INA226_BAT_MID_MAX_V + h)) return InaBatteryLevel::Full;
+            return InaBatteryLevel::Mid;
+        case InaBatteryLevel::Full:
+        default:
+            return (voltage < (INA226_BAT_MID_MAX_V - h)) ? InaBatteryLevel::Mid
+                                                          : InaBatteryLevel::Full;
+    }
+}
+
+void Ina226Hal::publishLevelIfChanged_(InaBatteryLevel level) {
+    if (level == _batteryLevel) {
+        return;
+    }
+
+    _batteryLevel = level;
+    if (_levelChangedCallback) {
+        _levelChangedCallback(level);
+    }
 }
 
 void IRAM_ATTR Ina226Hal::onAlertIsr() {

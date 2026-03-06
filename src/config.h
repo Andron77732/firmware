@@ -39,6 +39,12 @@
 #define INA226_SHUNT_OHMS  0.1f
 #define INA226_MAX_CURRENT_A 3.2f
 
+// --- INA226 battery level thresholds (Li-ion 2S) ---
+#define INA226_BAT_EMPTY_MAX_V   6.8f
+#define INA226_BAT_LOW_MAX_V     7.2f
+#define INA226_BAT_MID_MAX_V     7.8f
+#define INA226_BAT_HYSTERESIS_V  0.1f
+
 // --- External Interrupt ---
 #define EXT_INT_PIN     15
 

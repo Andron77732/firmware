@@ -1,7 +1,6 @@
 #include "main_screen.h"
 
 #include "esp_log.h"
-#include <cmath>
 
 static const char* TAG = "MainScreen";
 
@@ -54,8 +53,8 @@ void MainScreen::update() {
     if (snapshot.dirtyMask & DIRTY_SATS) {
         footer->updateSats(snapshot.sats);
     }
-    if (snapshot.dirtyMask & DIRTY_BATTERY) {
-        statusBar->updateBatteryVoltage(snapshot.batteryVoltage, snapshot.batteryValid);
+    if (snapshot.dirtyMask & DIRTY_BATTERY_LEVEL) {
+        statusBar->updateBatteryLevel(snapshot.batteryLevel);
     }
 }
 
@@ -105,17 +104,11 @@ void MainScreen::postSats(int8_t sats) {
     portEXIT_CRITICAL(&_pendingMux);
 }
 
-void MainScreen::postBatteryVoltage(float voltage, bool valid) {
+void MainScreen::postBatteryLevel(InaBatteryLevel level) {
     portENTER_CRITICAL(&_pendingMux);
-    const bool validChanged = (_pending.batteryValid != valid);
-    const bool voltageChanged =
-        valid && (!std::isfinite(_pending.batteryVoltage) ||
-                  fabsf(_pending.batteryVoltage - voltage) >= 0.01f);
-
-    if (validChanged || voltageChanged) {
-        _pending.batteryValid = valid;
-        _pending.batteryVoltage = voltage;
-        _pending.dirtyMask |= DIRTY_BATTERY;
+    if (_pending.batteryLevel != level) {
+        _pending.batteryLevel = level;
+        _pending.dirtyMask |= DIRTY_BATTERY_LEVEL;
     }
     portEXIT_CRITICAL(&_pendingMux);
 }

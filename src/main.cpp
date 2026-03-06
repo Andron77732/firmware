@@ -80,6 +80,10 @@ void onTimeSyncStateChanged(TimeSyncState state) {
   mainScreen.postTimeSyncState(state);
 }
 
+void onBatteryLevelChanged(InaBatteryLevel level) {
+  mainScreen.postBatteryLevel(level);
+}
+
 static bool routeTouchEvent(const TouchEvent &event) {
   if (statusBar.onTouchEvent(event)) {
     return true;
@@ -223,13 +227,14 @@ void setup() {
 
   // Инициализация INA226
   mainArea.addLogLine("Initializing INA226...");
+  ina226.setLevelChangedCallback(onBatteryLevelChanged);
   if (ina226.begin()) {
     mainArea.addLogLine("INA226 initialized");
     ESP_LOGI(TAG, "INA226 initialized");
   } else {
     mainArea.addLogLine("WARN: INA226 init failed");
     ESP_LOGW(TAG, "INA226 init failed: %s", ina226.lastError());
-    mainScreen.postBatteryVoltage(0.0f, false);
+    mainScreen.postBatteryLevel(InaBatteryLevel::NoData);
   }
 
   // PPS синхронизация от GPS
@@ -340,13 +345,8 @@ void loop() {
   // Обновление WiFi (обработка событий, обновление RSSI)
   wifiManager.update();
 
-  // Обновление INA226 (новые значения батареи по DATA_READY)
+  // Обработка INA226 (DATA_READY через ISR flag)
   ina226.update();
-  if (ina226.hasNewSample()) {
-    mainScreen.postBatteryVoltage(ina226.getBusVoltage(), ina226.hasValidSample());
-  } else if (!ina226.hasValidSample()) {
-    mainScreen.postBatteryVoltage(0.0f, false);
-  }
 
   // Весь UI-рендер из одного контекста (loop task).
   mainScreen.update();

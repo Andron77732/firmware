@@ -60,11 +60,6 @@
 #define UI_STATUS_BAR_COLOR_ICON_GPS_ACTIVE     TFT_GREEN
 #define UI_STATUS_BAR_COLOR_ICON_GPS_SEARCHING  TFT_YELLOW
 
-// Пороговые уровни батареи Li-ion 2S (по напряжению шины INA226)
-#define UI_BATTERY_2S_EMPTY_MAX_V 6.8f
-#define UI_BATTERY_2S_LOW_MAX_V   7.2f
-#define UI_BATTERY_2S_MID_MAX_V   7.8f
-
 // Пороговые значения RSSI для определения уровня сигнала WiFi (в dBm)
 // Уровень 4 (отличный): > UI_WIFI_RSSI_LEVEL_4
 // Уровень 3 (хороший):  > UI_WIFI_RSSI_LEVEL_3

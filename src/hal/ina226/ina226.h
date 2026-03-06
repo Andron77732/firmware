@@ -4,6 +4,16 @@
 #include <Arduino.h>
 #include <INA226.h>
 
+enum class InaBatteryLevel : uint8_t {
+    NoData = 0,
+    Empty = 1,
+    Low = 2,
+    Mid = 3,
+    Full = 4,
+};
+
+using InaLevelChangedCallback = void (*)(InaBatteryLevel level);
+
 class Ina226Hal {
 public:
     Ina226Hal();
@@ -13,13 +23,14 @@ public:
 
     bool isReady() const { return _initialized; }
     bool hasValidSample() const { return _hasValidSample; }
-    bool hasNewSample();
 
     float getBusVoltage() const { return _busVoltage; }  // V
     float getCurrent() const { return _current; }        // A
     float getPower() const { return _power; }            // W
+    InaBatteryLevel batteryLevel() const { return _batteryLevel; }
 
     const char* lastError() const { return _lastError; }
+    void setLevelChangedCallback(InaLevelChangedCallback callback);
 
     static void IRAM_ATTR onAlertIsr();
 
@@ -27,16 +38,22 @@ private:
     INA226 _sensor;
     bool _initialized = false;
     bool _hasValidSample = false;
-    bool _hasNewSample = false;
 
     float _busVoltage = NAN;
     float _current = NAN;
     float _power = NAN;
-
+    volatile InaBatteryLevel _batteryLevel = InaBatteryLevel::NoData;
     static volatile bool _dataReadyFlag;
+
+    InaLevelChangedCallback _levelChangedCallback = nullptr;
 
     static constexpr size_t ERROR_BUFFER_SIZE = 96;
     char _lastError[ERROR_BUFFER_SIZE] = {0};
+
+    void processDataReady_();
+    InaBatteryLevel levelFromVoltage_(float voltage) const;
+    InaBatteryLevel applyHysteresis_(float voltage) const;
+    void publishLevelIfChanged_(InaBatteryLevel level);
 
     void clearError_();
     void setError_(const char* message);
