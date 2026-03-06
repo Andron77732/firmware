@@ -76,6 +76,7 @@ bool Ina226Hal::begin() {
     _current = NAN;
     _power = NAN;
     _batteryLevel = InaBatteryLevel::NoData;
+    _batteryPercent = -1;
     _dataReadyFlag = false;
 
     attachInterrupt(irq, Ina226Hal::onAlertIsr, FALLING);
@@ -135,7 +136,7 @@ void Ina226Hal::processDataReady_() {
         _busVoltage = NAN;
         _current = NAN;
         _power = NAN;
-        publishLevelIfChanged_(InaBatteryLevel::NoData);
+        publishLevelIfChanged_(InaBatteryLevel::NoData, -1);
         ESP_LOGW(TAG, "%s", _lastError);
         return;
     }
@@ -147,7 +148,8 @@ void Ina226Hal::processDataReady_() {
     clearError_();
 
     const InaBatteryLevel nextLevel = applyHysteresis_(busVoltage);
-    publishLevelIfChanged_(nextLevel);
+    const int percent = percentFromVoltage_(busVoltage);
+    publishLevelIfChanged_(nextLevel, percent);
 }
 
 InaBatteryLevel Ina226Hal::levelFromVoltage_(float voltage) const {
@@ -187,14 +189,38 @@ InaBatteryLevel Ina226Hal::applyHysteresis_(float voltage) const {
     }
 }
 
-void Ina226Hal::publishLevelIfChanged_(InaBatteryLevel level) {
-    if (level == _batteryLevel) {
+int Ina226Hal::percentFromVoltage_(float voltage) const {
+    if (!std::isfinite(voltage)) {
+        return -1;
+    }
+
+    // Линейная оценка для Li-ion 2S: 6.8V -> 0%, 8.4V -> 100%.
+    static constexpr float kPercentMinV = INA226_BAT_EMPTY_MAX_V;
+    static constexpr float kPercentMaxV = 8.4f;
+
+    if (voltage <= kPercentMinV) {
+        return 0;
+    }
+    if (voltage >= kPercentMaxV) {
+        return 100;
+    }
+
+    const float normalized = (voltage - kPercentMinV) / (kPercentMaxV - kPercentMinV);
+    const int percent = static_cast<int>(lroundf(normalized * 100.0f));
+    if (percent < 0) return 0;
+    if (percent > 100) return 100;
+    return percent;
+}
+
+void Ina226Hal::publishLevelIfChanged_(InaBatteryLevel level, int percent) {
+    if (level == _batteryLevel && percent == _batteryPercent) {
         return;
     }
 
     _batteryLevel = level;
+    _batteryPercent = percent;
     if (_levelChangedCallback) {
-        _levelChangedCallback(level);
+        _levelChangedCallback(level, percent);
     }
 }
 

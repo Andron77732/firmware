@@ -80,8 +80,11 @@ void onTimeSyncStateChanged(TimeSyncState state) {
   mainScreen.postTimeSyncState(state);
 }
 
-void onBatteryLevelChanged(InaBatteryLevel level) {
+void onBatteryLevelChanged(InaBatteryLevel level, int percent) {
   mainScreen.postBatteryLevel(level);
+  if (percent > 100) percent = 100;
+  if (percent < 0) percent = 0;
+  batteryService.setLevel(static_cast<uint8_t>(percent));
 }
 
 static bool routeTouchEvent(const TouchEvent &event) {

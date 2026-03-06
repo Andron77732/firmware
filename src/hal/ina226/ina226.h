@@ -12,7 +12,7 @@ enum class InaBatteryLevel : uint8_t {
     Full = 4,
 };
 
-using InaLevelChangedCallback = void (*)(InaBatteryLevel level);
+using InaLevelChangedCallback = void (*)(InaBatteryLevel level, int percent);
 
 class Ina226Hal {
 public:
@@ -28,6 +28,7 @@ public:
     float getCurrent() const { return _current; }        // A
     float getPower() const { return _power; }            // W
     InaBatteryLevel batteryLevel() const { return _batteryLevel; }
+    int batteryPercent() const { return _batteryPercent; }  // -1 = no data
 
     const char* lastError() const { return _lastError; }
     void setLevelChangedCallback(InaLevelChangedCallback callback);
@@ -43,6 +44,7 @@ private:
     float _current = NAN;
     float _power = NAN;
     volatile InaBatteryLevel _batteryLevel = InaBatteryLevel::NoData;
+    int _batteryPercent = -1;
     static volatile bool _dataReadyFlag;
 
     InaLevelChangedCallback _levelChangedCallback = nullptr;
@@ -53,7 +55,8 @@ private:
     void processDataReady_();
     InaBatteryLevel levelFromVoltage_(float voltage) const;
     InaBatteryLevel applyHysteresis_(float voltage) const;
-    void publishLevelIfChanged_(InaBatteryLevel level);
+    int percentFromVoltage_(float voltage) const;
+    void publishLevelIfChanged_(InaBatteryLevel level, int percent);
 
     void clearError_();
     void setError_(const char* message);
