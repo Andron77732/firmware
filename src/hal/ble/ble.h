@@ -43,7 +43,8 @@ typedef void (*BLEStateCallback)(BLEState state);
         virtual ~IBleServicePlugin() = default;
     
         // Вызывается один раз перед стартом advertising.
-        virtual void init(NimBLEServer* server) = 0;
+        // Возвращает true при успешной инициализации сервиса.
+        virtual bool init(NimBLEServer* server) = 0;
     
         // Опциональные события
         virtual void onConnect(NimBLEConnInfo& /*connInfo*/, uint16_t /*mtu*/) {}
@@ -54,7 +55,7 @@ typedef void (*BLEStateCallback)(BLEState state);
 class BLESerial : public Stream {
 public:
 
-    void init(const String& deviceName = String(BLE_DEVICE_NAME));
+    bool init(const String& deviceName = String(BLE_DEVICE_NAME));
     void startAdvertising();
     void stopAdvertising();
     void end();

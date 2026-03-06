@@ -35,11 +35,14 @@ void BleDeviceInfoService::buildAutoSerialIfNeeded() {
   _serial = _serialBuf;
 }
 
-void BleDeviceInfoService::init(NimBLEServer* server) {
+bool BleDeviceInfoService::init(NimBLEServer* server) {
   buildAutoSerialIfNeeded();
 
   // Device Information Service (DIS) UUID: 0x180A
   _service = server->createService(NimBLEUUID((uint16_t)0x180A));
+  if (!_service) {
+    return false;
+  }
 
   addReadString(_service, 0x2A29, _manufacturer); // Manufacturer Name
   addReadString(_service, 0x2A24, _model);        // Model Number
@@ -48,5 +51,5 @@ void BleDeviceInfoService::init(NimBLEServer* server) {
   addReadString(_service, 0x2A27, _hw);           // Hardware Revision
   addReadString(_service, 0x2A28, _sw);           // Software Revision
 
-  _service->start();
+  return _service->start();
 }

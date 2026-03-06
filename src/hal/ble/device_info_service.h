@@ -5,7 +5,7 @@
 
 class BleDeviceInfoService : public IBleServicePlugin {
 public:
-  void init(NimBLEServer* server) override;
+  bool init(NimBLEServer* server) override;
 
 private:
   const char* _manufacturer = BLE_DIS_MANUFACTURER;

@@ -94,7 +94,9 @@ void BLESerial::initPluginsOnce() {
 
   for (size_t i = 0; i < _pluginCount; ++i) {
     if (_plugins[i]) {
-      _plugins[i]->init(_server);
+      if (!_plugins[i]->init(_server)) {
+        ESP_LOGW(TAG, "BLE plugin init failed at index %u", (unsigned)i);
+      }
     }
   }
 
@@ -120,10 +122,10 @@ void BLESerial::pluginsOnMtuUpdated(uint16_t mtu) {
   }
 }
 
-void BLESerial::init(const String &deviceName) {
+bool BLESerial::init(const String &deviceName) {
   if (_server) {
     ESP_LOGW(TAG, "BLE already initialized");
-    return;
+    return true;
   }
 
   ESP_LOGI(TAG, "Initializing NUS as '%s'...", deviceName.c_str());
@@ -146,7 +148,7 @@ void BLESerial::init(const String &deviceName) {
   if (!_rxStream) {
     ESP_LOGE(TAG, "Failed to create RX StreamBuffer (%d bytes)",
              BLE_RX_BUFFER_SIZE);
-    return;
+    return false;
   }
   ESP_LOGI(TAG, "RX StreamBuffer created: %d bytes", BLE_RX_BUFFER_SIZE);
 
@@ -163,26 +165,46 @@ void BLESerial::init(const String &deviceName) {
 
   // Создание сервера BLE
   _server = NimBLEDevice::createServer();
+  if (!_server) {
+    ESP_LOGE(TAG, "Failed to create BLE server");
+    return false;
+  }
   _server->setCallbacks(new ServerCallbacks());
 
   // Создание сервиса NUS
   _service = _server->createService(NUS_SERVICE_UUID);
+  if (!_service) {
+    ESP_LOGE(TAG, "Failed to create NUS service");
+    return false;
+  }
 
   // RX характеристика (клиент пишет сюда)
   _rxCharacteristic = _service->createCharacteristic(
       NUS_RX_CHARACTERISTIC,
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+  if (!_rxCharacteristic) {
+    ESP_LOGE(TAG, "Failed to create NUS RX characteristic");
+    return false;
+  }
   _rxCharacteristic->setCallbacks(new RxCallbacks());
 
   // TX характеристика (ESP отправляет через notify)
   _txCharacteristic = _service->createCharacteristic(NUS_TX_CHARACTERISTIC,
                                                      NIMBLE_PROPERTY::NOTIFY);
+  if (!_txCharacteristic) {
+    ESP_LOGE(TAG, "Failed to create NUS TX characteristic");
+    return false;
+  }
   _txCharacteristic->setCallbacks(new TxCallbacks());
 
   // Запуск сервиса
-  _service->start();
+  if (!_service->start()) {
+    ESP_LOGE(TAG, "NUS service start failed");
+    return false;
+  }
 
   ESP_LOGI(TAG, "NUS initialized");
+  return true;
 }
 
 void BLESerial::setupAdvertisingOnce() {

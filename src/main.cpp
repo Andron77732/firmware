@@ -258,23 +258,35 @@ void setup() {
   String deviceNameStr = "Device: " + deviceName;
   mainArea.addLogLine(deviceNameStr);
 
-  bleSerial.init(deviceName);
-  ESP_LOGI(TAG, "BLE initialized as: %s", deviceName.c_str());
+  if (bleSerial.init(deviceName)) {
+    ESP_LOGI(TAG, "BLE initialized as: %s", deviceName.c_str());
 
-  // Инициализация сервиса батареи
-  mainArea.addLogLine("Initializing battery service...");
-  bleSerial.registerService(batteryService);
-  mainArea.addLogLine("Battery service initialized");
-  ESP_LOGI(TAG, "Battery service initialized");
+    // Инициализация сервиса батареи
+    mainArea.addLogLine("Initializing battery service...");
+    if (bleSerial.registerService(batteryService)) {
+      mainArea.addLogLine("Battery service initialized");
+      ESP_LOGI(TAG, "Battery service initialized");
+    } else {
+      mainArea.addLogLine("WARN: Battery service register failed");
+      ESP_LOGW(TAG, "Battery service registration failed");
+    }
 
-  // Инициализация сервиса устройства
-  mainArea.addLogLine("Initializing device info service...");
-  bleSerial.registerService(deviceInfoService);
-  mainArea.addLogLine("Device info service initialized");
-  ESP_LOGI(TAG, "Device info service initialized");
+    // Инициализация сервиса устройства
+    mainArea.addLogLine("Initializing device info service...");
+    if (bleSerial.registerService(deviceInfoService)) {
+      mainArea.addLogLine("Device info service initialized");
+      ESP_LOGI(TAG, "Device info service initialized");
+    } else {
+      mainArea.addLogLine("WARN: Device info service register failed");
+      ESP_LOGW(TAG, "Device info service registration failed");
+    }
 
-  // Запуск рекламы
-  bleSerial.startAdvertising();
+    // Запуск рекламы
+    bleSerial.startAdvertising();
+  } else {
+    mainArea.addLogLine("ERROR: BLE init failed");
+    ESP_LOGE(TAG, "BLE init failed");
+  }
 
   // Установка callback для мгновенного обновления иконки Bluetooth при
   // изменении состояния

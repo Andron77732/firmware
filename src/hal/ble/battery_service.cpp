@@ -16,23 +16,37 @@ class BatteryLevelCallbacks : public NimBLECharacteristicCallbacks {
 
 static BatteryLevelCallbacks s_batteryLevelCallbacks;
 
-void BleBatteryService::init(NimBLEServer* server) {
+bool BleBatteryService::init(NimBLEServer* server) {
     // init() вызывается один раз перед advertising
     _notifyEnabled = false;
 
     _service = server->createService(NimBLEUUID((uint16_t)0x180F));
+    if (!_service) {
+      ESP_LOGE(TAG, "Failed to create Battery Service");
+      return false;
+    }
 
     _levelChar = _service->createCharacteristic(
         NimBLEUUID((uint16_t)0x2A19),
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
+    if (!_levelChar) {
+      ESP_LOGE(TAG, "Failed to create Battery Level characteristic");
+      return false;
+    }
     _levelChar->setCallbacks(&s_batteryLevelCallbacks);
 
     uint8_t initial = 100;
     _levelChar->setValue(&initial, 1);
     _lastLevel = initial;
   
-    _service->start();
+    const bool started = _service->start();
+    if (!started) {
+      ESP_LOGE(TAG, "Battery service start failed");
+      return false;
+    }
+
+    return true;
 }
 
 void BleBatteryService::setLevel(uint8_t percent) {

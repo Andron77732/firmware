@@ -5,7 +5,7 @@
 class BleBatteryService : public IBleServicePlugin {
 public:
     // IBleServicePlugin
-    void init(NimBLEServer* server) override;
+    bool init(NimBLEServer* server) override;
     void onDisconnect(int /*reason*/) override { _notifyEnabled = false; }
 
     // API сервиса
