@@ -14,7 +14,7 @@ class CommandParser {
 public:
     /**
      * @brief Конструктор парсера
-     * @param stream Поток для чтения данных (Serial, BLESerial и т.д.)
+     * @param stream Поток для чтения данных (Serial, NUS и т.д.)
      * @param sourceName Имя источника для логирования (например, "Serial" или "BLE")
      * @param bufferSize Размер буфера для накопления данных (по умолчанию 1024 байт)
      */
@@ -56,4 +56,3 @@ private:
 };
 
 #endif // COMMAND_PARSER_H
-

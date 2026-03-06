@@ -1,5 +1,5 @@
 #include "event_dispatcher.h"
-#include "hal/ble/ble.h"
+#include "hal/ble/nus_service.h"
 #include "timing/event_isr.h"
 #include "timing/event_timestamp.h"
 #include "ui/main_area.h"
@@ -17,7 +17,7 @@ void sendTimedPacket(char header, const struct tm &tm) {
   packet += PACKET_ENDER;
   packet += '\n';
   Serial.print(packet);
-  bleSerial.print(packet);
+  nusService.print(packet);
 }
 
 static void sendEventPacket(const EventTimestampData &data) {
@@ -48,7 +48,7 @@ static void sendEventPacket(const EventTimestampData &data) {
   size_t send_len =
       (len < (int)sizeof(packet)) ? (size_t)len : (sizeof(packet) - 1);
   Serial.write(packet, send_len);
-  bleSerial.write((const uint8_t *)packet, send_len);
+  nusService.write((const uint8_t *)packet, send_len);
 }
 
 void event_dispatcher_handle_event_isr(ModuleType module_type,

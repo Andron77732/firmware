@@ -24,7 +24,7 @@ public:
     /**
      * @brief Маршрутизация команды к соответствующему обработчику
      * @param doc Распарсенный JSON документ с командой
-     * @param output Поток для отправки ответа (Serial, BLESerial и т.д.)
+     * @param output Поток для отправки ответа (Serial, NUS и т.д.)
      */
     static void route(JsonDocument& doc, Stream& output);
 };

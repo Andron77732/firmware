@@ -1,6 +1,6 @@
 #include "event_timestamp.h"
 #include "esp_log.h"
-#include "hal/ble/ble.h"
+#include "hal/ble/nus_service.h"
 #include "storage/settings.h"
 #include "time_sync.h"
 #include <time.h>
@@ -81,7 +81,7 @@ EventTimestampData event_timestamp_process(int64_t esp_timestamp_us,
 
 void event_timestamp_send_ble(const EventTimestampData &data) {
   // Заглушка: только логирование, без реальной отправки
-  if (!bleSerial.isConnected()) {
+  if (!nusService.isConnected()) {
     ESP_LOGD(TAG, "BLE not connected, skipping event send");
     return;
   }

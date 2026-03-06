@@ -5,6 +5,7 @@
 #include "hal/ble/battery_service.h"
 #include "hal/ble/ble.h"
 #include "hal/ble/device_info_service.h"
+#include "hal/ble/nus_service.h"
 #include "hal/wifi/wifi.h"
 #include "hal/gps/gps.h"
 #include "hal/ina226/ina226.h"
@@ -258,12 +259,22 @@ void setup() {
   String deviceNameStr = "Device: " + deviceName;
   mainArea.addLogLine(deviceNameStr);
 
-  if (bleSerial.init(deviceName)) {
+  if (ble.init(deviceName)) {
     ESP_LOGI(TAG, "BLE initialized as: %s", deviceName.c_str());
+
+    // Инициализация NUS сервиса
+    mainArea.addLogLine("Initializing NUS service...");
+    if (ble.registerService(nusService)) {
+      mainArea.addLogLine("NUS service initialized");
+      ESP_LOGI(TAG, "NUS service initialized");
+    } else {
+      mainArea.addLogLine("WARN: NUS service register failed");
+      ESP_LOGW(TAG, "NUS service registration failed");
+    }
 
     // Инициализация сервиса батареи
     mainArea.addLogLine("Initializing battery service...");
-    if (bleSerial.registerService(batteryService)) {
+    if (ble.registerService(batteryService)) {
       mainArea.addLogLine("Battery service initialized");
       ESP_LOGI(TAG, "Battery service initialized");
     } else {
@@ -273,7 +284,7 @@ void setup() {
 
     // Инициализация сервиса устройства
     mainArea.addLogLine("Initializing device info service...");
-    if (bleSerial.registerService(deviceInfoService)) {
+    if (ble.registerService(deviceInfoService)) {
       mainArea.addLogLine("Device info service initialized");
       ESP_LOGI(TAG, "Device info service initialized");
     } else {
@@ -282,7 +293,7 @@ void setup() {
     }
 
     // Запуск рекламы
-    bleSerial.startAdvertising();
+    ble.startAdvertising();
   } else {
     mainArea.addLogLine("ERROR: BLE init failed");
     ESP_LOGE(TAG, "BLE init failed");
@@ -290,7 +301,7 @@ void setup() {
 
   // Установка callback для мгновенного обновления иконки Bluetooth при
   // изменении состояния
-  bleSerial.setStateCallback(onBLEStateChanged);
+  ble.setStateCallback(onBLEStateChanged);
 
   // Небольшая задержка для того, чтобы реклама успела запуститься
   // delay(50);
@@ -300,7 +311,7 @@ void setup() {
 
   // Инициализация парсеров команд для Serial и BLE
   serialParser = new CommandParser(Serial, "Serial");
-  bleParser = new CommandParser(bleSerial, "BLE");
+  bleParser = new CommandParser(nusService, "BLE");
   ESP_LOGI(TAG, "Command parsers initialized");
 
   // Инициализация WiFi (если включен в настройках)

@@ -193,7 +193,7 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     }
 
     JsonObject ble_obj = response["ble"].to<JsonObject>();
-    BLEState ble_state = bleSerial.getState();
+    BLEState ble_state = ble.getState();
     const char* ble_state_str = "off";
     switch (ble_state) {
         case BLEState::ADVERTISING:
@@ -208,7 +208,7 @@ void cmdStatus(JsonDocument& request, Stream& output) {
             break;
     }
     ble_obj["state"] = ble_state_str;
-    ble_obj["clients"] = bleSerial.getClientCount();
+    ble_obj["clients"] = ble.getClientCount();
 
     JsonObject rtc_obj = response["rtc"].to<JsonObject>();
     bool rtc_ready = rtc.isReady();
