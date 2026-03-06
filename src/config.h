@@ -32,6 +32,13 @@
 #define I2C_SCL_PIN     9
 #define RTC_SQW_PIN     7
 
+// --- INA226 ---
+#define INA226_I2C_ADDRESS 0x40
+#define INA226_ALERT_PIN   16
+// TODO(firmware): заменить placeholder на реальные значения из схемы.
+#define INA226_SHUNT_OHMS  0.1f
+#define INA226_MAX_CURRENT_A 3.2f
+
 // --- External Interrupt ---
 #define EXT_INT_PIN     15
 
