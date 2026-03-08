@@ -311,8 +311,8 @@ int Ina226Hal::percentFromVoltage_(float voltage) const {
         return -1;
     }
 
-    // Линейная оценка для Li-ion 2S: 6.8V -> 0%, 8.4V -> 100%.
-    static constexpr float kPercentMinV = INA226_BAT_EMPTY_MAX_V;
+    // Линейная оценка для Li-ion 2S: 6.6V -> 0%, 8.4V -> 100%.
+    static constexpr float kPercentMinV = INA226_BAT_CRITICAL_MAX_V;
     static constexpr float kPercentMaxV = 8.4f;
 
     if (voltage <= kPercentMinV) {
