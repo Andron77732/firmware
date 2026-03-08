@@ -184,6 +184,10 @@ void StatusBar::drawBatteryValue(InaBatteryLevel level) {
             bitmap = ICON_BAT_EMPTY;
             color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
             break;
+        case InaBatteryLevel::Critical:
+            bitmap = ICON_BAT_EMPTY;
+            color = TFT_RED;
+            break;
         case InaBatteryLevel::Empty:
             bitmap = ICON_BAT_EMPTY;
             color = UI_STATUS_BAR_COLOR_ICON_ACTIVE;

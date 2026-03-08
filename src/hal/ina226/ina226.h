@@ -7,10 +7,11 @@
 
 enum class InaBatteryLevel : uint8_t {
     NoData = 0,
-    Empty = 1,
-    Low = 2,
-    Mid = 3,
-    Full = 4,
+    Critical = 1,
+    Empty = 2,
+    Low = 3,
+    Mid = 4,
+    Full = 5,
 };
 
 using InaLevelChangedCallback = void (*)(InaBatteryLevel level, int percent);

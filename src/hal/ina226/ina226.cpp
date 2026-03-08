@@ -253,6 +253,8 @@ bool Ina226Hal::readAndPublishSample_() {
     _hasValidSample = true;
     clearError_();
 
+    ESP_LOGV(TAG, "Battery voltage: %.3f V", _busVoltage);
+
     const InaBatteryLevel nextLevel = applyHysteresis_(busVoltage);
     const int percent = percentFromVoltage_(busVoltage);
     publishLevelIfChanged_(nextLevel, percent);
@@ -260,6 +262,9 @@ bool Ina226Hal::readAndPublishSample_() {
 }
 
 InaBatteryLevel Ina226Hal::levelFromVoltage_(float voltage) const {
+    if (voltage < INA226_BAT_CRITICAL_MAX_V) {
+        return InaBatteryLevel::Critical;
+    }
     if (voltage < INA226_BAT_EMPTY_MAX_V) {
         return InaBatteryLevel::Empty;
     }
@@ -278,7 +283,12 @@ InaBatteryLevel Ina226Hal::applyHysteresis_(float voltage) const {
     switch (_batteryLevel) {
         case InaBatteryLevel::NoData:
             return levelFromVoltage_(voltage);
+        case InaBatteryLevel::Critical:
+            return (voltage >= (INA226_BAT_CRITICAL_MAX_V + h))
+                       ? InaBatteryLevel::Empty
+                       : InaBatteryLevel::Critical;
         case InaBatteryLevel::Empty:
+            if (voltage < (INA226_BAT_CRITICAL_MAX_V - h)) return InaBatteryLevel::Critical;
             return (voltage >= (INA226_BAT_EMPTY_MAX_V + h)) ? InaBatteryLevel::Low
                                                              : InaBatteryLevel::Empty;
         case InaBatteryLevel::Low:

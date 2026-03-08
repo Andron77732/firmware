@@ -44,10 +44,17 @@ static_assert((INA226_SHUNT_OHMS * INA226_MAX_CURRENT_A) <= 0.0819f,
 #define INA226_SAMPLE_PERIOD_MS 10000UL
 
 // --- INA226 battery level thresholds (Li-ion 2S) ---
-#define INA226_BAT_EMPTY_MAX_V   6.8f
-#define INA226_BAT_LOW_MAX_V     7.3f
-#define INA226_BAT_MID_MAX_V     8.0f
-#define INA226_BAT_HYSTERESIS_V  0.1f
+#define INA226_BAT_CRITICAL_MAX_V   6.6f
+#define INA226_BAT_EMPTY_MAX_V      6.8f
+#define INA226_BAT_LOW_MAX_V        7.3f
+#define INA226_BAT_MID_MAX_V        8.0f
+#define INA226_BAT_HYSTERESIS_V     0.1f
+static_assert(INA226_BAT_CRITICAL_MAX_V < INA226_BAT_EMPTY_MAX_V,
+              "INA226 thresholds invalid: CRITICAL must be < EMPTY");
+static_assert(INA226_BAT_EMPTY_MAX_V < INA226_BAT_LOW_MAX_V,
+              "INA226 thresholds invalid: EMPTY must be < LOW");
+static_assert(INA226_BAT_LOW_MAX_V < INA226_BAT_MID_MAX_V,
+              "INA226 thresholds invalid: LOW must be < MID");
 
 // --- External Interrupt ---
 #define EXT_INT_PIN     15
