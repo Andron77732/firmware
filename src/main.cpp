@@ -215,6 +215,15 @@ void setup() {
   gps.setSatsCallback(onGPSSatsChanged);
   onGPSStateChanged(gps.getState());
 
+  // Инициализация Wire
+  if (Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN)) {
+    ESP_LOGI(TAG, "Wire initialized");
+    mainArea.addLogLine("Wire initialized");
+  } else {
+    ESP_LOGE(TAG, "Wire init failed");
+    mainArea.addLogLine("ERROR: Wire init failed");
+  }
+
   // Инициализация RTC
   mainArea.addLogLine("Initializing RTC...");
   if (rtc.begin()) {
@@ -234,10 +243,8 @@ void setup() {
   ina226.setLevelChangedCallback(onBatteryLevelChanged);
   if (ina226.begin()) {
     mainArea.addLogLine("INA226 initialized");
-    ESP_LOGI(TAG, "INA226 initialized");
   } else {
     mainArea.addLogLine("WARN: INA226 init failed");
-    ESP_LOGW(TAG, "INA226 init failed: %s", ina226.lastError());
     mainScreen.postBatteryLevel(InaBatteryLevel::NoData);
   }
 

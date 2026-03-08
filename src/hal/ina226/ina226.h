@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <INA226.h>
+#include <Wire.h>
 
 enum class InaBatteryLevel : uint8_t {
     NoData = 0,
@@ -19,6 +20,7 @@ public:
     Ina226Hal();
 
     bool begin();
+    bool begin(TwoWire& wire);
     void update();
 
     bool isReady() const { return _initialized; }
@@ -37,6 +39,7 @@ public:
 
 private:
     INA226 _sensor;
+    TwoWire* _wire = nullptr;
     bool _initialized = false;
     bool _hasValidSample = false;
 

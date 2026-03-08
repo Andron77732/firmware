@@ -13,14 +13,19 @@ static const char* TAG = "INA226";
 Ina226Hal ina226;
 volatile bool Ina226Hal::_dataReadyFlag = false;
 
-Ina226Hal::Ina226Hal() : _sensor(INA226_I2C_ADDRESS, &Wire) {}
+Ina226Hal::Ina226Hal() : _sensor(INA226_I2C_ADDRESS, &Wire), _wire(&Wire) {}
 
 bool Ina226Hal::begin() {
+    return begin(Wire);
+}
+
+bool Ina226Hal::begin(TwoWire& wire) {
     if (_initialized) {
         return true;
     }
 
-    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+    _wire = &wire;
+    _sensor = INA226(INA226_I2C_ADDRESS, _wire);
 
     if (!_sensor.begin()) {
         setError_("INA226 not found on I2C");
@@ -32,8 +37,11 @@ bool Ina226Hal::begin() {
     const int calibrationError =
         _sensor.setMaxCurrentShunt(INA226_MAX_CURRENT_A, INA226_SHUNT_OHMS);
     if (calibrationError != INA226_ERR_NONE) {
+        const float shuntVoltage = INA226_MAX_CURRENT_A * INA226_SHUNT_OHMS;
         snprintf(_lastError, ERROR_BUFFER_SIZE,
-                 "Calibration failed, err=%d", calibrationError);
+                 "Calibration failed, err=%d, R=%.4f, Imax=%.3f, Vshunt=%.4fV",
+                 calibrationError, INA226_SHUNT_OHMS, INA226_MAX_CURRENT_A,
+                 shuntVoltage);
         ESP_LOGE(TAG, "%s", _lastError);
         return false;
     }

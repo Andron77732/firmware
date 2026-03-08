@@ -35,9 +35,11 @@
 // --- INA226 ---
 #define INA226_I2C_ADDRESS 0x40
 #define INA226_ALERT_PIN   16
-// TODO(firmware): заменить placeholder на реальные значения из схемы.
-#define INA226_SHUNT_OHMS  0.1f
-#define INA226_MAX_CURRENT_A 3.2f
+// Реальные параметры: шунт R100 (0.1 Ом), целевой пиковый ток нагрузки 0.5 А.
+#define INA226_SHUNT_OHMS    0.1f
+#define INA226_MAX_CURRENT_A 0.5f
+static_assert((INA226_SHUNT_OHMS * INA226_MAX_CURRENT_A) <= 0.0819f,
+              "INA226 config invalid: maxCurrent * shunt must be <= 0.0819V");
 
 // --- INA226 battery level thresholds (Li-ion 2S) ---
 #define INA226_BAT_EMPTY_MAX_V   6.8f
