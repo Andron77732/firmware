@@ -5,12 +5,14 @@
 #include "hal/wifi/wifi.h"
 #include "hal/ble/ble.h"
 #include "hal/gps/gps.h"
+#include "hal/ina226/ina226.h"
 #include "hal/rtc/rtc.h"
 #include "hal/touch/touch.h"
 #include "timing/time_sync.h"
 #include "timing/pps_isr.h"
 #include "esp_log.h"
 #include <ArduinoJson.h>
+#include <cmath>
 #include <cstdlib>
 #include <esp_timer.h>
 #include <esp_system.h>
@@ -318,6 +320,16 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     if (storage_ok && total_bytes > 0) {
         storage_obj["used_pct"] =
             static_cast<int>((used_bytes * 100U) / total_bytes);
+    }
+
+    if (ina226.isReady() && ina226.hasValidSample()) {
+        const float battery_voltage = ina226.getBusVoltage();
+        if (std::isfinite(battery_voltage)) {
+            JsonObject power_obj = response["power"].to<JsonObject>();
+            const float rounded_voltage =
+                std::roundf(battery_voltage * 100.0f) / 100.0f;
+            power_obj["battery_voltage"] = rounded_voltage;
+        }
     }
 
     response["status"] = "ok";
