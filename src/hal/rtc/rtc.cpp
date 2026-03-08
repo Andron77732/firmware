@@ -14,15 +14,21 @@ static const float kDs3231AgingStepPpm = 0.1f;
 RTC rtc;
 
 bool RTC::begin() {
+    return begin(Wire);
+}
+
+bool RTC::begin(TwoWire& wire) {
     if (_initialized) return true;
-    
+
     // Инициализация I2C на заданных пинах
-    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-    
-    if (!_rtc.begin(&Wire)) {
+    // wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+
+    if (!_rtc.begin(&wire)) {
         ESP_LOGE(TAG, "DS3231 not found on I2C (SDA:%d, SCL:%d)", I2C_SDA_PIN, I2C_SCL_PIN);
         return false;
     }
+
+    _wire = &wire;
     
     ESP_LOGI(TAG, "Initialized (SDA:%d, SCL:%d, SQW:%d)", I2C_SDA_PIN, I2C_SCL_PIN, RTC_SQW_PIN);
     
@@ -144,23 +150,31 @@ bool RTC::setAgingOffsetPpm(float ppm, float &applied_ppm) {
 }
 
 bool RTC::readAgingOffsetRaw_(int8_t &raw) {
-    Wire.beginTransmission(kDs3231Address);
-    Wire.write(kDs3231AgingOffsetReg);
-    if (Wire.endTransmission(false) != 0) {
+    if (_wire == nullptr) {
         return false;
     }
 
-    if (Wire.requestFrom(kDs3231Address, static_cast<uint8_t>(1)) != 1) {
+    _wire->beginTransmission(kDs3231Address);
+    _wire->write(kDs3231AgingOffsetReg);
+    if (_wire->endTransmission(false) != 0) {
         return false;
     }
 
-    raw = static_cast<int8_t>(Wire.read());
+    if (_wire->requestFrom(kDs3231Address, static_cast<uint8_t>(1)) != 1) {
+        return false;
+    }
+
+    raw = static_cast<int8_t>(_wire->read());
     return true;
 }
 
 bool RTC::writeAgingOffsetRaw_(int8_t raw) {
-    Wire.beginTransmission(kDs3231Address);
-    Wire.write(kDs3231AgingOffsetReg);
-    Wire.write(static_cast<uint8_t>(raw));
-    return Wire.endTransmission() == 0;
+    if (_wire == nullptr) {
+        return false;
+    }
+
+    _wire->beginTransmission(kDs3231Address);
+    _wire->write(kDs3231AgingOffsetReg);
+    _wire->write(static_cast<uint8_t>(raw));
+    return _wire->endTransmission() == 0;
 }

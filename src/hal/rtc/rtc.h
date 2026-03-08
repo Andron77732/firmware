@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <RTClib.h>
+#include <Wire.h>
 
 /**
  * @brief Класс RTC DS3231
@@ -23,6 +24,13 @@ public:
      * @return true если RTC найден и работает
      */
     bool begin();
+
+    /**
+     * @brief Инициализация RTC на указанной I2C шине
+     * @param wire Экземпляр TwoWire
+     * @return true если RTC найден и работает
+     */
+    bool begin(TwoWire& wire);
     
     /**
      * @brief Проверка инициализации
@@ -101,6 +109,7 @@ public:
 
 private:
     RTC_DS3231 _rtc;
+    TwoWire* _wire = nullptr;
     bool _initialized = false;
     int64_t _last_sync_us = 0;
 
