@@ -20,6 +20,9 @@ struct Ina226CadenceConfig {
 constexpr uint16_t kIna226AverageTable[8] = {1, 4, 16, 64, 128, 256, 512, 1024};
 constexpr uint16_t kIna226ConversionTimeUsTable[8] = {140, 204, 332, 588,
                                                       1100, 2100, 4200, 8300};
+constexpr uint8_t kIna226BootstrapAverage = INA226_16_SAMPLES;
+constexpr uint8_t kIna226BootstrapConversionTime = INA226_588_us;
+constexpr uint32_t kIna226BootstrapTimeoutMs = 250UL;
 
 Ina226CadenceConfig selectCadenceConfig(uint32_t targetMs) {
     Ina226CadenceConfig best = {INA226_1_SAMPLE, INA226_1100_us, 2};
@@ -80,6 +83,49 @@ bool Ina226Hal::begin(TwoWire& wire) {
         return false;
     }
 
+    // Bootstrap initial values
+    _hasValidSample = false;
+    _busVoltage = NAN;
+    _current = NAN;
+    _power = NAN;
+    _batteryLevel = InaBatteryLevel::NoData;
+    _batteryPercent = -1;
+    _dataReadyFlag = false;
+
+    if (!_sensor.setAverage(kIna226BootstrapAverage)) {
+        setError_("Failed to set bootstrap averaging");
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    if (!_sensor.setBusVoltageConversionTime(kIna226BootstrapConversionTime)) {
+        setError_("Failed to set bootstrap bus conversion time");
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    if (!_sensor.setShuntVoltageConversionTime(kIna226BootstrapConversionTime)) {
+        setError_("Failed to set bootstrap shunt conversion time");
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    if (!_sensor.setModeShuntBusContinuous()) {
+        setError_("Failed to set bootstrap continuous mode");
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    if (_sensor.waitConversionReady(kIna226BootstrapTimeoutMs)) {
+        if (!readAndPublishSample_()) {
+            ESP_LOGW(TAG, "Initial INA226 sample invalid: %s", _lastError);
+        }
+    } else {
+        ESP_LOGW(TAG, "Initial INA226 sample timeout (%lums)",
+                 static_cast<unsigned long>(kIna226BootstrapTimeoutMs));
+    }
+
+    // Setup data_ready interrupt
     const Ina226CadenceConfig cadence = selectCadenceConfig(INA226_SAMPLE_PERIOD_MS);
     if (!_sensor.setAverage(cadence.averageEnum)) {
         setError_("Failed to set averaging");
@@ -132,13 +178,6 @@ bool Ina226Hal::begin(TwoWire& wire) {
     }
 
     _initialized = true;
-    _hasValidSample = false;
-    _busVoltage = NAN;
-    _current = NAN;
-    _power = NAN;
-    _batteryLevel = InaBatteryLevel::NoData;
-    _batteryPercent = -1;
-    _dataReadyFlag = false;
 
     attachInterrupt(irq, Ina226Hal::onAlertIsr, FALLING);
 
@@ -185,6 +224,10 @@ void Ina226Hal::processDataReady_() {
         return;
     }
 
+    readAndPublishSample_();
+}
+
+bool Ina226Hal::readAndPublishSample_() {
     const float busVoltage = _sensor.getBusVoltage();
     const float current = _sensor.getCurrent();
     const float power = _sensor.getPower();
@@ -201,7 +244,7 @@ void Ina226Hal::processDataReady_() {
         _power = NAN;
         publishLevelIfChanged_(InaBatteryLevel::NoData, -1);
         ESP_LOGW(TAG, "%s", _lastError);
-        return;
+        return false;
     }
 
     _busVoltage = busVoltage;
@@ -210,11 +253,10 @@ void Ina226Hal::processDataReady_() {
     _hasValidSample = true;
     clearError_();
 
-    ESP_LOGV(TAG, "Battery voltage: %.3f V", _busVoltage);
-
     const InaBatteryLevel nextLevel = applyHysteresis_(busVoltage);
     const int percent = percentFromVoltage_(busVoltage);
     publishLevelIfChanged_(nextLevel, percent);
+    return true;
 }
 
 InaBatteryLevel Ina226Hal::levelFromVoltage_(float voltage) const {

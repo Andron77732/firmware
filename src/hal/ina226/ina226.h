@@ -56,6 +56,7 @@ private:
     char _lastError[ERROR_BUFFER_SIZE] = {0};
 
     void processDataReady_();
+    bool readAndPublishSample_();
     InaBatteryLevel levelFromVoltage_(float voltage) const;
     InaBatteryLevel applyHysteresis_(float voltage) const;
     int percentFromVoltage_(float voltage) const;
