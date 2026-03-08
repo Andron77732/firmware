@@ -11,13 +11,13 @@ enum class GPSState : uint8_t {
 };
 
 /**
- * @brief Класс GPS NEO-6M
+ * @brief Класс GPS NEO-M8N
  * 
  * Инкапсулирует HardwareSerial и MicroNMEA парсер.
  * Доступ к данным через nmea().
  * Пины конфигурируются через config.h
  * 
- * Сырые NMEA выводятся через ESP_LOGD (включить: CORE_DEBUG_LEVEL >= 4)
+ * Сырые NMEA выводятся через ESP_LOGV (включить: CORE_DEBUG_LEVEL >= 5)
  */
 class GPS {
 public:

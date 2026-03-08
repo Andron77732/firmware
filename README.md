@@ -30,7 +30,7 @@
 - ESP32-S3 DevKitC-1
 - TFT ILI9341 (SPI, пины см. `platformio.ini`)
 - Touch контроллер (через `TFT_eSPI`, `TOUCH_CS` в `platformio.ini`)
-- GPS NEO-6M (UART1 + PPS)
+- GPS NEO-M8N (UART1 + PPS)
 - RTC DS3231 (I2C + SQW 1 Hz)
 - INA226 (I2C, мониторинг питания)
 - Внешний вход события (GPIO15, FALLING, pull-up)

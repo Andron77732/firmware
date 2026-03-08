@@ -19,7 +19,7 @@
 // TOUCH_CS=17
 #define DISPLAY_ROTATION 2 // 0..3 (по умолчанию portrait)
 
-// --- GPS NEO-6M (UART1) ---
+// --- GPS NEO-M8N (UART1) ---
 // Внимание: GPIO 19/20 заняты USB! Используем 4/5/6
 #define GPS_RX_PIN      4
 #define GPS_TX_PIN      5
