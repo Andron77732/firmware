@@ -8,7 +8,9 @@
 void pps_init(int gpio_pin);
 
 /**
- * PPS lock: был ли PPS в последние ~1.5 сек
+ * PPS lock с гистерезисом:
+ * - lock после нескольких подряд валидных PPS,
+ * - loss после увеличенного timeout (переживает одиночный пропуск PPS).
  */
 bool pps_is_locked();
 

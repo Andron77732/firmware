@@ -29,6 +29,13 @@ static constexpr int64_t kPhaseWindowUs = 990000;
 // RTC fallback: как часто подправлять якорь по RTC (чтобы не уплывать)
 static constexpr int64_t kRtcResyncPeriodUs = 10000000; // 10 секунд
 static int64_t s_last_rtc_resync_us = 0;
+static constexpr uint8_t kRtcFallbackWarmupTicks = 3;
+static constexpr int64_t kRtcFallbackLargeStepGuardUs = 100000;     // 100 ms
+static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
+static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
+static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
+static constexpr uint8_t kGpsRelockWarmupPps = 2;
+static constexpr int64_t kGpsRelockLargeStepGuardUs = 100000;       // 100 ms
 
 // Анти-±1с защита: якорь считаем "свежим" только в пределах окна
 static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
@@ -60,6 +67,7 @@ static uint32_t s_rtc_anchor_sqw_count = 0; // sqw_count в момент set_anc
 static int64_t  s_last_sqw_edge_us = 0; // последний обработанный фронт SQW (для accuracy)
 static constexpr int64_t kSqwAgeWindowUs = 900000; // если обработали позже — лучше не переякориваться
 static bool s_in_rtc_fallback = false;
+static bool s_have_rtc_anchor = false;
 
 static bool s_logged_no_sqw = false;
 static bool s_prev_sqw_locked = false;
@@ -67,6 +75,13 @@ static bool s_prev_have_sqw_edge = false; // чтобы логировать "si
 static bool s_logged_sqw_warmup = false;
 static bool s_logged_rtc_only = false;
 static bool s_log_rtc_fallback_delta = false;
+static bool s_rtc_fallback_guard_active = false;
+static bool s_rtc_fallback_guard_logged = false;
+static uint8_t s_rtc_fallback_ticks = 0;
+static bool s_logged_rtc_anchor_wait = false;
+static bool s_gps_relock_guard_active = false;
+static bool s_gps_relock_guard_logged = false;
+static uint8_t s_gps_relock_pps_ok = 0;
 
 static bool is_auto_sync_enabled() {
   return settings.getSync().auto_sync;
@@ -133,6 +148,12 @@ static void set_anchor(TimeSource src, int64_t anchor_utc_us, int64_t anchor_esp
   s_status.source = src;
   s_status.anchor_utc_us = anchor_utc_us;
   s_status.anchor_esp_us = anchor_esp_us;
+  if (src == TimeSource::RTC) {
+    s_have_rtc_anchor = true;
+  } else {
+    s_have_rtc_anchor = false;
+    s_rtc_anchor_sqw_count = 0;
+  }
 }
 
 /**
@@ -146,6 +167,11 @@ static void set_anchor(TimeSource src, int64_t anchor_utc_us, int64_t anchor_esp
  */
 static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t &phase_delta_us_out) {
   if (!s_have_nmea)
+    return false;
+
+  int64_t now_us = esp_timer_get_time();
+  int64_t nmea_age_us = now_us - s_last_nmea_esp_us;
+  if (nmea_age_us < 0 || nmea_age_us > kNmeaFreshnessUs)
     return false;
 
   // Фильтр phase_delta
@@ -180,6 +206,18 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
     pps_utc_sec_out = s_last_nmea_utc_sec + 1;
   } else {
     pps_utc_sec_out = s_last_nmea_utc_sec;
+  }
+
+  // Если системное время уже синхронизировано, не принимаем резкие скачки
+  // кандидата UTC от PPS, чтобы отфильтровать поздние/битые NMEA.
+  if (s_status.synced) {
+    timeval tv{};
+    gettimeofday(&tv, nullptr);
+    int64_t current_us = (int64_t)tv.tv_sec * 1000000LL + (int64_t)tv.tv_usec;
+    int64_t candidate_us = (int64_t)pps_utc_sec_out * 1000000LL;
+    if (llabs(candidate_us - current_us) > kGpsCandidateJumpGuardUs) {
+      return false;
+    }
   }
 
   // Анти-±1с защита: сверяемся с текущей оценкой якоря, но только если якорь свежий
@@ -299,6 +337,7 @@ void time_sync_begin() {
   s_last_sqw_count = 0;
   s_rtc_anchor_sqw_count = 0;
   s_last_sqw_edge_us = 0;
+  s_have_rtc_anchor = false;
   rtc_sqw_begin(RTC_SQW_PIN, FALLING);
 
   s_in_rtc_fallback = false;
@@ -308,6 +347,13 @@ void time_sync_begin() {
   s_logged_sqw_warmup = false;
   s_logged_rtc_only = false;
   s_log_rtc_fallback_delta = false;
+  s_rtc_fallback_guard_active = false;
+  s_rtc_fallback_guard_logged = false;
+  s_rtc_fallback_ticks = 0;
+  s_logged_rtc_anchor_wait = false;
+  s_gps_relock_guard_active = false;
+  s_gps_relock_guard_logged = false;
+  s_gps_relock_pps_ok = 0;
   reset_phase_delta_filter();
 
   // Инициализация системного времени по RTC
@@ -371,6 +417,9 @@ void time_sync_update() {
 
     // PPS пропал -> отменяем запланированную установку RTC по "следующему PPS"
     s_rtc_pps_pending = false;
+    s_gps_relock_guard_active = true;
+    s_gps_relock_guard_logged = false;
+    s_gps_relock_pps_ok = 0;
   }
 
   // --- 3) Если PPS нет — fallback на RTC (через SQW 1Hz) ---
@@ -444,6 +493,10 @@ void time_sync_update() {
     if (!s_in_rtc_fallback) {
       s_in_rtc_fallback = true;
       s_log_rtc_fallback_delta = true;
+      s_rtc_fallback_guard_active = true;
+      s_rtc_fallback_guard_logged = false;
+      s_rtc_fallback_ticks = 0;
+      s_logged_rtc_anchor_wait = false;
 
       // Для красивого лога вытащим секунду RTC
       uint32_t rtc_sec = rtc.unixTime();
@@ -459,6 +512,7 @@ void time_sync_update() {
     if (sqw_count != s_last_sqw_count) {
       s_last_sqw_count = sqw_count;
       s_last_sqw_edge_us = sqw_edge_us;
+      if (s_rtc_fallback_ticks < 255) s_rtc_fallback_ticks++;
 
       int64_t now_us = esp_timer_get_time();
       int64_t age_us = now_us - sqw_edge_us;
@@ -471,7 +525,7 @@ void time_sync_update() {
         // 1) Переякоривание по rtc.unixTime() РАЗ В kRtcResyncPeriodUs (10 сек)
         // -----------------------------------------------------------------------
         const bool have_rtc_anchor =
-            (s_status.source == TimeSource::RTC) && (s_status.anchor_utc_us != 0) && (s_status.anchor_esp_us != 0);
+            s_have_rtc_anchor && (s_status.anchor_utc_us != 0) && (s_status.anchor_esp_us != 0);
 
         bool need_reanchor =
             !have_rtc_anchor ||
@@ -480,7 +534,26 @@ void time_sync_update() {
             ((now_us - s_last_rtc_resync_us) >= kRtcResyncPeriodUs);
 
 
-        if (need_reanchor) {
+        bool allow_reanchor_now = true;
+        if (s_rtc_fallback_guard_active &&
+            s_rtc_fallback_ticks <= kRtcFallbackWarmupTicks &&
+            age_us > kRtcFallbackInitialAnchorMaxAgeUs) {
+          allow_reanchor_now = false;
+        }
+
+        if (need_reanchor && !allow_reanchor_now) {
+          if (!s_logged_rtc_anchor_wait) {
+            ESP_LOGW(TAG, "RTC fallback: waiting reanchor window (tick=%u, age_us=%lld)",
+                     (unsigned)s_rtc_fallback_ticks, (long long)age_us);
+            s_logged_rtc_anchor_wait = true;
+          }
+          s_status.source = TimeSource::RTC;
+          s_status.synced = true;
+          notify_state_change_if_needed();
+          return;
+        }
+
+        if (need_reanchor && allow_reanchor_now) {
           uint32_t rtc_sec = rtc.unixTime();
           int64_t rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
 
@@ -495,6 +568,25 @@ void time_sync_update() {
           set_anchor(TimeSource::RTC, rtc_utc_us, sqw_edge_us);
           s_rtc_anchor_sqw_count = sqw_count;   // важно: привязали якорь к этому sqw_count
           s_last_rtc_resync_us = now_us;
+          s_logged_rtc_anchor_wait = false;
+        }
+
+        const bool have_valid_rtc_anchor =
+            s_have_rtc_anchor &&
+            (s_status.anchor_utc_us != 0) &&
+            (s_status.anchor_esp_us != 0) &&
+            (s_rtc_anchor_sqw_count != 0);
+
+        if (!have_valid_rtc_anchor) {
+          if (!s_logged_rtc_anchor_wait) {
+            ESP_LOGW(TAG, "RTC fallback: waiting valid RTC anchor (tick=%u, age_us=%lld)",
+                     (unsigned)s_rtc_fallback_ticks, (long long)age_us);
+            s_logged_rtc_anchor_wait = true;
+          }
+          s_status.source = TimeSource::RTC;
+          s_status.synced = true;
+          notify_state_change_if_needed();
+          return;
         }
 
         // -----------------------------------------------------------------------
@@ -527,7 +619,31 @@ void time_sync_update() {
           s_log_rtc_fallback_delta = false;
         }
 
-        if (need_adjust) {
+        bool allow_adjust = true;
+        if (s_rtc_fallback_guard_active) {
+          if (s_rtc_fallback_ticks < kRtcFallbackWarmupTicks) {
+            allow_adjust = false;
+          } else if (llabs(delta_us) > kRtcFallbackLargeStepGuardUs) {
+            allow_adjust = false;
+            if (!s_rtc_fallback_guard_logged) {
+              ESP_LOGW(TAG,
+                       "RTC fallback guard: skip large delta_us=%lld (tick=%u, age_us=%lld)",
+                       (long long)delta_us,
+                       (unsigned)s_rtc_fallback_ticks,
+                       (long long)age_us);
+              s_rtc_fallback_guard_logged = true;
+            }
+          } else {
+            s_rtc_fallback_guard_active = false;
+            s_rtc_fallback_guard_logged = false;
+            ESP_LOGI(TAG,
+                     "RTC fallback guard cleared: delta_us=%lld after %u SQW ticks",
+                     (long long)delta_us,
+                     (unsigned)s_rtc_fallback_ticks);
+          }
+        }
+
+        if (need_adjust && allow_adjust) {
           if (auto_sync_enabled) {
             int64_t sec64  = target_us / 1000000LL;
             int64_t usec64 = target_us % 1000000LL;
@@ -544,6 +660,8 @@ void time_sync_update() {
           } else {
             s_status.last_offset_us = delta_us;
           }
+        } else if (!allow_adjust) {
+          s_status.last_offset_us = delta_us;
         }
       }
     }
@@ -598,6 +716,10 @@ void time_sync_update() {
   // Возврат из RTC fallback (один раз)
   if (s_in_rtc_fallback) {
     s_in_rtc_fallback = false;
+    s_rtc_fallback_guard_active = false;
+    s_rtc_fallback_guard_logged = false;
+    s_rtc_fallback_ticks = 0;
+    s_logged_rtc_anchor_wait = false;
     ESP_LOGI(TAG, "GPS/PPS restored -> GPS_PPS mode");
   }
 
@@ -618,6 +740,12 @@ void time_sync_update() {
     s_rtc_pps_pending = false;
   }
 
+  // rtc.setTime() может занять миллисекунды (I2C), поэтому пересчитываем
+  // "сейчас" и возраст PPS перед дисциплиной системных часов.
+  now_us = esp_timer_get_time();
+  age_us = now_us - pps_time_us;
+  if (age_us < 0) age_us = 0;
+
   int64_t target_us = (int64_t)utc_second * 1000000LL + age_us;
 
   timeval current_tv{};
@@ -626,11 +754,39 @@ void time_sync_update() {
 
   int64_t delta_us = target_us - current_us;
 
+  if (s_gps_relock_guard_active && s_gps_relock_pps_ok < 255) {
+    s_gps_relock_pps_ok++;
+  }
+
   bool need_adjust = !s_status.synced ||
                      (delta_us < -kJitterAdjustThresholdUs || delta_us > kJitterAdjustThresholdUs) ||
                      ((now_us - s_status.last_sync_us) > kMaxHoldoffUs);
 
-  if (need_adjust) {
+  bool allow_gps_adjust = true;
+  if (s_gps_relock_guard_active) {
+    if (s_gps_relock_pps_ok < kGpsRelockWarmupPps) {
+      allow_gps_adjust = false;
+    } else if (llabs(delta_us) > kGpsRelockLargeStepGuardUs) {
+      allow_gps_adjust = false;
+      if (!s_gps_relock_guard_logged) {
+        ESP_LOGW(TAG,
+                 "GPS relock guard: skip large delta_us=%lld (pps_ok=%u, age_us=%lld)",
+                 (long long)delta_us,
+                 (unsigned)s_gps_relock_pps_ok,
+                 (long long)age_us);
+        s_gps_relock_guard_logged = true;
+      }
+    } else {
+      s_gps_relock_guard_active = false;
+      s_gps_relock_guard_logged = false;
+      ESP_LOGI(TAG,
+               "GPS relock guard cleared: delta_us=%lld after %u PPS",
+               (long long)delta_us,
+               (unsigned)s_gps_relock_pps_ok);
+    }
+  }
+
+  if (need_adjust && allow_gps_adjust) {
     if (auto_sync_enabled) {
       int64_t sec64  = target_us / 1000000LL;
       int64_t usec64 = target_us % 1000000LL;
@@ -655,6 +811,8 @@ void time_sync_update() {
                (long long)pps_time_us,
                (unsigned long)pps_count);
     }
+    s_status.last_offset_us = delta_us;
+  } else if (!allow_gps_adjust) {
     s_status.last_offset_us = delta_us;
   }
 
