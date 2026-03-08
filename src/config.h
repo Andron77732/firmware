@@ -40,11 +40,13 @@
 #define INA226_MAX_CURRENT_A 0.5f
 static_assert((INA226_SHUNT_OHMS * INA226_MAX_CURRENT_A) <= 0.0819f,
               "INA226 config invalid: maxCurrent * shunt must be <= 0.0819V");
+// Целевой период обновления по DATA_READY (примерно): 1000 = ~1 сек, 5000 = ~5 сек.
+#define INA226_SAMPLE_PERIOD_MS 10000UL
 
 // --- INA226 battery level thresholds (Li-ion 2S) ---
 #define INA226_BAT_EMPTY_MAX_V   6.8f
-#define INA226_BAT_LOW_MAX_V     7.2f
-#define INA226_BAT_MID_MAX_V     7.8f
+#define INA226_BAT_LOW_MAX_V     7.3f
+#define INA226_BAT_MID_MAX_V     8.0f
 #define INA226_BAT_HYSTERESIS_V  0.1f
 
 // --- External Interrupt ---

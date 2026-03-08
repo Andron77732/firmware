@@ -10,6 +10,40 @@
 
 static const char* TAG = "INA226";
 
+namespace {
+struct Ina226CadenceConfig {
+    uint8_t averageEnum;
+    uint8_t conversionTimeEnum;
+    uint32_t periodMs;
+};
+
+constexpr uint16_t kIna226AverageTable[8] = {1, 4, 16, 64, 128, 256, 512, 1024};
+constexpr uint16_t kIna226ConversionTimeUsTable[8] = {140, 204, 332, 588,
+                                                      1100, 2100, 4200, 8300};
+
+Ina226CadenceConfig selectCadenceConfig(uint32_t targetMs) {
+    Ina226CadenceConfig best = {INA226_1_SAMPLE, INA226_1100_us, 2};
+    uint32_t bestDiff = 0xFFFFFFFFUL;
+
+    for (uint8_t avgEnum = 0; avgEnum < 8; ++avgEnum) {
+        for (uint8_t convEnum = 0; convEnum < 8; ++convEnum) {
+            const uint32_t periodUs = 2UL * kIna226ConversionTimeUsTable[convEnum] *
+                                      kIna226AverageTable[avgEnum];
+            const uint32_t periodMs = (periodUs + 500UL) / 1000UL;
+            const uint32_t diff =
+                (periodMs > targetMs) ? (periodMs - targetMs) : (targetMs - periodMs);
+
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                best = {avgEnum, convEnum, periodMs};
+            }
+        }
+    }
+
+    return best;
+}
+} // namespace
+
 Ina226Hal ina226;
 volatile bool Ina226Hal::_dataReadyFlag = false;
 
@@ -42,6 +76,25 @@ bool Ina226Hal::begin(TwoWire& wire) {
                  "Calibration failed, err=%d, R=%.4f, Imax=%.3f, Vshunt=%.4fV",
                  calibrationError, INA226_SHUNT_OHMS, INA226_MAX_CURRENT_A,
                  shuntVoltage);
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    const Ina226CadenceConfig cadence = selectCadenceConfig(INA226_SAMPLE_PERIOD_MS);
+    if (!_sensor.setAverage(cadence.averageEnum)) {
+        setError_("Failed to set averaging");
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    if (!_sensor.setBusVoltageConversionTime(cadence.conversionTimeEnum)) {
+        setError_("Failed to set bus conversion time");
+        ESP_LOGE(TAG, "%s", _lastError);
+        return false;
+    }
+
+    if (!_sensor.setShuntVoltageConversionTime(cadence.conversionTimeEnum)) {
+        setError_("Failed to set shunt conversion time");
         ESP_LOGE(TAG, "%s", _lastError);
         return false;
     }
@@ -93,9 +146,11 @@ bool Ina226Hal::begin(TwoWire& wire) {
 
     ESP_LOGI(TAG,
              "Initialized (SDA:%d, SCL:%d, addr:0x%02X, alert:%d, shunt=%.6f, "
-             "maxCurrent=%.3f)",
+             "maxCurrent=%.3f, targetPeriod=%lums, actualPeriod=%lums)",
              I2C_SDA_PIN, I2C_SCL_PIN, INA226_I2C_ADDRESS, INA226_ALERT_PIN,
-             INA226_SHUNT_OHMS, INA226_MAX_CURRENT_A);
+             INA226_SHUNT_OHMS, INA226_MAX_CURRENT_A,
+             static_cast<unsigned long>(INA226_SAMPLE_PERIOD_MS),
+             static_cast<unsigned long>(cadence.periodMs));
     return true;
 }
 
@@ -154,6 +209,8 @@ void Ina226Hal::processDataReady_() {
     _power = power;
     _hasValidSample = true;
     clearError_();
+
+    ESP_LOGV(TAG, "Battery voltage: %.3f V", _busVoltage);
 
     const InaBatteryLevel nextLevel = applyHysteresis_(busVoltage);
     const int percent = percentFromVoltage_(busVoltage);
