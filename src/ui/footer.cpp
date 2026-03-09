@@ -23,7 +23,7 @@ static uint16_t timeSyncColor(TimeSyncState s) {
 
 void Footer::init(TFT_eSPI& tft, ModuleType moduleType, const String& version) {
     _tft = &tft;
-    _touchCaptured = false;
+    _touchCapturedTarget = UiTouchTarget::None;
     _moduleType = moduleType;
     _version = version;
 }
@@ -120,20 +120,25 @@ bool Footer::containsPoint_(const TouchPoint& point) const {
            point.y < (UI_FOOTER_Y_POS + UI_FOOTER_HEIGHT);
 }
 
-bool Footer::onTouchEvent(const TouchEvent& event) {
+bool Footer::onTouchEvent(const TouchEvent& event, UiTouchTarget& target) {
     switch (event.type) {
         case TouchEventType::Press:
-            _touchCaptured = containsPoint_(event.point);
-            return _touchCaptured;
+            _touchCapturedTarget =
+                containsPoint_(event.point) ? UiTouchTarget::Footer
+                                            : UiTouchTarget::None;
+            target = _touchCapturedTarget;
+            return target != UiTouchTarget::None;
 
         case TouchEventType::Release: {
-            const bool handled = _touchCaptured;
-            _touchCaptured = false;
+            target = _touchCapturedTarget;
+            const bool handled = target != UiTouchTarget::None;
+            _touchCapturedTarget = UiTouchTarget::None;
             return handled;
         }
 
         case TouchEventType::Move:
         default:
+            target = UiTouchTarget::None;
             return false;
     }
 }

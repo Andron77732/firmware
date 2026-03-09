@@ -25,10 +25,12 @@
 // ============================================================================
 
 // Зона часов (TextSize 2 = 16px height)
-#define UI_STATUS_BAR_CLOCK_X         UI_STATUS_BAR_PADDING
-#define UI_STATUS_BAR_CLOCK_Y         UI_STATUS_BAR_PADDING
-#define UI_STATUS_BAR_CLOCK_TEXT_SIZE 2   // 12x16 per char, "HH:MM:SS" = 96px
-#define UI_STATUS_BAR_CLOCK_HEIGHT    (UI_CHAR_HEIGHT * UI_STATUS_BAR_CLOCK_TEXT_SIZE)   // 8 * CLOCK_TEXT_SIZE
+#define UI_STATUS_BAR_CLOCK_X          UI_STATUS_BAR_PADDING
+#define UI_STATUS_BAR_CLOCK_Y          UI_STATUS_BAR_PADDING
+#define UI_STATUS_BAR_CLOCK_CHAR_COUNT 8   // "HH:MM:SS"
+#define UI_STATUS_BAR_CLOCK_TEXT_SIZE  2   // 12x16 per char, "HH:MM:SS" = 96px
+#define UI_STATUS_BAR_CLOCK_WIDTH      (UI_STATUS_BAR_CLOCK_CHAR_COUNT * UI_CHAR_WIDTH * UI_STATUS_BAR_CLOCK_TEXT_SIZE)
+#define UI_STATUS_BAR_CLOCK_HEIGHT     (UI_CHAR_HEIGHT * UI_STATUS_BAR_CLOCK_TEXT_SIZE)   // 8 * CLOCK_TEXT_SIZE
 
 // Размеры и позиции
 #define UI_STATUS_BAR_WIDTH  UI_SCREEN_WIDTH

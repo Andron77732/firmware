@@ -89,19 +89,29 @@ void onBatteryLevelChanged(InaBatteryLevel level, int percent) {
 }
 
 static bool routeTouchEvent(const TouchEvent &event) {
-  if (statusBar.onTouchEvent(event)) {
-    if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=status_bar");
+  UiTouchTarget target = UiTouchTarget::None;
+
+  if (statusBar.onTouchEvent(event, target)) {
+    if (event.type == TouchEventType::Press) {
+      ESP_LOGI(TAG, "Touch route: ui=%s", uiTouchTargetText(target));
+    }
     return true;
   }
-  if (mainArea.onTouchEvent(event)) {
-    if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=main_area");
+  if (mainArea.onTouchEvent(event, target)) {
+    if (event.type == TouchEventType::Press) {
+      ESP_LOGI(TAG, "Touch route: ui=%s", uiTouchTargetText(target));
+    }
     return true;
   }
-  if (footer.onTouchEvent(event)) {
-    if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=footer");
+  if (footer.onTouchEvent(event, target)) {
+    if (event.type == TouchEventType::Press) {
+      ESP_LOGI(TAG, "Touch route: ui=%s", uiTouchTargetText(target));
+    }
     return true;
   }
-  if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=unhandled");
+  if (event.type == TouchEventType::Press) {
+    ESP_LOGI(TAG, "Touch route: ui=%s", uiTouchTargetText(UiTouchTarget::None));
+  }
   return false;
 }
 

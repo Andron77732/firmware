@@ -9,6 +9,7 @@
 #include "hal/gps/gps.h"
 #include "hal/ina226/ina226.h"
 #include "hal/touch/touch.h"
+#include "ui_touch_target.h"
 #include "ui_config.h"
 
 /**
@@ -71,7 +72,7 @@ public:
      * @brief Обработчик touch-событий
      * @return true если событие обработано
      */
-    bool onTouchEvent(const TouchEvent& event);
+    bool onTouchEvent(const TouchEvent& event, UiTouchTarget& target);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -81,10 +82,16 @@ private:
     GPSState _gpsState = GPSState::OFF;
     InaBatteryLevel _batteryLevel = InaBatteryLevel::NoData;
     bool _hasTime = false;
-    bool _touchCaptured = false;
+    UiTouchTarget _touchCapturedTarget = UiTouchTarget::None;
     tm _time = {};
 
     bool containsPoint_(const TouchPoint& point) const;
+    bool containsRect_(const TouchPoint& point,
+                       uint16_t x,
+                       uint16_t y,
+                       uint16_t width,
+                       uint16_t height) const;
+    UiTouchTarget targetAtPoint_(const TouchPoint& point) const;
     uint8_t wifiSignalLevelFromRssi(WiFiState state, int8_t rssi) const;
     void drawTimeValue();
     void drawBluetoothValue(BLEState state);

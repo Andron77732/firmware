@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "hal/touch/touch.h"
+#include "ui_touch_target.h"
 #include "ui_config.h"
 #include "timing/event_timestamp.h"
 
@@ -81,7 +82,7 @@ public:
      * @brief Обработчик touch-событий
      * @return true если событие обработано
      */
-    bool onTouchEvent(const TouchEvent& event);
+    bool onTouchEvent(const TouchEvent& event, UiTouchTarget& target);
 
 private:
     TFT_eSPI* _tft = nullptr;
@@ -110,7 +111,7 @@ private:
     // Данные последнего события
     EventTimestampData _lastEvent;
     bool _hasEvent = false;
-    bool _touchCaptured = false;
+    UiTouchTarget _touchCapturedTarget = UiTouchTarget::None;
     StartCountdownMode _countdownMode = StartCountdownMode::HIDDEN;
     uint8_t _countdownValue = 0;
     

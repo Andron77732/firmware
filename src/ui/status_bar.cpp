@@ -17,7 +17,7 @@ void StatusBar::init(TFT_eSPI& tft) {
     _gpsState = GPSState::OFF;
     _batteryLevel = InaBatteryLevel::NoData;
     _hasTime = false;
-    _touchCaptured = false;
+    _touchCapturedTarget = UiTouchTarget::None;
     _time = {};
 }
 
@@ -299,20 +299,68 @@ bool StatusBar::containsPoint_(const TouchPoint& point) const {
            point.y < (UI_STATUS_BAR_Y_POS + UI_STATUS_BAR_HEIGHT);
 }
 
-bool StatusBar::onTouchEvent(const TouchEvent& event) {
+bool StatusBar::containsRect_(const TouchPoint& point,
+                              uint16_t x,
+                              uint16_t y,
+                              uint16_t width,
+                              uint16_t height) const {
+    return point.x >= x && point.x < (x + width) &&
+           point.y >= y && point.y < (y + height);
+}
+
+UiTouchTarget StatusBar::targetAtPoint_(const TouchPoint& point) const {
+    if (!containsPoint_(point)) {
+        return UiTouchTarget::None;
+    }
+
+    if (containsRect_(point, UI_STATUS_BAR_CLOCK_X, UI_STATUS_BAR_CLOCK_Y,
+                      UI_STATUS_BAR_CLOCK_WIDTH,
+                      UI_STATUS_BAR_CLOCK_HEIGHT)) {
+        return UiTouchTarget::StatusBarClock;
+    }
+
+    if (containsRect_(point, UI_STATUS_BAR_ICON_GPS_X, UI_STATUS_BAR_ICON_Y,
+                      UI_STATUS_BAR_ICON_SIZE, UI_STATUS_BAR_ICON_SIZE)) {
+        return UiTouchTarget::StatusBarGps;
+    }
+
+    if (containsRect_(point, UI_STATUS_BAR_ICON_BLUETOOTH_X,
+                      UI_STATUS_BAR_ICON_Y, UI_STATUS_BAR_ICON_SIZE,
+                      UI_STATUS_BAR_ICON_SIZE)) {
+        return UiTouchTarget::StatusBarBluetooth;
+    }
+
+    if (containsRect_(point, UI_STATUS_BAR_ICON_WIFI_X, UI_STATUS_BAR_ICON_Y,
+                      UI_STATUS_BAR_ICON_SIZE, UI_STATUS_BAR_ICON_SIZE)) {
+        return UiTouchTarget::StatusBarWifi;
+    }
+
+    if (containsRect_(point, UI_STATUS_BAR_ICON_BATTERY_X,
+                      UI_STATUS_BAR_ICON_Y, UI_STATUS_BAR_ICON_SIZE,
+                      UI_STATUS_BAR_ICON_SIZE)) {
+        return UiTouchTarget::StatusBarBattery;
+    }
+
+    return UiTouchTarget::StatusBarBackground;
+}
+
+bool StatusBar::onTouchEvent(const TouchEvent& event, UiTouchTarget& target) {
     switch (event.type) {
         case TouchEventType::Press:
-            _touchCaptured = containsPoint_(event.point);
-            return _touchCaptured;
+            _touchCapturedTarget = targetAtPoint_(event.point);
+            target = _touchCapturedTarget;
+            return target != UiTouchTarget::None;
 
         case TouchEventType::Release: {
-            const bool handled = _touchCaptured;
-            _touchCaptured = false;
+            target = _touchCapturedTarget;
+            const bool handled = target != UiTouchTarget::None;
+            _touchCapturedTarget = UiTouchTarget::None;
             return handled;
         }
 
         case TouchEventType::Move:
         default:
+            target = UiTouchTarget::None;
             return false;
     }
 }

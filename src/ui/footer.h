@@ -5,6 +5,7 @@
 #include <TFT_eSPI.h>
 #include "config.h"
 #include "hal/touch/touch.h"
+#include "ui_touch_target.h"
 #include "ui_config.h"
 #include "timing/time_sync.h"
 
@@ -50,11 +51,11 @@ public:
      * @brief Обработчик touch-событий
      * @return true если событие обработано
      */
-    bool onTouchEvent(const TouchEvent& event);
+    bool onTouchEvent(const TouchEvent& event, UiTouchTarget& target);
 
 private:
     TFT_eSPI* _tft = nullptr;
-    bool _touchCaptured = false;
+    UiTouchTarget _touchCapturedTarget = UiTouchTarget::None;
     ModuleType _moduleType = ModuleType::START;
     String _version;
     TimeSyncState _state = TimeSyncState::NONE;
