@@ -49,6 +49,11 @@ public:
      * @param type Тип отображения (LOADING/START/FINISH)
      */
     void setType(MainAreaType type);
+
+    /**
+     * @brief Получить текущий тип отображения
+     */
+    MainAreaType getType() const { return _currentType; }
     
     /**
      * @brief Полная отрисовка mainArea

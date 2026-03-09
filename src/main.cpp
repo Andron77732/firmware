@@ -1,4 +1,5 @@
 #include "config.h"
+#include "app/touch_action_handler.h"
 #include "app/touch_calibration_service.h"
 #include "command/command_parser.h"
 #include "esp_log.h"
@@ -42,6 +43,7 @@ Footer footer;
 MainArea mainArea;
 StatusBar statusBar;
 MainScreen mainScreen;
+TouchActionHandler touchActionHandler;
 } // namespace
 
 /**
@@ -95,6 +97,7 @@ static bool routeTouchEvent(const TouchEvent &event) {
     if (event.type == TouchEventType::Press) {
       ESP_LOGI(TAG, "Touch route: ui=%s", uiTouchTargetText(target));
     }
+    touchActionHandler.handleTouchEvent(event, target);
     return true;
   }
   if (mainArea.onTouchEvent(event, target)) {
@@ -136,6 +139,7 @@ void setup() {
 
   // Инициализация mainArea в режиме загрузки
   mainArea.init(display.tft());
+  touchActionHandler.init(mainArea, settings, wifiManager);
   mainArea.setType(MainAreaType::LOADING);
   mainArea.draw();
   mainArea.addLogLine("ENTime v" VERSION " starting...");
