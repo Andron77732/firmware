@@ -114,17 +114,24 @@ void StatusBar::drawWiFiValue(WiFiState state, uint8_t signalLevel) {
 
     switch (state) {
         case WiFiState::UNINITIALIZED:
+            bitmap = ICON_WIFI_OFF;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_UNINITIALIZED;
+            break;
         case WiFiState::OFF:
             bitmap = ICON_WIFI_OFF;
-            color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_OFF;
             break;
         case WiFiState::ERROR:
             bitmap = ICON_WIFI_ALERT;
-            color = TFT_YELLOW;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_ERROR;
             break;
         case WiFiState::CONNECTING:
             bitmap = ICON_WIFI_0;
-            color = TFT_YELLOW;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_CONNECTING;
+            break;
+        case WiFiState::RECONNECTING:
+            bitmap = ICON_WIFI_0;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_RECONNECTING;
             break;
         case WiFiState::CONNECTED:
             switch (signalLevel) {
@@ -145,12 +152,12 @@ void StatusBar::drawWiFiValue(WiFiState state, uint8_t signalLevel) {
                     bitmap = ICON_WIFI_0;
                     break;
             }
-            color = UI_STATUS_BAR_COLOR_ICON_WIFI_ACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_CONNECTED;
             break;
         case WiFiState::DISCONNECTED:
         default:
             bitmap = ICON_WIFI_0;
-            color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
+            color = UI_STATUS_BAR_COLOR_ICON_WIFI_DISCONNECTED;
             break;
     }
 

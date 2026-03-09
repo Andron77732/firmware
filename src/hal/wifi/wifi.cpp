@@ -28,9 +28,15 @@ void WiFiManager::begin() {
     
     // Режим STA (клиент)
     WiFi.mode(WIFI_STA);
+
+    // Отключаем autoreconnect Arduino core, чтобы повторами управлял только WiFiManager.
+    WiFi.setAutoReconnect(false);
     
-    // Регистрация обработчика событий (после установки режима)
-    WiFi.onEvent(WiFiEvent);
+    // Регистрируем обработчик событий только один раз за время жизни процесса.
+    if (!_eventRegistered) {
+        _eventHandlerId = WiFi.onEvent(WiFiEvent);
+        _eventRegistered = true;
+    }
     
     // Устанавливаем состояние OFF после успешного завершения всех операций инициализации
     setState(WiFiState::OFF);
@@ -90,6 +96,7 @@ bool WiFiManager::connect(const String& ssid, const String& password) {
     
     _ssid = ssid;
     _password = password;
+    _autoReconnect = true;
     
     ESP_LOGI(TAG, "Connecting to WiFi: %s", _ssid.c_str());
     
@@ -158,7 +165,7 @@ void WiFiManager::update() {
     }
     
     // Автоматическое переподключение
-    if (_autoReconnect && _state == WiFiState::DISCONNECTED && _ssid.length() > 0) {
+    if (_autoReconnect && _state == WiFiState::RECONNECTING && _ssid.length() > 0) {
         attemptReconnect();
     }
 }
@@ -221,8 +228,18 @@ void WiFiManager::onWiFiEvent(arduino_event_id_t event, arduino_event_info_t inf
             // Если мы пытались подключиться
             // Дополнительная проверка UNINITIALIZED здесь не нужна, так как она уже в начале функции
             if (_ssid.length() > 0) {
-                setState(WiFiState::DISCONNECTED);
-                _lastReconnectAttempt = millis();
+                if (_autoReconnect) {
+                    if (_reconnectAttempts < _maxReconnectAttempts) {
+                        setState(WiFiState::RECONNECTING);
+                        _lastReconnectAttempt = millis();
+                    } else {
+                        ESP_LOGE(TAG, "Max reconnect attempts reached, giving up");
+                        setState(WiFiState::ERROR);
+                        _autoReconnect = false;
+                    }
+                } else {
+                    setState(WiFiState::DISCONNECTED);
+                }
             } else {
                 setState(WiFiState::OFF);
             }

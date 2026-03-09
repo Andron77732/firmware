@@ -168,6 +168,7 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     const char* wifi_state_str = "off";
     switch (wifi_state) {
         case WiFiState::CONNECTING:
+        case WiFiState::RECONNECTING:
             wifi_state_str = "connecting";
             break;
         case WiFiState::CONNECTED:

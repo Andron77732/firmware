@@ -13,7 +13,8 @@ enum class WiFiState : uint8_t {
     CONNECTING = 2,    // Идет подключение
     CONNECTED = 3,     // Подключено к сети
     DISCONNECTED = 4,  // Не подключено (но WiFi включен)
-    ERROR = 5,         // Ошибка подключения
+    RECONNECTING = 5,  // Ожидание/выполнение попытки переподключения
+    ERROR = 6,         // Ошибка подключения
 };
 
 // Callback для уведомления об изменении состояния подключения
@@ -95,6 +96,8 @@ public:
 private:
     WiFiState _state = WiFiState::UNINITIALIZED;
     bool _autoReconnect = true;
+    bool _eventRegistered = false;
+    wifi_event_id_t _eventHandlerId = 0;
     uint32_t _lastReconnectAttempt = 0;
     uint32_t _reconnectInterval = 5000; // 5 секунд между попытками
     uint8_t _reconnectAttempts = 0;
