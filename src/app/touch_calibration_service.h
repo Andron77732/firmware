@@ -20,6 +20,7 @@ struct TouchCalibrationFlowResult {
   TouchCalibration calibration;
 };
 
+const char *touchCalibrationFlowStatusText(TouchCalibrationFlowStatus status);
 TouchCalibrationFlowResult runTouchCalibrationFlow(bool interactiveUi);
 bool consumeTouchCalibrationUiRedrawRequest();
 

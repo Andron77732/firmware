@@ -7,6 +7,25 @@
 
 static bool s_uiRedrawPending = false;
 
+const char *touchCalibrationFlowStatusText(
+    TouchCalibrationFlowStatus status) {
+  switch (status) {
+  case TouchCalibrationFlowStatus::TouchNotReady:
+    return "Touch not ready";
+  case TouchCalibrationFlowStatus::WizardFailed:
+    return "Wizard failed";
+  case TouchCalibrationFlowStatus::InvalidSettings:
+    return "Invalid settings";
+  case TouchCalibrationFlowStatus::SaveFailed:
+    return "Save failed";
+  case TouchCalibrationFlowStatus::ApplyFailed:
+    return "Apply failed";
+  case TouchCalibrationFlowStatus::Ok:
+  default:
+    return "OK";
+  }
+}
+
 TouchCalibrationFlowResult runTouchCalibrationFlow(bool interactiveUi) {
   TouchCalibrationFlowResult result;
 
