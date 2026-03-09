@@ -90,14 +90,18 @@ void onBatteryLevelChanged(InaBatteryLevel level, int percent) {
 
 static bool routeTouchEvent(const TouchEvent &event) {
   if (statusBar.onTouchEvent(event)) {
+    if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=status_bar");
     return true;
   }
   if (mainArea.onTouchEvent(event)) {
+    if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=main_area");
     return true;
   }
   if (footer.onTouchEvent(event)) {
+    if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=footer");
     return true;
   }
+  if (event.type == TouchEventType::Press) ESP_LOGI(TAG, "Touch route: ui=unhandled");
   return false;
 }
 

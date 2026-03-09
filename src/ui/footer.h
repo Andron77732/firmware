@@ -54,11 +54,13 @@ public:
 
 private:
     TFT_eSPI* _tft = nullptr;
+    bool _touchCaptured = false;
     ModuleType _moduleType = ModuleType::START;
     String _version;
     TimeSyncState _state = TimeSyncState::NONE;
     int8_t _sats = -1;
 
+    bool containsPoint_(const TouchPoint& point) const;
     void drawSatsValue(int8_t sats, TimeSyncState state);
     void drawTimeSyncValue(TimeSyncState state, int8_t sats);
 };

@@ -17,6 +17,7 @@ void StatusBar::init(TFT_eSPI& tft) {
     _gpsState = GPSState::OFF;
     _batteryLevel = InaBatteryLevel::NoData;
     _hasTime = false;
+    _touchCaptured = false;
     _time = {};
 }
 
@@ -292,7 +293,26 @@ void StatusBar::drawIconBattery(const uint8_t* bitmap, uint16_t color, uint16_t 
     drawBitmap16(UI_STATUS_BAR_ICON_BATTERY_X, UI_STATUS_BAR_ICON_Y, bitmap, color, bgColor);
 }
 
+bool StatusBar::containsPoint_(const TouchPoint& point) const {
+    return point.x < UI_STATUS_BAR_WIDTH &&
+           point.y >= UI_STATUS_BAR_Y_POS &&
+           point.y < (UI_STATUS_BAR_Y_POS + UI_STATUS_BAR_HEIGHT);
+}
+
 bool StatusBar::onTouchEvent(const TouchEvent& event) {
-    (void)event;
-    return false;
+    switch (event.type) {
+        case TouchEventType::Press:
+            _touchCaptured = containsPoint_(event.point);
+            return _touchCaptured;
+
+        case TouchEventType::Release: {
+            const bool handled = _touchCaptured;
+            _touchCaptured = false;
+            return handled;
+        }
+
+        case TouchEventType::Move:
+        default:
+            return false;
+    }
 }

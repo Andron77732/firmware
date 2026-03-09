@@ -178,10 +178,19 @@ bool Touch::readRaw_(TouchPoint &point) {
   return true;
 }
 
+void Touch::logPress_(const TouchPoint &point) const {
+  ESP_LOGI(TAG, "Touch press: x=%u y=%u ts_ms=%lu", point.x, point.y,
+           (unsigned long)point.ts_ms);
+}
+
 void Touch::pushEvent_(TouchEventType type, const TouchPoint &point) {
   TouchEvent event;
   event.type = type;
   event.point = point;
+
+  if (type == TouchEventType::Press) {
+    logPress_(point);
+  }
 
   if (_queueCount >= QUEUE_CAPACITY) {
     if (type == TouchEventType::Move) {

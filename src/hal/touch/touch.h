@@ -73,6 +73,7 @@ private:
   uint8_t _queueCount = 0;
 
   bool readRaw_(TouchPoint &point);
+  void logPress_(const TouchPoint &point) const;
   void pushEvent_(TouchEventType type, const TouchPoint &point);
   bool dropOldestMove_();
   bool movedEnough_(const TouchPoint &from, const TouchPoint &to) const;

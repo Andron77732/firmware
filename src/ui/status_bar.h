@@ -81,8 +81,10 @@ private:
     GPSState _gpsState = GPSState::OFF;
     InaBatteryLevel _batteryLevel = InaBatteryLevel::NoData;
     bool _hasTime = false;
+    bool _touchCaptured = false;
     tm _time = {};
 
+    bool containsPoint_(const TouchPoint& point) const;
     uint8_t wifiSignalLevelFromRssi(WiFiState state, int8_t rssi) const;
     void drawTimeValue();
     void drawBluetoothValue(BLEState state);

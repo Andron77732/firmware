@@ -14,6 +14,7 @@ void MainArea::init(TFT_eSPI& tft) {
     _finishLineCount = 0;
     _finishEventCounter = 0;
     _hasEvent = false;
+    _touchCaptured = false;
     _countdownMode = StartCountdownMode::HIDDEN;
     _countdownValue = 0;
 
@@ -27,6 +28,12 @@ void MainArea::init(TFT_eSPI& tft) {
             _framebufferDisabled = true;
         }
     }
+}
+
+bool MainArea::containsPoint_(const TouchPoint& point) const {
+    return point.x < UI_MAIN_AREA_WIDTH &&
+           point.y >= UI_MAIN_AREA_Y_POS &&
+           point.y < (UI_MAIN_AREA_Y_POS + UI_MAIN_AREA_HEIGHT);
 }
 
 void MainArea::setType(MainAreaType type) {
@@ -427,6 +434,19 @@ void MainArea::drawStartLines(uint16_t startY, uint8_t maxVisibleLines) {
 }
 
 bool MainArea::onTouchEvent(const TouchEvent& event) {
-    (void)event;
-    return false;
+    switch (event.type) {
+        case TouchEventType::Press:
+            _touchCaptured = containsPoint_(event.point);
+            return _touchCaptured;
+
+        case TouchEventType::Release: {
+            const bool handled = _touchCaptured;
+            _touchCaptured = false;
+            return handled;
+        }
+
+        case TouchEventType::Move:
+        default:
+            return false;
+    }
 }

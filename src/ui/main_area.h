@@ -110,12 +110,14 @@ private:
     // Данные последнего события
     EventTimestampData _lastEvent;
     bool _hasEvent = false;
+    bool _touchCaptured = false;
     StartCountdownMode _countdownMode = StartCountdownMode::HIDDEN;
     uint8_t _countdownValue = 0;
     
     /**
      * @brief Отрисовка режима загрузки (логи)
      */
+    bool containsPoint_(const TouchPoint& point) const;
     void drawLoading();
     
     /**
