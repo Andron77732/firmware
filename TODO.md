@@ -13,17 +13,17 @@
 ## Фаза 5: Коммуникация
 
 - [ ] Serial (UART0) команды
-  - [x] [ping](PROTOCOL.md#ping---проверка-связи)
-  - [x] [time](PROTOCOL.md#time---получить-текущее-время)
-  - [x] [status](PROTOCOL.md#status---получить-статус-синхронизации)
-  - [ ] [gps](PROTOCOL.md#gps---управление-gps-модулем)
-  - [x] [wifi](PROTOCOL.md#wifi---управление-wifi)
-  - [x] [calibrate](PROTOCOL.md#calibrate---калибровка-rtc)
-  - [x] [sync_source](PROTOCOL.md#sync_source---переключить-источник-синхронизации)
-  - [x] [sync_ntp](PROTOCOL.md#sync_ntp---синхронизация-rtc-по-ntp)
-  - [x] [save_config](PROTOCOL.md#save_config---сохранить-конфигурацию)
-  - [x] [load_config](PROTOCOL.md#load_config---загрузить-конфигурацию)
-  - [x] [factory_reset](PROTOCOL.md#factory_reset---сброс-к-заводским-настройкам)
+  - [x] [ping](doc/PROTOCOL.md#ping---проверка-связи)
+  - [x] [time](doc/PROTOCOL.md#time---получить-текущее-время)
+  - [x] [status](doc/PROTOCOL.md#status---получить-статус-синхронизации)
+  - [ ] [gps](doc/PROTOCOL.md#gps---управление-gps-модулем)
+  - [x] [wifi](doc/PROTOCOL.md#wifi---управление-wifi)
+  - [x] [calibrate](doc/PROTOCOL.md#calibrate---калибровка-rtc)
+  - [x] [sync_source](doc/PROTOCOL.md#sync_source---переключить-источник-синхронизации)
+  - [x] [sync_ntp](doc/PROTOCOL.md#sync_ntp---синхронизация-rtc-по-ntp)
+  - [x] [save_config](doc/PROTOCOL.md#save_config---сохранить-конфигурацию)
+  - [x] [load_config](doc/PROTOCOL.md#load_config---загрузить-конфигурацию)
+  - [x] [factory_reset](doc/PROTOCOL.md#factory_reset---сброс-к-заводским-настройкам)
 - [x] WiFi STA (клиент): включение/выключение, подключение к SSID
 - [x] Парсер команд (JSON)
 
