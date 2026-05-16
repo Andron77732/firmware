@@ -16,22 +16,33 @@ static int64_t        s_last_synced_pps_us = 0;
 static TimeSyncStateCallback s_state_callback = nullptr;
 static TimeSyncState s_last_state = TimeSyncState::NONE;
 
-// Порог: игнорируем мелкий дрейф системных часов (до 1 мс)
+// Основная модель времени:
+//   UTC(us) = anchor_utc_us + (esp_timer_us - anchor_esp_us)
+//
+// ISR события фиксирует esp_timer_us, а этот модуль позже переводит его в UTC.
+// Поэтому точность метки события зависит от качества anchor, а не от того,
+// насколько ровно сейчас выставлены системные часы через settimeofday().
+
+// Системные часы не трогаем при микродрейфе меньше 1 ms.
 static constexpr int64_t kJitterAdjustThresholdUs = 1000;
 
-// Обязательная коррекция системного времени раз в N секунд (если включён settimeofday)
+// Даже если offset малый, периодически переустанавливаем системные часы,
+// чтобы gettimeofday() не уходил далеко от текущего anchor.
 static constexpr int64_t kMaxHoldoffUs = 30000000;
 
-// Phase alignment: окно доверия (±0.99s)
+// Максимально допустимый разнос PPS и NMEA sentence-start для выбора UTC секунды.
+// Почти ±1s допустимы, но мертвая зона около ровно 1s обрабатывается отдельно.
 static constexpr int64_t kPhaseWindowUs = 990000;
 
-// RTC fallback: как часто подправлять якорь по RTC (чтобы не уплывать)
+// RTC fallback: как часто заново строить SQW anchor из системного/RTC времени.
 static constexpr int64_t kRtcResyncPeriodUs = 10000000; // 10 секунд
 static int64_t s_last_rtc_resync_us = 0;
 static constexpr uint8_t kRtcFallbackWarmupTicks = 3;
 static constexpr int64_t kRtcFallbackLargeStepGuardUs = 100000;     // 100 ms
 static constexpr uint8_t kRtcFallbackLargeStepMaxSkips = 3;
 static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
+
+// GPS/PPS validation.
 static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
 static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
 static constexpr uint32_t kMinValidUnixSec = 1577836800UL;          // 2020-01-01 00:00:00 UTC
@@ -39,10 +50,10 @@ static constexpr int64_t kPpsIntervalToleranceUs = 150000;          // 150 ms
 static constexpr int64_t kPpsIntervalRebaselineGapUs = 5000000;     // 5 s
 static constexpr int64_t kGpsLossHoldoverMaxAgeUs = 10000000;       // 10 s
 
-// Анти-±1с защита: якорь считаем "свежим" только в пределах окна
+// Анти-±1s защита NMEA/PPS: сравниваем кандидата только со свежим GPS anchor.
 static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
 
-// Дисциплина RTC по PPS: период и окно выравнивания
+// Дисциплина RTC по PPS: rtc.setTime() планируется на следующий PPS edge.
 static constexpr int64_t kRtcPpsSyncPeriodUs   = 10LL * 60LL * 1000000LL; // 10 минут
 static constexpr int64_t kRtcPpsAlignWindowUs  = 3000; // 3 ms
 static int64_t s_last_rtc_pps_sync_us = 0;
@@ -50,29 +61,34 @@ static bool    s_rtc_pps_pending = false;
 static uint32_t s_rtc_pps_target_sec = 0;
 static uint32_t s_rtc_pps_target_count = 0;
 
-// Оценка точности: базовые допуски на джиттер/латентность
+// Оценка точности: базовые допуски на джиттер и задержку источников.
 static constexpr int64_t kPpsIsrJitterUs     = 20;    // ISR + чтение таймера
-static constexpr int64_t kRtcBaseJitterUs    = 1500;  // I2C + ISR + анти-±1с логика
+static constexpr int64_t kRtcBaseJitterUs    = 1500;  // SQW ISR + редкий I2C reanchor
 static constexpr int64_t kGpsPhaseResidualUs = 200;   // остаточная неопределенность PPS<->UTC после phase lock
 static constexpr int64_t kRtcAgingCapUs      = 10000; // максимум +10ms штрафа за "просрочку" тика
 
-// Для определения “новый PPS или старый”
+// GPS/PPS рабочее состояние.
 static uint32_t s_last_pps_count = 0;
-
-// Последняя валидная NMEA секунда и момент её получения (esp_us)
 static bool     s_have_nmea = false;
 static uint32_t s_last_nmea_utc_sec = 0;
 static int64_t  s_last_nmea_esp_us  = 0;
 
+// RTC/SQW fallback state.
+// s_rtc_anchor_sqw_count связывает anchor_utc_us с конкретным SQW tick count:
+// так на следующих SQW тиках можно строить UTC без I2C чтения RTC.
 static uint32_t s_last_sqw_count = 0;
 static uint32_t s_rtc_anchor_sqw_count = 0; // sqw_count в момент set_anchor(RTC,...)
 static int64_t  s_last_sqw_edge_us = 0; // последний обработанный фронт SQW (для accuracy)
 static constexpr int64_t kSqwAgeWindowUs = 900000; // если обработали позже — лучше не переякориваться
 static bool s_in_rtc_fallback = false;
 static bool s_have_rtc_anchor = false;
+
+// Измеренный при живом PPS сдвиг RTC SQW относительно UTC-секунд.
+// UTC момент SQW edge = ближайшая PPS UTC секунда + s_rtc_sqw_utc_offset_us.
 static bool s_have_rtc_sqw_utc_offset = false;
 static int64_t s_rtc_sqw_utc_offset_us = 0;
 
+// Флаги служебных логов и guard'ов, чтобы не спамить одинаковыми сообщениями.
 static bool s_logged_no_sqw = false;
 static bool s_prev_sqw_locked = false;
 static bool s_prev_have_sqw_edge = false; // чтобы логировать "signal acquired" или "signal lost"
@@ -128,6 +144,8 @@ static bool gps_time_to_unix(uint32_t &unix_sec) {
   return unix_sec > 0;
 }
 
+// Единственная точка смены anchor для esp_timer -> UTC.
+// GPS anchor привязан к PPS edge, RTC anchor привязан к SQW edge.
 static void set_anchor(TimeSource src, int64_t anchor_utc_us, int64_t anchor_esp_us) {
   s_status.source = src;
   s_status.anchor_utc_us = anchor_utc_us;
@@ -158,6 +176,8 @@ static bool have_recent_gps_holdover_anchor() {
   return age_us >= 0 && age_us <= kGpsLossHoldoverMaxAgeUs;
 }
 
+// При временной потере PPS/SQW не сбрасываем sync сразу, если есть свежий
+// GPS holdover или уже построенный RTC anchor. Это сохраняет плавность часов.
 static void set_fallback_status_from_anchor() {
   if (have_rtc_time_anchor()) {
     s_status.source = TimeSource::RTC;
@@ -179,6 +199,9 @@ static bool utc_us_to_nearest_second(int64_t utc_us, uint32_t &utc_sec_out) {
   return true;
 }
 
+// PPS остается точной секундной фазой даже без свежего NMEA. В этом случае
+// номер UTC секунды берем из текущего anchor, а если его нет - из системного
+// времени с поправкой на возраст PPS. Результат округляется к ближайшей секунде.
 static bool estimate_pps_utc_from_holdover(int64_t pps_esp_us, uint32_t &utc_sec_out) {
   const bool have_precise_anchor =
       (s_status.source == TimeSource::GPS_PPS &&
@@ -213,6 +236,9 @@ static int64_t round_to_nearest_second_us(int64_t utc_us) {
   return ((utc_us - 500000LL) / 1000000LL) * 1000000LL;
 }
 
+// Переносит грубую UTC оценку SQW edge на фазу, измеренную от GPS PPS.
+// Если SQW приходит не ровно на UTC секунде, fallback должен anchor'иться
+// не на "целую секунду", а на "UTC секунда + измеренный SQW offset".
 static int64_t apply_known_sqw_utc_offset(int64_t sqw_utc_est_us) {
   if (!s_have_rtc_sqw_utc_offset)
     return sqw_utc_est_us;
@@ -239,6 +265,8 @@ static bool system_time_at_esp_time_us(int64_t esp_us, int64_t now_us, int64_t &
   return utc_us_out >= (int64_t)kMinValidUnixSec * 1000000LL;
 }
 
+// Отбрасывает одиночные ложные PPS фронты. Неправдоподобный PPS не должен
+// менять GPS anchor, системные часы и измеренный PPS/SQW offset.
 static bool pps_interval_is_plausible(int64_t pps_esp_us,
                                       int64_t &period_us_out,
                                       int64_t &period_error_us_out) {
@@ -266,7 +294,8 @@ static bool pps_interval_is_plausible(int64_t pps_esp_us,
   return llabs(period_error_us_out) <= kPpsIntervalToleranceUs;
 }
 
-// Log delta pps - sqw
+// Измеряет кандидат offset между GPS PPS и RTC SQW. Само значение принимается
+// позже, только если этот PPS прошел interval guard и SQW уже locked.
 static PpsSqwSample log_pps_sqw_delta(int64_t pps_esp_us, uint32_t pps_count) {
   PpsSqwSample sample{};
   int64_t sqw_edge_us = 0;
@@ -304,6 +333,7 @@ static PpsSqwSample log_pps_sqw_delta(int64_t pps_esp_us, uint32_t pps_count) {
   return sample;
 }
 
+// Сохраняет рабочий PPS/SQW offset для будущего RTC fallback.
 static bool accept_pps_sqw_offset(const PpsSqwSample &sample, int64_t pps_esp_us, uint32_t pps_count) {
   if (!sample.has_sample || !sample.sqw_locked)
     return false;
@@ -326,11 +356,15 @@ static bool accept_pps_sqw_offset(const PpsSqwSample &sample, int64_t pps_esp_us
 /**
  * Определяем, какая UTC секунда соответствует данному PPS.
  *
+ * nmea_esp_us - это timestamp начала NMEA предложения, которое обновило UTC.
+ *
  * delta = pps_esp_us - nmea_esp_us
  *  delta >= 0  => NMEA пришло ДО PPS => PPS = nmea_utc_sec + 1
  *  delta <  0  => NMEA пришло ПОСЛЕ PPS => PPS = nmea_utc_sec
  *
- * Порог по модулю delta нужен, чтобы не привязаться к очень старому/задержанному NMEA.
+ * Порог по модулю delta нужен, чтобы не привязаться к старому/задержанному
+ * NMEA. Если alignment не проходит, GPS PPS все равно может обновить anchor
+ * через estimate_pps_utc_from_holdover(), но состояние будет GPS_DEGRADED.
  */
 static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t &phase_delta_us_out) {
   if (!s_have_nmea)
@@ -346,17 +380,16 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
   int64_t delta = pps_esp_us - s_last_nmea_esp_us;
   phase_delta_us_out = delta;
 
-  // --- "мёртвая зона" около ±1 секунды (защита от ±1s ошибки) ---
+  // Мертвая зона около ±1 секунды: здесь знак delta становится слишком хрупким,
+  // и можно ошибиться ровно на одну UTC секунду.
   static constexpr int64_t kPhaseDeadbandUs = 5000; // 5 ms, можно 3000..10000
 
   int64_t abs_delta = llabs(delta);
 
-  // 1) если слишком близко к ровно 1 секунде — не доверяем
   if (abs_delta >= (1000000LL - kPhaseDeadbandUs)) {
     return false;
   }
 
-  // 2) обычное окно доверия (kPhaseWindowUs)
   if (abs_delta > kPhaseWindowUs) {
     return false;
   }
@@ -384,7 +417,8 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
     }
   }
 
-  // Анти-±1с защита: сверяемся с текущей оценкой якоря, но только если якорь свежий
+  // Анти-±1s коррекция: если свежий GPS anchor увереннее, чем знак delta,
+  // поправляем выбранную NMEA секунду на один шаг.
   bool anchor_fresh = false;
   if (s_status.source == TimeSource::GPS_PPS && s_status.last_pps_timestamp_us != 0) {
     int64_t now_us = esp_timer_get_time();
@@ -414,6 +448,10 @@ bool time_sync_esp_to_utc_us(int64_t esp_us, int64_t &utc_us_out) {
   return true;
 }
 
+// Быстрый boot sync от RTC. Идеальный вариант - дождаться свежего SQW edge и
+// связать RTC секунду именно с ним. Если edge не пришел, ставим системное
+// время по rtc.unixTime() без фазовой гарантии, чтобы устройство имело хоть
+// какое-то валидное время до GPS/RTC fallback.
 static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) {
   if (!rtc.isReady()) return false;
 
@@ -421,12 +459,11 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
   int64_t  edge_us = 0;
   uint32_t edge_count = 0;
 
-  // 1) Ждём ЛЮБОЙ фронт SQW
+  // Ждем свежий SQW edge, а не просто факт наличия старого edge в ISR буфере.
   while ((esp_timer_get_time() - t0_us) < (int64_t)timeout_ms * 1000LL) {
     int64_t  e_us = 0;
     uint32_t c = 0;
     if (rtc_sqw_get_raw(e_us, c)) {
-      // edge "свежий"? (чтобы не взять старый)
       int64_t now_us = esp_timer_get_time();
       if ((now_us - e_us) >= 0 && (now_us - e_us) < 200000) { // <200ms
         edge_us = e_us;
@@ -434,8 +471,8 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
         break;
       }
     }
-  // Небольшая пауза без blockinging
-  esp_rom_delay_us(100);
+    // Короткая пауза, чтобы boot wait не крутил busy-loop на полной скорости.
+    esp_rom_delay_us(100);
   }
 
   if (edge_us == 0) {
@@ -456,14 +493,15 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
     return false;
   }
 
-  // 2) На фронте читаем секунду RTC
+  // На фронте читаем секунду RTC. Предполагаем, что RTC unixTime() уже
+  // соответствует этому SQW edge.
   uint32_t rtc_sec = rtc.unixTime();
 
-  // 3) Ставим ровно на границу
+  // Ставим системные часы ровно на границу секунды RTC.
   timeval tv{ (time_t)rtc_sec, 0 };
   settimeofday(&tv, nullptr);
 
-  // 4) Якорь + синхронизируем sqw-счётчики
+  // Создаем RTC anchor и связываем его с конкретным SQW counter.
   set_anchor(TimeSource::RTC, (int64_t)rtc_sec * 1000000LL, edge_us);
   s_last_sqw_count = edge_count;
   s_rtc_anchor_sqw_count = edge_count;
@@ -518,7 +556,9 @@ void time_sync_begin() {
   s_rtc_fallback_large_step_skips = 0;
   s_rtc_fallback_ticks = 0;
   s_logged_rtc_anchor_wait = false;
-  // Инициализация системного времени по RTC
+
+  // Boot phase: если GPS еще не готов, RTC может дать стартовое UTC время.
+  // Основная точная синхронизация все равно будет построена позже от PPS/SQW.
   if (rtc.isReady() && is_auto_sync_enabled()) {
     bool aligned = set_system_time_from_rtc_on_second_edge(1500);
     ESP_LOGI(TAG, "Boot time from RTC: %s", aligned ? "aligned to second" : "not aligned (timeout)");
@@ -544,7 +584,9 @@ void time_sync_update() {
     s_logged_rtc_only = false;
   }
 
-  // --- 1) NMEA: обновляем секунду и фиксируем момент её получения ---
+  // ---------------------------------------------------------------------------
+  // 1) NMEA: берем UTC секунду и timestamp начала предложения, которое ее дало.
+  // ---------------------------------------------------------------------------
   uint32_t gps_utc = 0;
   if (allow_gps && gps_time_to_unix(gps_utc)) {
     s_status.gps_time_valid = true;
@@ -554,16 +596,17 @@ void time_sync_update() {
       nmea_arrival_us = esp_timer_get_time();
     }
 
-    // Обновляем статус для диагностики всегда
+    // Статус обновляем всегда: это диагностика последнего видимого GPS UTC.
     s_status.last_nmea_utc_sec = gps_utc;
 
-    // Запоминаем “последнюю секунду” и момент, когда мы её получили (для phase alignment)
+    // Для phase alignment важен только момент, когда UTC секунда реально
+    // изменилась. Повторные чтения той же NMEA секунды не должны двигать метку.
     if (!s_have_nmea || gps_utc != s_last_nmea_utc_sec) {
       s_have_nmea = true;
       s_last_nmea_utc_sec = gps_utc;
       s_last_nmea_esp_us  = nmea_arrival_us;
 
-      // Для диагностики (не для вычисления PPS секунды)
+      // Только диагностика PPS ISR; расчет UTC секунды PPS делает align_pps_utc().
       pps_set_gps_utc_second(gps_utc);
     }
   } else {
@@ -571,14 +614,18 @@ void time_sync_update() {
     s_have_nmea = false;
   }
 
-  // --- 2) PPS lock? ---
+  // ---------------------------------------------------------------------------
+  // 2) PPS lock status. При потере PPS отменяем отложенное rtc.setTime().
+  // ---------------------------------------------------------------------------
   s_status.pps_locked = allow_gps && pps_is_locked();
   if (!s_status.pps_locked) {
     // PPS пропал -> отменяем запланированную установку RTC по "следующему PPS"
     s_rtc_pps_pending = false;
   }
 
-  // --- 3) Если PPS нет — fallback на RTC (через SQW 1Hz) ---
+  // ---------------------------------------------------------------------------
+  // 3) Нет PPS: удерживаем последний GPS anchor либо переходим на RTC+SQW.
+  // ---------------------------------------------------------------------------
   if (!s_status.pps_locked) {
     s_status.phase_aligned = false;
 
@@ -594,10 +641,7 @@ void time_sync_update() {
     bool have_edge = rtc_sqw_get_raw(sqw_edge_us, sqw_count);
     bool locked    = rtc_sqw_is_locked();
 
-
-
-
-    // --- LOG: SQW signal/lock transitions (no spam) ---
+    // Логируем только переходы signal/lock, чтобы fallback не спамил каждую loop.
     if (have_edge != s_prev_have_sqw_edge) {
       s_prev_have_sqw_edge = have_edge;
       if (have_edge) ESP_LOGI(TAG, "RTC SQW signal acquired");
@@ -610,8 +654,7 @@ void time_sync_update() {
       else        ESP_LOGW(TAG, "RTC SQW lock lost");
     }
 
-    // --- дружелюбная логика ---
-    // a) SQW сигнала нет -> держим последний anchor или NOSYNC
+    // 3a) RTC есть, но SQW edge еще не видим: продолжаем holdover, если он есть.
     if (!have_edge) {
       set_fallback_status_from_anchor();
 
@@ -628,7 +671,7 @@ void time_sync_update() {
       return;
     }
 
-    // b) SQW сигнал есть, но lock ещё не набран -> holdover / degraded warmup
+    // 3b) SQW signal есть, но lock еще набирается: не строим новый RTC anchor.
     if (!locked) {
       s_logged_no_sqw = false;
 
@@ -642,11 +685,11 @@ void time_sync_update() {
       return;
     }
 
-    // c) SQW locked -> RTC OK
+    // 3c) SQW locked: можно строить RTC anchor и дисциплинировать системное время.
     s_logged_no_sqw = false;
     s_logged_sqw_warmup = false;
 
-    // Переход в RTC fallback (один раз)
+    // Одноразовая инициализация guard'ов при входе в RTC fallback.
     if (!s_in_rtc_fallback) {
       s_in_rtc_fallback = true;
       s_log_rtc_fallback_delta = true;
@@ -657,7 +700,7 @@ void time_sync_update() {
       s_rtc_fallback_ticks = 0;
       s_logged_rtc_anchor_wait = false;
 
-      // Для красивого лога вытащим секунду RTC
+      // rtc_sec нужен только для диагностического лога.
       uint32_t rtc_sec = rtc.unixTime();
       if (allow_gps) {
         ESP_LOGW(TAG, "GPS/PPS lost -> RTC+SQW fallback. rtc=%lu", (unsigned long)rtc_sec);
@@ -667,7 +710,7 @@ void time_sync_update() {
       }
     }
 
-    // реагируем только на новый фронт SQW
+    // RTC fallback работает по фронтам SQW, а не по частоте loop().
     if (sqw_count != s_last_sqw_count) {
       s_last_sqw_count = sqw_count;
       s_last_sqw_edge_us = sqw_edge_us;
@@ -677,17 +720,23 @@ void time_sync_update() {
       int64_t age_us = now_us - sqw_edge_us;
       if (age_us < 0) age_us = 0;
 
-      // если слишком поздно обработали тик — можно промахнуться на секунду
+      // Если loop увидел SQW слишком поздно, лучше пропустить этот tick:
+      // иначе чтение rtc/system time может попасть уже в соседнюю секунду.
       if (age_us <= kSqwAgeWindowUs) {
 
         // -----------------------------------------------------------------------
-        // 1) Переякоривание по rtc.unixTime() РАЗ В kRtcResyncPeriodUs (10 сек)
+        // 3.1) RTC reanchor.
+        //
+        // Предпочитаем системное UTC время, потому что до потери PPS оно уже было
+        // дисциплинировано GPS. Если оно невалидно или auto_sync=false, берем RTC.
+        // В обоих случаях, если известен PPS/SQW offset, переносим SQW edge на
+        // правильную фазу UTC секунды.
         // -----------------------------------------------------------------------
         const bool have_rtc_anchor = have_rtc_time_anchor();
 
         bool need_reanchor =
             !have_rtc_anchor ||
-            (s_rtc_anchor_sqw_count == 0) ||         // <-- важно: иначе d может улететь
+            (s_rtc_anchor_sqw_count == 0) ||
             (s_last_rtc_resync_us == 0) ||
             ((now_us - s_last_rtc_resync_us) >= kRtcResyncPeriodUs);
 
@@ -725,7 +774,9 @@ void time_sync_update() {
             }
             anchor_source = s_have_rtc_sqw_utc_offset ? "rtc+sqw_offset" : "rtc";
 
-            // ---- анти-±1 сек защита для холодного RTC fallback ----
+            // Холодный RTC fallback может ошибиться на ±1s из-за того, когда именно
+            // rtc.unixTime() обновляется относительно SQW. Если есть старый anchor,
+            // выбираем ближайшую соседнюю секунду к уже идущему времени.
             int64_t est_utc_us = 0;
             if (time_sync_esp_to_utc_us(sqw_edge_us, est_utc_us)) {
               int64_t diff = rtc_utc_us - est_utc_us;
@@ -745,7 +796,7 @@ void time_sync_update() {
           }
 
           set_anchor(TimeSource::RTC, rtc_utc_us, sqw_edge_us);
-          s_rtc_anchor_sqw_count = sqw_count;   // важно: привязали якорь к этому sqw_count
+          s_rtc_anchor_sqw_count = sqw_count;
           s_last_rtc_resync_us = now_us;
           s_logged_rtc_anchor_wait = false;
         }
@@ -768,17 +819,20 @@ void time_sync_update() {
         }
 
         // -----------------------------------------------------------------------
-        // 2) На КАЖДЫЙ SQW тик строим UTC по счётчику (без I2C)
+        // 3.2) На каждый SQW tick строим UTC по счетчику без I2C:
         //    edge_utc = anchor_utc + (sqw_count - anchor_sqw_count)*1s
         // -----------------------------------------------------------------------
         int32_t d = (int32_t)(sqw_count - s_rtc_anchor_sqw_count); // signed delta
         int64_t edge_utc_us = s_status.anchor_utc_us + (int64_t)d * 1000000LL;
 
-        // цель "сейчас": момент edge + возраст обработки
+        // target_us - UTC оценка на момент текущей обработки loop().
         int64_t target_us = edge_utc_us + age_us;
 
         // -----------------------------------------------------------------------
-        // 3) Дисциплина системного времени (каждую секунду) — как было
+        // 3.3) Дисциплина системных часов от RTC target.
+        //
+        // Метки событий используют anchor напрямую, но системные часы нужны
+        // остальному коду и как источник грубой секунды при holdover.
         // -----------------------------------------------------------------------
         timeval current_tv{};
         gettimeofday(&current_tv, nullptr);
@@ -879,7 +933,9 @@ void time_sync_update() {
     return;
   }
 
-  // --- 4) PPS есть: берём raw PPS ---
+  // ---------------------------------------------------------------------------
+  // 4) PPS locked: обрабатываем только новый raw PPS edge.
+  // ---------------------------------------------------------------------------
   int64_t  pps_time_us = 0;
   uint32_t pps_count   = 0;
   if (!pps_get_raw(pps_time_us, pps_count)) {
@@ -888,7 +944,7 @@ void time_sync_update() {
     return;
   }
 
-  // Реагируем только на новый импульс
+  // Тот же PPS edge может быть прочитан много раз между loop() итерациями.
   if (pps_count == s_last_pps_count) {
     notify_state_change_if_needed();
     return;
@@ -896,7 +952,7 @@ void time_sync_update() {
   s_last_pps_count = pps_count;
   PpsSqwSample pps_sqw_sample = log_pps_sqw_delta(pps_time_us, pps_count);
 
-  // Уже синхронизировали этот PPS (доп. защита)
+  // Дополнительная защита от повторной дисциплины тем же timestamp.
   if (pps_time_us == s_last_synced_pps_us) {
     notify_state_change_if_needed();
     return;
@@ -918,7 +974,13 @@ void time_sync_update() {
     return;
   }
 
-  // --- 5) PPS↔NMEA phase alignment ---
+  // ---------------------------------------------------------------------------
+  // 5) Выбираем UTC секунду для PPS.
+  //
+  // Свежий NMEA дает GPS_OK и phase_aligned=true. Если NMEA stale/invalid,
+  // PPS все равно остается точной секундной фазой: номер секунды выводим из
+  // предыдущего anchor или системного времени и помечаем GPS_DEGRADED.
+  // ---------------------------------------------------------------------------
   uint32_t utc_second = 0;
   int64_t  phase_delta_us = 0;
   bool phase_aligned = align_pps_utc(pps_time_us, utc_second, phase_delta_us) && utc_second != 0;
@@ -937,11 +999,12 @@ void time_sync_update() {
     s_status.last_phase_delta_us = phase_delta_us;
   }
 
-  // GPS режим: якорь = точный PPS
+  // GPS anchor всегда ставится ровно на PPS edge. Даже в GPS_DEGRADED это
+  // сохраняет миллисекундную фазу меток событий, если номер секунды выведен.
   (void)accept_pps_sqw_offset(pps_sqw_sample, pps_time_us, pps_count);
   set_anchor(TimeSource::GPS_PPS, (int64_t)utc_second * 1000000LL, pps_time_us);
 
-  // Возврат из RTC fallback (один раз)
+  // Одноразовая очистка RTC fallback guard'ов при возврате на GPS/PPS.
   if (s_in_rtc_fallback) {
     s_in_rtc_fallback = false;
     s_rtc_fallback_guard_active = false;
@@ -953,12 +1016,18 @@ void time_sync_update() {
     ESP_LOGI(TAG, "GPS/PPS restored -> GPS_PPS mode");
   }
 
-  // --- 6) (Опционально) дисциплинируем системные часы через settimeofday ---
+  // ---------------------------------------------------------------------------
+  // 6) Дисциплина RTC и системных часов.
+  //
+  // set_anchor() уже сделал главное для меток событий. settimeofday() нужен
+  // для совместимости с кодом, который читает gettimeofday(), и для holdover.
+  // ---------------------------------------------------------------------------
   int64_t now_us = esp_timer_get_time();
   int64_t age_us = now_us - pps_time_us;
   if (age_us < 0) age_us = 0;
 
-  // Дисциплина RTC по PPS: отложенная установка на следующий PPS
+  // RTC ставим на заранее запланированный "следующий PPS", чтобы I2C setTime()
+  // соответствовал границе UTC секунды, а не текущему произвольному моменту.
   if (s_rtc_pps_pending && pps_count == s_rtc_pps_target_count) {
     if (auto_sync_enabled && age_us <= kRtcPpsAlignWindowUs && rtc.isReady()) {
       rtc.setTime(s_rtc_pps_target_sec);
@@ -969,8 +1038,8 @@ void time_sync_update() {
     s_rtc_pps_pending = false;
   }
 
-  // rtc.setTime() может занять миллисекунды (I2C), поэтому пересчитываем
-  // "сейчас" и возраст PPS перед дисциплиной системных часов.
+  // rtc.setTime() может занять миллисекунды по I2C, поэтому после него заново
+  // считаем возраст PPS перед settimeofday().
   now_us = esp_timer_get_time();
   age_us = now_us - pps_time_us;
   if (age_us < 0) age_us = 0;
@@ -1020,12 +1089,11 @@ void time_sync_update() {
   s_status.last_offset_us        = delta_us;
   s_status.last_utc_second       = utc_second;
 
-  // Планируем следующее дисциплинирование RTC по PPS
+  // Планируем следующую установку RTC только при настоящем GPS_OK: PPS есть,
+  // NMEA свежий, номер UTC секунды подтвержден.
   if (!s_rtc_pps_pending &&
       s_status.phase_aligned &&
       s_status.gps_time_valid &&
-      // первая фронтовая синхронизация RTC будет сразу при первом phase_aligned (PPS+NMEA),
-      // а дальше через kRtcPpsSyncPeriodUs.
       auto_sync_enabled &&
       (s_last_rtc_pps_sync_us == 0 ||
        (now_us - s_last_rtc_pps_sync_us) >= kRtcPpsSyncPeriodUs)) {
@@ -1042,7 +1110,8 @@ TimeSyncStatus time_sync_status() { return s_status; }
 TimeSyncState time_sync_state() {
   if (!s_status.synced) return TimeSyncState::NONE;
 
-  // PPS есть — это всегда GPS-* состояние, даже если anchor пока RTC
+  // Пока PPS locked, UI/диагностика должны показывать GPS режим: GPS_OK при
+  // свежем NMEA alignment, GPS_DEGRADED при PPS anchor без свежего NMEA.
   if (s_status.pps_locked) {
     return s_status.phase_aligned ? TimeSyncState::GPS_OK : TimeSyncState::GPS_DEGRADED;
   }
@@ -1052,6 +1121,7 @@ TimeSyncState time_sync_state() {
   }
 
   if (s_status.source == TimeSource::GPS_PPS) {
+    // Короткий holdover после PPS loss: время еще идет от последнего GPS anchor.
     return TimeSyncState::GPS_DEGRADED;
   }
 
@@ -1068,7 +1138,9 @@ int64_t time_sync_estimate_accuracy_us() {
   switch (s_status.source) {
 
     case TimeSource::GPS_PPS: {
-      // Без phase alignment мы не знаем, какая UTC секунда у PPS
+      // Строгую accuracy отдаем только для GPS_OK. В GPS_DEGRADED метка
+      // события может оставаться пригодной по holdover, но номер секунды уже не
+      // подтвержден свежим PPS/NMEA alignment.
       if (!s_status.pps_locked || !s_status.phase_aligned)
         return -1;
 
@@ -1095,7 +1167,8 @@ int64_t time_sync_estimate_accuracy_us() {
       if (!rtc_sqw_is_locked())
         return -1;
 
-      // База: SQW ISR/latency + (редкое) чтение RTC при реякоре
+      // RTC_OK: метка события строится по SQW edge и anchor. I2C чтение RTC
+      // участвует только при редком reanchor, не на каждом событии.
       int64_t acc = kRtcBaseJitterUs;
 
       // Если авто-дисциплина выключена — добавляем реальный offset
