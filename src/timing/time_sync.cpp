@@ -34,9 +34,6 @@ static constexpr uint8_t kRtcFallbackLargeStepMaxSkips = 3;
 static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
 static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
 static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
-static constexpr uint8_t kGpsRelockWarmupPps = 2;
-static constexpr int64_t kGpsRelockLargeStepGuardUs = 100000;       // 100 ms
-static constexpr uint8_t kGpsRelockLargeStepMaxSkips = 3;
 static constexpr uint32_t kMinValidUnixSec = 1577836800UL;          // 2020-01-01 00:00:00 UTC
 
 // Анти-±1с защита: якорь считаем "свежим" только в пределах окна
@@ -83,11 +80,6 @@ static bool s_rtc_fallback_guard_failed = false;
 static uint8_t s_rtc_fallback_large_step_skips = 0;
 static uint8_t s_rtc_fallback_ticks = 0;
 static bool s_logged_rtc_anchor_wait = false;
-static bool s_gps_relock_guard_active = false;
-static bool s_gps_relock_guard_logged = false;
-static bool s_gps_relock_guard_failed = false;
-static uint8_t s_gps_relock_large_step_skips = 0;
-static uint8_t s_gps_relock_pps_ok = 0;
 
 static bool is_auto_sync_enabled() {
   return settings.getSync().auto_sync;
@@ -188,6 +180,34 @@ static bool estimate_pps_utc_from_holdover(int64_t pps_esp_us, uint32_t &utc_sec
   int64_t system_utc_us =
       (int64_t)tv.tv_sec * 1000000LL + (int64_t)tv.tv_usec - age_us;
   return utc_us_to_nearest_second(system_utc_us, utc_sec_out);
+}
+
+// Log delta pps - sqw
+static void log_pps_sqw_delta(int64_t pps_esp_us, uint32_t pps_count) {
+  int64_t sqw_edge_us = 0;
+  uint32_t sqw_count = 0;
+  if (!rtc_sqw_get_raw(sqw_edge_us, sqw_count)) {
+    ESP_LOGD(TAG, "PPS/SQW delta unavailable: no SQW edge (pps=%lld, pps_cnt=%lu)",
+             (long long)pps_esp_us, (unsigned long)pps_count);
+    return;
+  }
+
+  int64_t raw_delta_us = pps_esp_us - sqw_edge_us;
+  int64_t phase_delta_us = raw_delta_us;
+  if (phase_delta_us > 500000LL) {
+    phase_delta_us -= 1000000LL;
+  } else if (phase_delta_us < -500000LL) {
+    phase_delta_us += 1000000LL;
+  }
+
+  ESP_LOGI(TAG,
+           "PPS/SQW delta_us=%lld raw_delta_us=%lld (pps=%lld cnt=%lu, sqw=%lld cnt=%lu)",
+           (long long)phase_delta_us,
+           (long long)raw_delta_us,
+           (long long)pps_esp_us,
+           (unsigned long)pps_count,
+           (long long)sqw_edge_us,
+           (unsigned long)sqw_count);
 }
 
 /**
@@ -383,11 +403,6 @@ void time_sync_begin() {
   s_rtc_fallback_large_step_skips = 0;
   s_rtc_fallback_ticks = 0;
   s_logged_rtc_anchor_wait = false;
-  s_gps_relock_guard_active = false;
-  s_gps_relock_guard_logged = false;
-  s_gps_relock_guard_failed = false;
-  s_gps_relock_large_step_skips = 0;
-  s_gps_relock_pps_ok = 0;
   // Инициализация системного времени по RTC
   if (rtc.isReady() && is_auto_sync_enabled()) {
     bool aligned = set_system_time_from_rtc_on_second_edge(1500);
@@ -446,11 +461,6 @@ void time_sync_update() {
   if (!s_status.pps_locked) {
     // PPS пропал -> отменяем запланированную установку RTC по "следующему PPS"
     s_rtc_pps_pending = false;
-    s_gps_relock_guard_active = true;
-    s_gps_relock_guard_logged = false;
-    s_gps_relock_guard_failed = false;
-    s_gps_relock_large_step_skips = 0;
-    s_gps_relock_pps_ok = 0;
   }
 
   // --- 3) Если PPS нет — fallback на RTC (через SQW 1Hz) ---
@@ -745,6 +755,7 @@ void time_sync_update() {
     return;
   }
   s_last_pps_count = pps_count;
+  log_pps_sqw_delta(pps_time_us, pps_count);
 
   // Уже синхронизировали этот PPS (доп. защита)
   if (pps_time_us == s_last_synced_pps_us) {
@@ -816,64 +827,11 @@ void time_sync_update() {
 
   int64_t delta_us = target_us - current_us;
 
-  if (s_gps_relock_guard_active && s_gps_relock_pps_ok < 255) {
-    s_gps_relock_pps_ok++;
-  }
-
   bool need_adjust = !s_status.synced ||
                      (delta_us < -kJitterAdjustThresholdUs || delta_us > kJitterAdjustThresholdUs) ||
                      ((now_us - s_status.last_sync_us) > kMaxHoldoffUs);
 
-  bool allow_gps_adjust = true;
-  if (auto_sync_enabled && s_gps_relock_guard_active) {
-    if (s_gps_relock_pps_ok < kGpsRelockWarmupPps) {
-      allow_gps_adjust = false;
-    } else if (llabs(delta_us) > kGpsRelockLargeStepGuardUs) {
-      allow_gps_adjust = false;
-      if (s_gps_relock_large_step_skips < 255) {
-        s_gps_relock_large_step_skips++;
-      }
-      if (!s_gps_relock_guard_logged) {
-        ESP_LOGW(TAG,
-                 "GPS relock guard: skip large delta_us=%lld (pps_ok=%u, age_us=%lld)",
-                 (long long)delta_us,
-                 (unsigned)s_gps_relock_pps_ok,
-                 (long long)age_us);
-        s_gps_relock_guard_logged = true;
-      }
-      if (s_gps_relock_large_step_skips >= kGpsRelockLargeStepMaxSkips) {
-        bool first_failure = !s_gps_relock_guard_failed;
-        s_gps_relock_guard_failed = true;
-        if (first_failure) {
-          ESP_LOGW(TAG,
-                   "GPS relock guard failed: delta_us=%lld after %u skips",
-                   (long long)delta_us,
-                   (unsigned)s_gps_relock_large_step_skips);
-        }
-      }
-    } else {
-      s_gps_relock_guard_active = false;
-      s_gps_relock_guard_logged = false;
-      s_gps_relock_guard_failed = false;
-      s_gps_relock_large_step_skips = 0;
-      ESP_LOGI(TAG,
-               "GPS relock guard cleared: delta_us=%lld after %u PPS",
-               (long long)delta_us,
-               (unsigned)s_gps_relock_pps_ok);
-    }
-  }
-
-  if (auto_sync_enabled && s_gps_relock_guard_failed) {
-    s_status.synced = true;
-    s_status.phase_aligned = false;
-    s_status.last_pps_timestamp_us = pps_time_us;
-    s_status.last_offset_us = delta_us;
-    s_status.last_utc_second = utc_second;
-    notify_state_change_if_needed();
-    return;
-  }
-
-  if (need_adjust && allow_gps_adjust) {
+  if (need_adjust) {
     if (auto_sync_enabled) {
       int64_t sec64  = target_us / 1000000LL;
       int64_t usec64 = target_us % 1000000LL;
@@ -898,8 +856,6 @@ void time_sync_update() {
                (long long)pps_time_us,
                (unsigned long)pps_count);
     }
-    s_status.last_offset_us = delta_us;
-  } else if (!allow_gps_adjust) {
     s_status.last_offset_us = delta_us;
   }
 
