@@ -48,10 +48,10 @@ public:
     const MicroNMEA& nmea() const { return _nmea; }
 
     /**
-     * @brief Время начала последнего полного NMEA-предложения (esp_timer_get_time, us)
+     * @brief Время начала NMEA-предложения, на котором последним обновился UTC
      * @return true если есть валидная метка времени
      */
-    bool lastSentenceStartUs(int64_t &ts_us) const;
+    bool lastUtcUpdateSentenceStartUs(int64_t &ts_us) const;
 
     /**
      * @brief Получить текущее состояние GPS
@@ -94,9 +94,10 @@ private:
 
     int64_t _last_fix_us = 0;
 
-    // Мягкий таймстампинг NMEA: время начала последнего полного предложения
-    int64_t _last_sentence_start_us = 0;
+    // Мягкий таймстампинг NMEA: время начала текущего предложения
     int64_t _current_sentence_start_us = 0;
+    int64_t _last_utc_update_sentence_start_us = 0;
+    uint64_t _last_utc_signature = 0;
     bool _in_sentence = false;
 
     void notifyStateChanged_();
@@ -104,6 +105,7 @@ private:
     void notifySatsChanged_();
     void updateSats_();
     int8_t currentSats_() const;
+    bool readUtcSignature_(uint64_t &signature) const;
 };
 
 // Глобальный объект GPS

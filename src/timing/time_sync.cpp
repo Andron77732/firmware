@@ -384,7 +384,7 @@ void time_sync_update() {
     s_status.gps_time_valid = true;
 
     int64_t nmea_arrival_us = 0;
-    if (!gps.lastSentenceStartUs(nmea_arrival_us)) {
+    if (!gps.lastUtcUpdateSentenceStartUs(nmea_arrival_us)) {
       nmea_arrival_us = esp_timer_get_time();
     }
 

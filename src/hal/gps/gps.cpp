@@ -36,6 +36,10 @@ void GPS::update() {
             _in_sentence = true;
             _current_sentence_start_us = esp_timer_get_time();
         }
+
+        const int64_t sentence_start_us = _in_sentence ? _current_sentence_start_us : 0;
+        uint64_t utc_before = 0;
+        const bool had_utc_before = readUtcSignature_(utc_before);
         
         // Собираем строку для verbose лога
         if (c == '\n' || c == '\r') {
@@ -46,7 +50,6 @@ void GPS::update() {
             }
 
             if (_in_sentence) {
-                _last_sentence_start_us = _current_sentence_start_us;
                 _current_sentence_start_us = 0;
                 _in_sentence = false;
             }
@@ -58,7 +61,17 @@ void GPS::update() {
         }
         
         // Парсинг NMEA
-        _nmea.process(c);
+        const bool processed_sentence = _nmea.process(c);
+
+        uint64_t utc_after = 0;
+        if (processed_sentence &&
+            sentence_start_us != 0 &&
+            readUtcSignature_(utc_after) &&
+            (!had_utc_before || utc_after != utc_before) &&
+            utc_after != _last_utc_signature) {
+            _last_utc_signature = utc_after;
+            _last_utc_update_sentence_start_us = sentence_start_us;
+        }
     }
 
     if (_nmea.isValid()) {
@@ -69,9 +82,9 @@ void GPS::update() {
     updateSats_();
 }
 
-bool GPS::lastSentenceStartUs(int64_t &ts_us) const {
-    if (_last_sentence_start_us == 0) return false;
-    ts_us = _last_sentence_start_us;
+bool GPS::lastUtcUpdateSentenceStartUs(int64_t &ts_us) const {
+    if (_last_utc_update_sentence_start_us == 0) return false;
+    ts_us = _last_utc_update_sentence_start_us;
     return true;
 }
 
@@ -124,6 +137,32 @@ int8_t GPS::currentSats_() const {
         sats = 99;
     }
     return (int8_t)sats;
+}
+
+bool GPS::readUtcSignature_(uint64_t &signature) const {
+    if (!_initialized || !_nmea.isValid()) {
+        return false;
+    }
+
+    const uint16_t year = _nmea.getYear();
+    const uint8_t month = _nmea.getMonth();
+    const uint8_t day = _nmea.getDay();
+    const uint8_t hour = _nmea.getHour();
+    const uint8_t minute = _nmea.getMinute();
+    const uint8_t second = _nmea.getSecond();
+
+    if (year < 2020 || month == 0 || day == 0 ||
+        hour > 23 || minute > 59 || second > 60) {
+        return false;
+    }
+
+    signature = ((uint64_t)year << 26) |
+                ((uint64_t)month << 22) |
+                ((uint64_t)day << 17) |
+                ((uint64_t)hour << 12) |
+                ((uint64_t)minute << 6) |
+                (uint64_t)second;
+    return true;
 }
 
 void GPS::updateSats_() {
