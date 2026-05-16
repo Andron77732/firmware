@@ -31,11 +31,13 @@ static constexpr int64_t kRtcResyncPeriodUs = 10000000; // 10 секунд
 static int64_t s_last_rtc_resync_us = 0;
 static constexpr uint8_t kRtcFallbackWarmupTicks = 3;
 static constexpr int64_t kRtcFallbackLargeStepGuardUs = 100000;     // 100 ms
+static constexpr uint8_t kRtcFallbackLargeStepMaxSkips = 3;
 static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
 static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
 static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
 static constexpr uint8_t kGpsRelockWarmupPps = 2;
 static constexpr int64_t kGpsRelockLargeStepGuardUs = 100000;       // 100 ms
+static constexpr uint8_t kGpsRelockLargeStepMaxSkips = 3;
 
 // Анти-±1с защита: якорь считаем "свежим" только в пределах окна
 static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
@@ -77,10 +79,14 @@ static bool s_logged_rtc_only = false;
 static bool s_log_rtc_fallback_delta = false;
 static bool s_rtc_fallback_guard_active = false;
 static bool s_rtc_fallback_guard_logged = false;
+static bool s_rtc_fallback_guard_failed = false;
+static uint8_t s_rtc_fallback_large_step_skips = 0;
 static uint8_t s_rtc_fallback_ticks = 0;
 static bool s_logged_rtc_anchor_wait = false;
 static bool s_gps_relock_guard_active = false;
 static bool s_gps_relock_guard_logged = false;
+static bool s_gps_relock_guard_failed = false;
+static uint8_t s_gps_relock_large_step_skips = 0;
 static uint8_t s_gps_relock_pps_ok = 0;
 
 static bool is_auto_sync_enabled() {
@@ -337,10 +343,14 @@ void time_sync_begin() {
   s_log_rtc_fallback_delta = false;
   s_rtc_fallback_guard_active = false;
   s_rtc_fallback_guard_logged = false;
+  s_rtc_fallback_guard_failed = false;
+  s_rtc_fallback_large_step_skips = 0;
   s_rtc_fallback_ticks = 0;
   s_logged_rtc_anchor_wait = false;
   s_gps_relock_guard_active = false;
   s_gps_relock_guard_logged = false;
+  s_gps_relock_guard_failed = false;
+  s_gps_relock_large_step_skips = 0;
   s_gps_relock_pps_ok = 0;
   // Инициализация системного времени по RTC
   if (rtc.isReady() && is_auto_sync_enabled()) {
@@ -402,6 +412,8 @@ void time_sync_update() {
     s_rtc_pps_pending = false;
     s_gps_relock_guard_active = true;
     s_gps_relock_guard_logged = false;
+    s_gps_relock_guard_failed = false;
+    s_gps_relock_large_step_skips = 0;
     s_gps_relock_pps_ok = 0;
   }
 
@@ -477,6 +489,8 @@ void time_sync_update() {
       s_log_rtc_fallback_delta = true;
       s_rtc_fallback_guard_active = true;
       s_rtc_fallback_guard_logged = false;
+      s_rtc_fallback_guard_failed = false;
+      s_rtc_fallback_large_step_skips = 0;
       s_rtc_fallback_ticks = 0;
       s_logged_rtc_anchor_wait = false;
 
@@ -599,11 +613,14 @@ void time_sync_update() {
         }
 
         bool allow_adjust = true;
-        if (s_rtc_fallback_guard_active) {
+        if (auto_sync_enabled && s_rtc_fallback_guard_active) {
           if (s_rtc_fallback_ticks < kRtcFallbackWarmupTicks) {
             allow_adjust = false;
           } else if (llabs(delta_us) > kRtcFallbackLargeStepGuardUs) {
             allow_adjust = false;
+            if (s_rtc_fallback_large_step_skips < 255) {
+              s_rtc_fallback_large_step_skips++;
+            }
             if (!s_rtc_fallback_guard_logged) {
               ESP_LOGW(TAG,
                        "RTC fallback guard: skip large delta_us=%lld (tick=%u, age_us=%lld)",
@@ -612,14 +629,34 @@ void time_sync_update() {
                        (long long)age_us);
               s_rtc_fallback_guard_logged = true;
             }
+            if (s_rtc_fallback_large_step_skips >= kRtcFallbackLargeStepMaxSkips) {
+              bool first_failure = !s_rtc_fallback_guard_failed;
+              s_rtc_fallback_guard_failed = true;
+              if (first_failure) {
+                ESP_LOGW(TAG,
+                         "RTC fallback guard failed: delta_us=%lld after %u skips",
+                         (long long)delta_us,
+                         (unsigned)s_rtc_fallback_large_step_skips);
+              }
+            }
           } else {
             s_rtc_fallback_guard_active = false;
             s_rtc_fallback_guard_logged = false;
+            s_rtc_fallback_guard_failed = false;
+            s_rtc_fallback_large_step_skips = 0;
             ESP_LOGI(TAG,
                      "RTC fallback guard cleared: delta_us=%lld after %u SQW ticks",
                      (long long)delta_us,
                      (unsigned)s_rtc_fallback_ticks);
           }
+        }
+
+        if (auto_sync_enabled && s_rtc_fallback_guard_failed) {
+          s_status.source = TimeSource::NONE;
+          s_status.synced = false;
+          s_status.last_offset_us = delta_us;
+          notify_state_change_if_needed();
+          return;
         }
 
         if (need_adjust && allow_adjust) {
@@ -643,6 +680,13 @@ void time_sync_update() {
           s_status.last_offset_us = delta_us;
         }
       }
+    }
+
+    if (auto_sync_enabled && s_rtc_fallback_guard_failed) {
+      s_status.source = TimeSource::NONE;
+      s_status.synced = false;
+      notify_state_change_if_needed();
+      return;
     }
 
     set_rtc_status_from_anchor();
@@ -696,6 +740,8 @@ void time_sync_update() {
     s_in_rtc_fallback = false;
     s_rtc_fallback_guard_active = false;
     s_rtc_fallback_guard_logged = false;
+    s_rtc_fallback_guard_failed = false;
+    s_rtc_fallback_large_step_skips = 0;
     s_rtc_fallback_ticks = 0;
     s_logged_rtc_anchor_wait = false;
     ESP_LOGI(TAG, "GPS/PPS restored -> GPS_PPS mode");
@@ -741,11 +787,14 @@ void time_sync_update() {
                      ((now_us - s_status.last_sync_us) > kMaxHoldoffUs);
 
   bool allow_gps_adjust = true;
-  if (s_gps_relock_guard_active) {
+  if (auto_sync_enabled && s_gps_relock_guard_active) {
     if (s_gps_relock_pps_ok < kGpsRelockWarmupPps) {
       allow_gps_adjust = false;
     } else if (llabs(delta_us) > kGpsRelockLargeStepGuardUs) {
       allow_gps_adjust = false;
+      if (s_gps_relock_large_step_skips < 255) {
+        s_gps_relock_large_step_skips++;
+      }
       if (!s_gps_relock_guard_logged) {
         ESP_LOGW(TAG,
                  "GPS relock guard: skip large delta_us=%lld (pps_ok=%u, age_us=%lld)",
@@ -754,14 +803,36 @@ void time_sync_update() {
                  (long long)age_us);
         s_gps_relock_guard_logged = true;
       }
+      if (s_gps_relock_large_step_skips >= kGpsRelockLargeStepMaxSkips) {
+        bool first_failure = !s_gps_relock_guard_failed;
+        s_gps_relock_guard_failed = true;
+        if (first_failure) {
+          ESP_LOGW(TAG,
+                   "GPS relock guard failed: delta_us=%lld after %u skips",
+                   (long long)delta_us,
+                   (unsigned)s_gps_relock_large_step_skips);
+        }
+      }
     } else {
       s_gps_relock_guard_active = false;
       s_gps_relock_guard_logged = false;
+      s_gps_relock_guard_failed = false;
+      s_gps_relock_large_step_skips = 0;
       ESP_LOGI(TAG,
                "GPS relock guard cleared: delta_us=%lld after %u PPS",
                (long long)delta_us,
                (unsigned)s_gps_relock_pps_ok);
     }
+  }
+
+  if (auto_sync_enabled && s_gps_relock_guard_failed) {
+    s_status.synced = true;
+    s_status.phase_aligned = false;
+    s_status.last_pps_timestamp_us = pps_time_us;
+    s_status.last_offset_us = delta_us;
+    s_status.last_utc_second = utc_second;
+    notify_state_change_if_needed();
+    return;
   }
 
   if (need_adjust && allow_gps_adjust) {
