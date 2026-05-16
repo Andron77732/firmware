@@ -37,6 +37,7 @@ static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
 static constexpr uint32_t kMinValidUnixSec = 1577836800UL;          // 2020-01-01 00:00:00 UTC
 static constexpr int64_t kPpsIntervalToleranceUs = 150000;          // 150 ms
 static constexpr int64_t kPpsIntervalRebaselineGapUs = 5000000;     // 5 s
+static constexpr int64_t kGpsLossHoldoverMaxAgeUs = 10000000;       // 10 s
 
 // Анти-±1с защита: якорь считаем "свежим" только в пределах окна
 static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
@@ -145,9 +146,23 @@ static bool have_rtc_time_anchor() {
          (s_status.anchor_esp_us != 0);
 }
 
-static void set_rtc_status_from_anchor() {
+static bool have_recent_gps_holdover_anchor() {
+  if (s_status.source != TimeSource::GPS_PPS ||
+      s_status.anchor_utc_us == 0 ||
+      s_status.anchor_esp_us == 0 ||
+      s_status.last_pps_timestamp_us == 0) {
+    return false;
+  }
+
+  int64_t age_us = esp_timer_get_time() - s_status.last_pps_timestamp_us;
+  return age_us >= 0 && age_us <= kGpsLossHoldoverMaxAgeUs;
+}
+
+static void set_fallback_status_from_anchor() {
   if (have_rtc_time_anchor()) {
     s_status.source = TimeSource::RTC;
+    s_status.synced = true;
+  } else if (have_recent_gps_holdover_anchor()) {
     s_status.synced = true;
   } else {
     s_status.source = TimeSource::NONE;
@@ -568,8 +583,7 @@ void time_sync_update() {
     s_status.phase_aligned = false;
 
     if (!rtc.isReady()) {
-      s_status.source = TimeSource::NONE;
-      s_status.synced = false;
+      set_fallback_status_from_anchor();
       notify_state_change_if_needed();
       return;
     }
@@ -597,21 +611,24 @@ void time_sync_update() {
     }
 
     // --- дружелюбная логика ---
-    // a) SQW сигнала нет -> NOSYNC
+    // a) SQW сигнала нет -> держим последний anchor или NOSYNC
     if (!have_edge) {
-      s_status.source = TimeSource::NONE;
-      s_status.synced = false;
+      set_fallback_status_from_anchor();
 
       if (!s_logged_no_sqw) {
         s_logged_no_sqw = true;
-        ESP_LOGW(TAG, "RTC ready but SQW no signal -> NOSYNC");
+        if (s_status.synced) {
+          ESP_LOGW(TAG, "RTC ready but SQW no signal -> holding last anchor");
+        } else {
+          ESP_LOGW(TAG, "RTC ready but SQW no signal -> NOSYNC");
+        }
       }
       s_logged_sqw_warmup = false;
       notify_state_change_if_needed();
       return;
     }
 
-    // b) SQW сигнал есть, но lock ещё не набран -> RTC_DEGRADED (warmup)
+    // b) SQW сигнал есть, но lock ещё не набран -> holdover / degraded warmup
     if (!locked) {
       s_logged_no_sqw = false;
 
@@ -620,7 +637,7 @@ void time_sync_update() {
         ESP_LOGI(TAG, "RTC SQW warmup: signal present, waiting lock...");
       }
 
-      set_rtc_status_from_anchor();
+      set_fallback_status_from_anchor();
       notify_state_change_if_needed();
       return;
     }
@@ -688,7 +705,7 @@ void time_sync_update() {
                      (unsigned)s_rtc_fallback_ticks, (long long)age_us);
             s_logged_rtc_anchor_wait = true;
           }
-          set_rtc_status_from_anchor();
+          set_fallback_status_from_anchor();
           notify_state_change_if_needed();
           return;
         }
@@ -745,7 +762,7 @@ void time_sync_update() {
                      (unsigned)s_rtc_fallback_ticks, (long long)age_us);
             s_logged_rtc_anchor_wait = true;
           }
-          set_rtc_status_from_anchor();
+          set_fallback_status_from_anchor();
           notify_state_change_if_needed();
           return;
         }
@@ -857,7 +874,7 @@ void time_sync_update() {
       return;
     }
 
-    set_rtc_status_from_anchor();
+    set_fallback_status_from_anchor();
     notify_state_change_if_needed();
     return;
   }
@@ -1032,6 +1049,10 @@ TimeSyncState time_sync_state() {
 
   if (s_status.source == TimeSource::RTC) {
     return rtc_sqw_is_locked() ? TimeSyncState::RTC_OK : TimeSyncState::RTC_DEGRADED;
+  }
+
+  if (s_status.source == TimeSource::GPS_PPS) {
+    return TimeSyncState::GPS_DEGRADED;
   }
 
   return TimeSyncState::NONE;

@@ -82,8 +82,8 @@ locked SQW, код измеряет `PPS - SQW` и сохраняет `sqw_utc_o
 
 - `NONE` - времени нет;
 - `GPS_OK` - PPS locked и есть свежий PPS/NMEA phase alignment;
-- `GPS_DEGRADED` - PPS locked, но свежего NMEA alignment нет; PPS всё ещё
-  используется как точный секундный edge;
+- `GPS_DEGRADED` - PPS locked без свежего NMEA alignment или короткий holdover
+  после потери PPS; timestamp событий продолжает строиться от GPS/PPS anchor;
 - `RTC_OK` - RTC SQW locked и anchor валиден;
 - `RTC_DEGRADED` - RTC есть, но SQW ещё не locked, при этом старый RTC anchor
   может оставаться пригодным.
@@ -263,13 +263,13 @@ RTC fallback используется, когда PPS не locked.
 
 ### Нет RTC или SQW
 
-Если RTC не готов, состояние становится `NONE`.
+Если RTC не готов, новый RTC anchor создать нельзя. Если перед потерей PPS был
+свежий GPS/PPS anchor, он временно остаётся рабочим holdover anchor; иначе
+состояние становится `NONE`.
 
-Если RTC готов, но SQW edge ещё не виден:
-
-- `source=NONE`;
-- `synced=false`;
-- timestamp событий не строится от RTC.
+Если RTC готов, но SQW edge ещё не виден, код тоже не создаёт новый RTC anchor.
+При наличии свежего GPS/PPS holdover anchor timestamp событий продолжает
+строиться от него; без такого anchor состояние становится `NONE`.
 
 ### SQW warmup
 
@@ -277,7 +277,9 @@ RTC fallback используется, когда PPS не locked.
 
 - код не создаёт новый anchor;
 - если старый RTC anchor валиден, состояние может быть `RTC_DEGRADED`;
-- если anchor нет, состояние остаётся `NONE`.
+- если RTC anchor ещё нет, но свежий GPS/PPS holdover anchor валиден, состояние
+  остаётся синхронизированным в degraded режиме;
+- если anchor нет, состояние становится `NONE`.
 
 ### SQW locked
 
@@ -375,6 +377,9 @@ PPS locked + fresh NMEA alignment
 
 PPS locked + no fresh NMEA + holdover/system UTC second available
   => GPS_DEGRADED, anchor = GPS PPS edge + derived UTC second
+
+PPS not locked + recent GPS/PPS anchor + RTC SQW not ready yet
+  => GPS_DEGRADED, conversion continues from last GPS/PPS anchor
 
 PPS not locked + RTC SQW locked
   => RTC_OK, anchor = RTC SQW edge + RTC UTC second

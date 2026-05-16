@@ -13,7 +13,7 @@ enum class TimeSyncState : uint8_t {
   NONE = 0,        // времени нет
 
   GPS_OK = 1,          // PPS + phase aligned
-  GPS_DEGRADED = 2,    // PPS есть, но phase lost / holdover
+  GPS_DEGRADED = 2,    // PPS phase lost или короткий GPS holdover после PPS loss
 
   RTC_OK = 3,          // RTC + SQW стабилен
   RTC_DEGRADED = 4     // RTC есть, но SQW нестабилен / неточен
