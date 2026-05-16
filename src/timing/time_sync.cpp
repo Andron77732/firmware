@@ -96,31 +96,6 @@ static void notify_state_change_if_needed() {
     s_state_callback(state);
 }
 
-// Фильтр phase_delta: медиана по 5 последним значениям (устойчиво к выбросам NMEA)
-static int64_t s_phase_deltas[5] = {0};
-static uint8_t s_phase_delta_idx = 0;
-static uint8_t s_phase_delta_count = 0;
-
-static void reset_phase_delta_filter() {
-  for (int i = 0; i < 5; ++i) s_phase_deltas[i] = 0;
-  s_phase_delta_idx = 0;
-  s_phase_delta_count = 0;
-}
-
-static int64_t median5(const int64_t v[5]) {
-  int64_t a[5] = {v[0], v[1], v[2], v[3], v[4]};
-  for (int i = 0; i < 4; ++i) {
-    for (int j = i + 1; j < 5; ++j) {
-      if (a[j] < a[i]) {
-        int64_t t = a[i];
-        a[i] = a[j];
-        a[j] = t;
-      }
-    }
-  }
-  return a[2];
-}
-
 static bool gps_time_to_unix(uint32_t &unix_sec) {
   if (!gps.isReady())
     return false;
@@ -174,17 +149,9 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
   if (nmea_age_us < 0 || nmea_age_us > kNmeaFreshnessUs)
     return false;
 
-  // Фильтр phase_delta
-  int64_t delta_raw = pps_esp_us - s_last_nmea_esp_us;
-  s_phase_deltas[s_phase_delta_idx] = delta_raw;
-  s_phase_delta_idx = (s_phase_delta_idx + 1) % 5;
-  if (s_phase_delta_count < 5) s_phase_delta_count++;
-
-  int64_t delta = delta_raw;
-  if (s_phase_delta_count == 5) {
-    delta = median5(s_phase_deltas);
-  }
-
+  // Знак delta выбирает UTC-секунду PPS, поэтому здесь нельзя применять
+  // независимый фильтр по предыдущим NMEA-секундам: это может дать ошибку ±1s.
+  int64_t delta = pps_esp_us - s_last_nmea_esp_us;
   phase_delta_us_out = delta;
 
   // --- "мёртвая зона" около ±1 секунды (защита от ±1s ошибки) ---
@@ -359,8 +326,6 @@ void time_sync_begin() {
   s_gps_relock_guard_active = false;
   s_gps_relock_guard_logged = false;
   s_gps_relock_pps_ok = 0;
-  reset_phase_delta_filter();
-
   // Инициализация системного времени по RTC
   if (rtc.isReady() && is_auto_sync_enabled()) {
     bool aligned = set_system_time_from_rtc_on_second_edge(1500);
@@ -412,14 +377,11 @@ void time_sync_update() {
   } else {
     s_status.gps_time_valid = false;
     s_have_nmea = false;
-    reset_phase_delta_filter();
   }
 
   // --- 2) PPS lock? ---
   s_status.pps_locked = allow_gps && pps_is_locked();
   if (!s_status.pps_locked) {
-    reset_phase_delta_filter();
-
     // PPS пропал -> отменяем запланированную установку RTC по "следующему PPS"
     s_rtc_pps_pending = false;
     s_gps_relock_guard_active = true;
