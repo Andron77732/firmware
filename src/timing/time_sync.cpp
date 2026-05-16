@@ -37,6 +37,7 @@ static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
 static constexpr uint8_t kGpsRelockWarmupPps = 2;
 static constexpr int64_t kGpsRelockLargeStepGuardUs = 100000;       // 100 ms
 static constexpr uint8_t kGpsRelockLargeStepMaxSkips = 3;
+static constexpr uint32_t kMinValidUnixSec = 1577836800UL;          // 2020-01-01 00:00:00 UTC
 
 // Анти-±1с защита: якорь считаем "свежим" только в пределах окна
 static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
@@ -150,6 +151,43 @@ static void set_rtc_status_from_anchor() {
     s_status.source = TimeSource::NONE;
     s_status.synced = false;
   }
+}
+
+static bool utc_us_to_nearest_second(int64_t utc_us, uint32_t &utc_sec_out) {
+  int64_t sec = (utc_us + 500000LL) / 1000000LL;
+  if (sec < (int64_t)kMinValidUnixSec || sec > (int64_t)UINT32_MAX)
+    return false;
+
+  utc_sec_out = (uint32_t)sec;
+  return true;
+}
+
+static bool estimate_pps_utc_from_holdover(int64_t pps_esp_us, uint32_t &utc_sec_out) {
+  const bool have_precise_anchor =
+      (s_status.source == TimeSource::GPS_PPS &&
+       s_status.anchor_utc_us != 0 &&
+       s_status.anchor_esp_us != 0) ||
+      (s_status.source == TimeSource::RTC &&
+       have_rtc_time_anchor() &&
+       s_rtc_anchor_sqw_count != 0);
+
+  if (have_precise_anchor) {
+    int64_t utc_us = 0;
+    if (time_sync_esp_to_utc_us(pps_esp_us, utc_us) &&
+        utc_us_to_nearest_second(utc_us, utc_sec_out)) {
+      return true;
+    }
+  }
+
+  timeval tv{};
+  gettimeofday(&tv, nullptr);
+  int64_t now_us = esp_timer_get_time();
+  int64_t age_us = now_us - pps_esp_us;
+  if (age_us < 0) age_us = 0;
+
+  int64_t system_utc_us =
+      (int64_t)tv.tv_sec * 1000000LL + (int64_t)tv.tv_usec - age_us;
+  return utc_us_to_nearest_second(system_utc_us, utc_sec_out);
 }
 
 /**
@@ -717,18 +755,21 @@ void time_sync_update() {
   // --- 5) PPS↔NMEA phase alignment ---
   uint32_t utc_second = 0;
   int64_t  phase_delta_us = 0;
-  if (!align_pps_utc(pps_time_us, utc_second, phase_delta_us) || utc_second == 0) {
+  bool phase_aligned = align_pps_utc(pps_time_us, utc_second, phase_delta_us) && utc_second != 0;
+  if (!phase_aligned) {
     s_status.phase_aligned = false;
     s_status.last_phase_delta_us = phase_delta_us;
 
-    ESP_LOGW(TAG, "PPS received but cannot align with NMEA (delta=%lld us, have_nmea=%d)",
-             (long long)phase_delta_us, (int)s_have_nmea);
-    notify_state_change_if_needed();
-    return;
+    if (!estimate_pps_utc_from_holdover(pps_time_us, utc_second) || utc_second == 0) {
+      ESP_LOGW(TAG, "PPS received but cannot align with NMEA or holdover (delta=%lld us, have_nmea=%d)",
+               (long long)phase_delta_us, (int)s_have_nmea);
+      notify_state_change_if_needed();
+      return;
+    }
+  } else {
+    s_status.phase_aligned = true;
+    s_status.last_phase_delta_us = phase_delta_us;
   }
-
-  s_status.phase_aligned = true;
-  s_status.last_phase_delta_us = phase_delta_us;
 
   // GPS режим: якорь = точный PPS
   set_anchor(TimeSource::GPS_PPS, (int64_t)utc_second * 1000000LL, pps_time_us);
