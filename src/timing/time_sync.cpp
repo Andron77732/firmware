@@ -13,7 +13,6 @@ static const char *TAG = "TimeSync";
 
 static TimeSyncStatus s_status{};
 static int64_t        s_last_synced_pps_us = 0;
-static bool           s_rtc_synced = false;
 static TimeSyncStateCallback s_state_callback = nullptr;
 static TimeSyncState s_last_state = TimeSyncState::NONE;
 
@@ -315,7 +314,6 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
 void time_sync_begin() {
   s_status = TimeSyncStatus{};
   s_last_synced_pps_us = 0;
-  s_rtc_synced = false;
 
   s_last_pps_count = 0;
   s_have_nmea = false;
@@ -759,7 +757,6 @@ void time_sync_update() {
       ESP_LOGI(TAG, "RTC set from PPS: %lu (aligned, age %lld us)",
                (unsigned long)s_rtc_pps_target_sec, (long long)age_us);
       s_last_rtc_pps_sync_us = now_us;
-      s_rtc_synced = true;
     }
     s_rtc_pps_pending = false;
   }
