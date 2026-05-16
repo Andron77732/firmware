@@ -36,8 +36,12 @@ void rtc_sqw_begin(int gpio, int edge_mode) {
 }
 
 bool rtc_sqw_get_raw(int64_t &edge_esp_us, uint32_t &count) {
-  int64_t  t = s_last_edge_us;
-  uint32_t c = s_count;
+  int64_t  t = 0;
+  uint32_t c = 0;
+  noInterrupts();
+  t = s_last_edge_us;
+  c = s_count;
+  interrupts();
   if (t == 0 || c == 0) return false;
 
   edge_esp_us = t;
@@ -63,7 +67,10 @@ bool rtc_sqw_get_raw(int64_t &edge_esp_us, uint32_t &count) {
 
 bool rtc_sqw_is_locked() {
   int64_t now  = esp_timer_get_time();
-  int64_t last = s_last_edge_us;
+  int64_t last = 0;
+  noInterrupts();
+  last = s_last_edge_us;
+  interrupts();
 
   bool has_signal = (last != 0) && ((now - last) < kLossTimeoutUs);
   bool locked = has_signal && s_locked;
