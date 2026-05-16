@@ -131,6 +131,22 @@ static void set_anchor(TimeSource src, int64_t anchor_utc_us, int64_t anchor_esp
   }
 }
 
+static bool have_rtc_time_anchor() {
+  return s_have_rtc_anchor &&
+         (s_status.anchor_utc_us != 0) &&
+         (s_status.anchor_esp_us != 0);
+}
+
+static void set_rtc_status_from_anchor() {
+  if (have_rtc_time_anchor()) {
+    s_status.source = TimeSource::RTC;
+    s_status.synced = true;
+  } else {
+    s_status.source = TimeSource::NONE;
+    s_status.synced = false;
+  }
+}
+
 /**
  * Определяем, какая UTC секунда соответствует данному PPS.
  *
@@ -446,8 +462,7 @@ void time_sync_update() {
         ESP_LOGI(TAG, "RTC SQW warmup: signal present, waiting lock...");
       }
 
-      s_status.source = TimeSource::RTC;
-      s_status.synced = true;
+      set_rtc_status_from_anchor();
       notify_state_change_if_needed();
       return;
     }
@@ -491,8 +506,7 @@ void time_sync_update() {
         // -----------------------------------------------------------------------
         // 1) Переякоривание по rtc.unixTime() РАЗ В kRtcResyncPeriodUs (10 сек)
         // -----------------------------------------------------------------------
-        const bool have_rtc_anchor =
-            s_have_rtc_anchor && (s_status.anchor_utc_us != 0) && (s_status.anchor_esp_us != 0);
+        const bool have_rtc_anchor = have_rtc_time_anchor();
 
         bool need_reanchor =
             !have_rtc_anchor ||
@@ -514,8 +528,7 @@ void time_sync_update() {
                      (unsigned)s_rtc_fallback_ticks, (long long)age_us);
             s_logged_rtc_anchor_wait = true;
           }
-          s_status.source = TimeSource::RTC;
-          s_status.synced = true;
+          set_rtc_status_from_anchor();
           notify_state_change_if_needed();
           return;
         }
@@ -550,8 +563,7 @@ void time_sync_update() {
                      (unsigned)s_rtc_fallback_ticks, (long long)age_us);
             s_logged_rtc_anchor_wait = true;
           }
-          s_status.source = TimeSource::RTC;
-          s_status.synced = true;
+          set_rtc_status_from_anchor();
           notify_state_change_if_needed();
           return;
         }
@@ -633,8 +645,7 @@ void time_sync_update() {
       }
     }
 
-    s_status.source = TimeSource::RTC;
-    s_status.synced = true;
+    set_rtc_status_from_anchor();
     notify_state_change_if_needed();
     return;
   }
