@@ -208,12 +208,17 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
     pps_utc_sec_out = s_last_nmea_utc_sec;
   }
 
-  // Если системное время уже синхронизировано, не принимаем резкие скачки
+  // Если время уже синхронизировано, не принимаем резкие скачки
   // кандидата UTC от PPS, чтобы отфильтровать поздние/битые NMEA.
+  // При auto_sync=false системные часы могут не обновляться, поэтому
+  // сравниваем с UTC-оценкой по текущему якорю, а не только с gettimeofday().
   if (s_status.synced) {
-    timeval tv{};
-    gettimeofday(&tv, nullptr);
-    int64_t current_us = (int64_t)tv.tv_sec * 1000000LL + (int64_t)tv.tv_usec;
+    int64_t current_us = 0;
+    if (!time_sync_esp_to_utc_us(pps_esp_us, current_us)) {
+      timeval tv{};
+      gettimeofday(&tv, nullptr);
+      current_us = (int64_t)tv.tv_sec * 1000000LL + (int64_t)tv.tv_usec;
+    }
     int64_t candidate_us = (int64_t)pps_utc_sec_out * 1000000LL;
     if (llabs(candidate_us - current_us) > kGpsCandidateJumpGuardUs) {
       return false;
