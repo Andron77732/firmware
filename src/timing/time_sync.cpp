@@ -35,6 +35,8 @@ static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
 static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
 static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
 static constexpr uint32_t kMinValidUnixSec = 1577836800UL;          // 2020-01-01 00:00:00 UTC
+static constexpr int64_t kPpsIntervalToleranceUs = 150000;          // 150 ms
+static constexpr int64_t kPpsIntervalRebaselineGapUs = 5000000;     // 5 s
 
 // Анти-±1с защита: якорь считаем "свежим" только в пределах окна
 static constexpr int64_t kAnchorFreshnessUs = 3000000; // 3 секунды
@@ -67,6 +69,8 @@ static int64_t  s_last_sqw_edge_us = 0; // последний обработан
 static constexpr int64_t kSqwAgeWindowUs = 900000; // если обработали позже — лучше не переякориваться
 static bool s_in_rtc_fallback = false;
 static bool s_have_rtc_anchor = false;
+static bool s_have_rtc_sqw_utc_offset = false;
+static int64_t s_rtc_sqw_utc_offset_us = 0;
 
 static bool s_logged_no_sqw = false;
 static bool s_prev_sqw_locked = false;
@@ -80,6 +84,12 @@ static bool s_rtc_fallback_guard_failed = false;
 static uint8_t s_rtc_fallback_large_step_skips = 0;
 static uint8_t s_rtc_fallback_ticks = 0;
 static bool s_logged_rtc_anchor_wait = false;
+
+struct PpsSqwSample {
+  bool has_sample = false;
+  bool sqw_locked = false;
+  int64_t sqw_utc_offset_us = 0;
+};
 
 static bool is_auto_sync_enabled() {
   return settings.getSync().auto_sync;
@@ -182,14 +192,74 @@ static bool estimate_pps_utc_from_holdover(int64_t pps_esp_us, uint32_t &utc_sec
   return utc_us_to_nearest_second(system_utc_us, utc_sec_out);
 }
 
+static int64_t round_to_nearest_second_us(int64_t utc_us) {
+  if (utc_us >= 0)
+    return ((utc_us + 500000LL) / 1000000LL) * 1000000LL;
+  return ((utc_us - 500000LL) / 1000000LL) * 1000000LL;
+}
+
+static int64_t apply_known_sqw_utc_offset(int64_t sqw_utc_est_us) {
+  if (!s_have_rtc_sqw_utc_offset)
+    return sqw_utc_est_us;
+
+  int64_t pps_second_us =
+      round_to_nearest_second_us(sqw_utc_est_us - s_rtc_sqw_utc_offset_us);
+  return pps_second_us + s_rtc_sqw_utc_offset_us;
+}
+
+static bool system_time_at_esp_time_us(int64_t esp_us, int64_t now_us, int64_t &utc_us_out) {
+  if (!is_auto_sync_enabled())
+    return false;
+
+  timeval tv{};
+  gettimeofday(&tv, nullptr);
+  if (tv.tv_sec < (time_t)kMinValidUnixSec)
+    return false;
+
+  int64_t age_us = now_us - esp_us;
+  if (age_us < 0)
+    return false;
+
+  utc_us_out = (int64_t)tv.tv_sec * 1000000LL + (int64_t)tv.tv_usec - age_us;
+  return utc_us_out >= (int64_t)kMinValidUnixSec * 1000000LL;
+}
+
+static bool pps_interval_is_plausible(int64_t pps_esp_us,
+                                      int64_t &period_us_out,
+                                      int64_t &period_error_us_out) {
+  period_us_out = 0;
+  period_error_us_out = 0;
+
+  if (s_status.last_pps_timestamp_us == 0)
+    return true;
+
+  int64_t period_us = pps_esp_us - s_status.last_pps_timestamp_us;
+  period_us_out = period_us;
+
+  if (period_us <= 0)
+    return false;
+
+  // После настоящей потери PPS первый новый lock становится новым baseline.
+  if (period_us > kPpsIntervalRebaselineGapUs)
+    return true;
+
+  int64_t periods = (period_us + 500000LL) / 1000000LL;
+  if (periods < 1)
+    periods = 1;
+
+  period_error_us_out = period_us - periods * 1000000LL;
+  return llabs(period_error_us_out) <= kPpsIntervalToleranceUs;
+}
+
 // Log delta pps - sqw
-static void log_pps_sqw_delta(int64_t pps_esp_us, uint32_t pps_count) {
+static PpsSqwSample log_pps_sqw_delta(int64_t pps_esp_us, uint32_t pps_count) {
+  PpsSqwSample sample{};
   int64_t sqw_edge_us = 0;
   uint32_t sqw_count = 0;
   if (!rtc_sqw_get_raw(sqw_edge_us, sqw_count)) {
     ESP_LOGD(TAG, "PPS/SQW delta unavailable: no SQW edge (pps=%lld, pps_cnt=%lu)",
              (long long)pps_esp_us, (unsigned long)pps_count);
-    return;
+    return sample;
   }
 
   int64_t raw_delta_us = pps_esp_us - sqw_edge_us;
@@ -200,14 +270,42 @@ static void log_pps_sqw_delta(int64_t pps_esp_us, uint32_t pps_count) {
     phase_delta_us += 1000000LL;
   }
 
-  ESP_LOGI(TAG,
-           "PPS/SQW delta_us=%lld raw_delta_us=%lld (pps=%lld cnt=%lu, sqw=%lld cnt=%lu)",
+  int64_t sqw_utc_offset_us = -phase_delta_us;
+  bool sqw_locked = rtc_sqw_is_locked();
+  sample.has_sample = true;
+  sample.sqw_locked = sqw_locked;
+  sample.sqw_utc_offset_us = sqw_utc_offset_us;
+
+  ESP_LOGV(TAG,
+           "PPS/SQW candidate: delta_us=%lld raw_delta_us=%lld candidate_sqw_utc_offset_us=%lld locked=%d (pps=%lld cnt=%lu, sqw=%lld cnt=%lu)",
            (long long)phase_delta_us,
            (long long)raw_delta_us,
+           (long long)sqw_utc_offset_us,
+           (int)sqw_locked,
            (long long)pps_esp_us,
            (unsigned long)pps_count,
            (long long)sqw_edge_us,
            (unsigned long)sqw_count);
+  return sample;
+}
+
+static bool accept_pps_sqw_offset(const PpsSqwSample &sample, int64_t pps_esp_us, uint32_t pps_count) {
+  if (!sample.has_sample || !sample.sqw_locked)
+    return false;
+
+  if (s_have_rtc_sqw_utc_offset &&
+      sample.sqw_utc_offset_us == s_rtc_sqw_utc_offset_us) {
+    return true;
+  }
+
+  s_rtc_sqw_utc_offset_us = sample.sqw_utc_offset_us;
+  s_have_rtc_sqw_utc_offset = true;
+  ESP_LOGV(TAG,
+           "RTC SQW offset accepted: sqw_utc_offset_us=%lld pps=%lld cnt=%lu",
+           (long long)s_rtc_sqw_utc_offset_us,
+           (long long)pps_esp_us,
+           (unsigned long)pps_count);
+  return true;
 }
 
 /**
@@ -388,6 +486,8 @@ void time_sync_begin() {
   s_rtc_anchor_sqw_count = 0;
   s_last_sqw_edge_us = 0;
   s_have_rtc_anchor = false;
+  s_have_rtc_sqw_utc_offset = false;
+  s_rtc_sqw_utc_offset_us = 0;
   rtc_sqw_begin(RTC_SQW_PIN, FALLING);
 
   s_in_rtc_fallback = false;
@@ -594,15 +694,37 @@ void time_sync_update() {
         }
 
         if (need_reanchor && allow_reanchor_now) {
-          uint32_t rtc_sec = rtc.unixTime();
-          int64_t rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
+          int64_t rtc_utc_us = 0;
+          const char *anchor_source = "system";
 
-          // ---- анти-±1 сек защита (оставляем твою) ----
-          int64_t est_utc_us = 0;
-          if (time_sync_esp_to_utc_us(sqw_edge_us, est_utc_us)) {
-            int64_t diff = rtc_utc_us - est_utc_us;
-            if (diff > 500000 && diff < 1500000)            rtc_utc_us -= 1000000LL;
-            else if (diff < -500000 && diff > -1500000)     rtc_utc_us += 1000000LL;
+          if (system_time_at_esp_time_us(sqw_edge_us, now_us, rtc_utc_us)) {
+            rtc_utc_us = apply_known_sqw_utc_offset(rtc_utc_us);
+            anchor_source = s_have_rtc_sqw_utc_offset ? "system+sqw_offset" : "system";
+          } else {
+            uint32_t rtc_sec = rtc.unixTime();
+            rtc_utc_us = (int64_t)rtc_sec * 1000000LL;
+            if (s_have_rtc_sqw_utc_offset) {
+              rtc_utc_us += s_rtc_sqw_utc_offset_us;
+            }
+            anchor_source = s_have_rtc_sqw_utc_offset ? "rtc+sqw_offset" : "rtc";
+
+            // ---- анти-±1 сек защита для холодного RTC fallback ----
+            int64_t est_utc_us = 0;
+            if (time_sync_esp_to_utc_us(sqw_edge_us, est_utc_us)) {
+              int64_t diff = rtc_utc_us - est_utc_us;
+              if (diff > 500000 && diff < 1500000)            rtc_utc_us -= 1000000LL;
+              else if (diff < -500000 && diff > -1500000)     rtc_utc_us += 1000000LL;
+            }
+          }
+
+          if (!have_rtc_anchor || s_rtc_anchor_sqw_count == 0) {
+            ESP_LOGI(TAG,
+                     "RTC fallback anchor from %s: utc=%lld sqw=%lld age_us=%lld offset_us=%lld",
+                     anchor_source,
+                     (long long)rtc_utc_us,
+                     (long long)sqw_edge_us,
+                     (long long)age_us,
+                     (long long)(s_have_rtc_sqw_utc_offset ? s_rtc_sqw_utc_offset_us : 0));
           }
 
           set_anchor(TimeSource::RTC, rtc_utc_us, sqw_edge_us);
@@ -755,10 +877,26 @@ void time_sync_update() {
     return;
   }
   s_last_pps_count = pps_count;
-  log_pps_sqw_delta(pps_time_us, pps_count);
+  PpsSqwSample pps_sqw_sample = log_pps_sqw_delta(pps_time_us, pps_count);
 
   // Уже синхронизировали этот PPS (доп. защита)
   if (pps_time_us == s_last_synced_pps_us) {
+    notify_state_change_if_needed();
+    return;
+  }
+
+  int64_t pps_period_us = 0;
+  int64_t pps_period_error_us = 0;
+  if (!pps_interval_is_plausible(pps_time_us, pps_period_us, pps_period_error_us)) {
+    ESP_LOGW(TAG,
+             "PPS rejected: bad interval period_us=%lld error_us=%lld last_accepted=%lld pps=%lld cnt=%lu candidate_sqw_utc_offset_us=%lld discarded=%d",
+             (long long)pps_period_us,
+             (long long)pps_period_error_us,
+             (long long)s_status.last_pps_timestamp_us,
+             (long long)pps_time_us,
+             (unsigned long)pps_count,
+             (long long)(pps_sqw_sample.has_sample ? pps_sqw_sample.sqw_utc_offset_us : 0),
+             (int)pps_sqw_sample.has_sample);
     notify_state_change_if_needed();
     return;
   }
@@ -783,6 +921,7 @@ void time_sync_update() {
   }
 
   // GPS режим: якорь = точный PPS
+  (void)accept_pps_sqw_offset(pps_sqw_sample, pps_time_us, pps_count);
   set_anchor(TimeSource::GPS_PPS, (int64_t)utc_second * 1000000LL, pps_time_us);
 
   // Возврат из RTC fallback (один раз)
