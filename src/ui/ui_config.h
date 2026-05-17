@@ -67,6 +67,7 @@
 #define UI_STATUS_BAR_COLOR_ICON_BLUETOOTH_ACTIVE   TFT_BLUE
 #define UI_STATUS_BAR_COLOR_ICON_GPS_ACTIVE         TFT_GREEN
 #define UI_STATUS_BAR_COLOR_ICON_GPS_SEARCHING      TFT_YELLOW
+#define UI_STATUS_BAR_COLOR_ICON_BATTERY_CHARGING   TFT_GREEN
 
 // Пороговые значения RSSI для определения уровня сигнала WiFi (в dBm)
 // Уровень 4 (отличный): > UI_WIFI_RSSI_LEVEL_4

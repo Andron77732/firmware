@@ -43,7 +43,11 @@
 static_assert((INA226_SHUNT_OHMS * INA226_MAX_CURRENT_A) <= 0.0819f,
               "INA226 config invalid: maxCurrent * shunt must be <= 0.0819V");
 // Целевой период обновления по DATA_READY (примерно): 1000 = ~1 сек, 5000 = ~5 сек.
-#define INA226_SAMPLE_PERIOD_MS 10000UL
+#define INA226_SAMPLE_PERIOD_MS 1000UL
+// Отрицательный ток ниже этого порога считаем зарядкой.
+#define INA226_CHARGING_CURRENT_THRESHOLD_A 0.020f
+static_assert(INA226_CHARGING_CURRENT_THRESHOLD_A > 0.0f,
+              "INA226 charging threshold must be positive");
 
 // --- INA226 battery level thresholds (Li-ion 2S) ---
 #define INA226_BAT_CRITICAL_MAX_V   6.6f

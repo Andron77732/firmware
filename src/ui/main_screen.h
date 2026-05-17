@@ -32,7 +32,7 @@ public:
     void postGpsState(GPSState state);
     void postTimeSyncState(TimeSyncState state);
     void postSats(int8_t sats);
-    void postBatteryLevel(InaBatteryLevel level);
+    void postBatteryState(InaBatteryLevel level, bool charging);
 
 private:
     enum DirtyBit : uint32_t {
@@ -41,7 +41,7 @@ private:
         DIRTY_GPS = 1u << 2,
         DIRTY_TIME_SYNC = 1u << 3,
         DIRTY_SATS = 1u << 4,
-        DIRTY_BATTERY_LEVEL = 1u << 5,
+        DIRTY_BATTERY = 1u << 5,
     };
 
     struct PendingState {
@@ -52,6 +52,7 @@ private:
         TimeSyncState timeSyncState = TimeSyncState::NONE;
         int8_t sats = -1;
         InaBatteryLevel batteryLevel = InaBatteryLevel::NoData;
+        bool batteryCharging = false;
         uint32_t dirtyMask = 0;
     };
 

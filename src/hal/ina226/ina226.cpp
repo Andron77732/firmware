@@ -90,6 +90,7 @@ bool Ina226Hal::begin(TwoWire& wire) {
     _power = NAN;
     _batteryLevel = InaBatteryLevel::NoData;
     _batteryPercent = -1;
+    _batteryCharging = false;
     _dataReadyFlag = false;
 
     if (!_sensor.setAverage(kIna226BootstrapAverage)) {
@@ -193,8 +194,9 @@ bool Ina226Hal::begin(TwoWire& wire) {
     return true;
 }
 
-void Ina226Hal::setLevelChangedCallback(InaLevelChangedCallback callback) {
-    _levelChangedCallback = callback;
+void Ina226Hal::setBatteryStateChangedCallback(
+    InaBatteryStateChangedCallback callback) {
+    _batteryStateChangedCallback = callback;
 }
 
 void Ina226Hal::update() {
@@ -242,7 +244,7 @@ bool Ina226Hal::readAndPublishSample_() {
         _busVoltage = NAN;
         _current = NAN;
         _power = NAN;
-        publishLevelIfChanged_(InaBatteryLevel::NoData, -1);
+        publishBatteryState_(InaBatteryLevel::NoData, -1, false);
         ESP_LOGW(TAG, "%s", _lastError);
         return false;
     }
@@ -257,7 +259,8 @@ bool Ina226Hal::readAndPublishSample_() {
 
     const InaBatteryLevel nextLevel = applyHysteresis_(busVoltage);
     const int percent = percentFromVoltage_(busVoltage);
-    publishLevelIfChanged_(nextLevel, percent);
+    const bool charging = current <= -INA226_CHARGING_CURRENT_THRESHOLD_A;
+    publishBatteryState_(nextLevel, percent, charging);
     return true;
 }
 
@@ -329,15 +332,19 @@ int Ina226Hal::percentFromVoltage_(float voltage) const {
     return percent;
 }
 
-void Ina226Hal::publishLevelIfChanged_(InaBatteryLevel level, int percent) {
-    if (level == _batteryLevel && percent == _batteryPercent) {
+void Ina226Hal::publishBatteryState_(InaBatteryLevel level,
+                                     int percent,
+                                     bool charging) {
+    if (level == _batteryLevel && percent == _batteryPercent &&
+        charging == _batteryCharging && !charging) {
         return;
     }
 
     _batteryLevel = level;
     _batteryPercent = percent;
-    if (_levelChangedCallback) {
-        _levelChangedCallback(level, percent);
+    _batteryCharging = charging;
+    if (_batteryStateChangedCallback) {
+        _batteryStateChangedCallback(level, percent, charging);
     }
 }
 

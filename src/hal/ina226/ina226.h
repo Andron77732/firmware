@@ -14,7 +14,9 @@ enum class InaBatteryLevel : uint8_t {
     Full = 5,
 };
 
-using InaLevelChangedCallback = void (*)(InaBatteryLevel level, int percent);
+using InaBatteryStateChangedCallback = void (*)(InaBatteryLevel level,
+                                                int percent,
+                                                bool charging);
 
 class Ina226Hal {
 public:
@@ -26,6 +28,7 @@ public:
 
     bool isReady() const { return _initialized; }
     bool hasValidSample() const { return _hasValidSample; }
+    bool isCharging() const { return _batteryCharging; }
 
     float getBusVoltage() const { return _busVoltage; }  // V
     float getCurrent() const { return _current; }        // A
@@ -34,7 +37,7 @@ public:
     int batteryPercent() const { return _batteryPercent; }  // -1 = no data
 
     const char* lastError() const { return _lastError; }
-    void setLevelChangedCallback(InaLevelChangedCallback callback);
+    void setBatteryStateChangedCallback(InaBatteryStateChangedCallback callback);
 
     static void IRAM_ATTR onAlertIsr();
 
@@ -49,9 +52,10 @@ private:
     float _power = NAN;
     volatile InaBatteryLevel _batteryLevel = InaBatteryLevel::NoData;
     int _batteryPercent = -1;
+    bool _batteryCharging = false;
     static volatile bool _dataReadyFlag;
 
-    InaLevelChangedCallback _levelChangedCallback = nullptr;
+    InaBatteryStateChangedCallback _batteryStateChangedCallback = nullptr;
 
     static constexpr size_t ERROR_BUFFER_SIZE = 96;
     char _lastError[ERROR_BUFFER_SIZE] = {0};
@@ -61,7 +65,9 @@ private:
     InaBatteryLevel levelFromVoltage_(float voltage) const;
     InaBatteryLevel applyHysteresis_(float voltage) const;
     int percentFromVoltage_(float voltage) const;
-    void publishLevelIfChanged_(InaBatteryLevel level, int percent);
+    void publishBatteryState_(InaBatteryLevel level,
+                              int percent,
+                              bool charging);
 
     void clearError_();
     void setError_(const char* message);

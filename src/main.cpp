@@ -84,8 +84,8 @@ void onTimeSyncStateChanged(TimeSyncState state) {
   mainScreen.postTimeSyncState(state);
 }
 
-void onBatteryLevelChanged(InaBatteryLevel level, int percent) {
-  mainScreen.postBatteryLevel(level);
+void onBatteryStateChanged(InaBatteryLevel level, int percent, bool charging) {
+  mainScreen.postBatteryState(level, charging);
   if (percent > 100) percent = 100;
   if (percent < 0) percent = 0;
   batteryService.setLevel(static_cast<uint8_t>(percent));
@@ -263,12 +263,12 @@ void setup() {
 
   // Инициализация INA226
   mainArea.addLogLine("Initializing INA226...");
-  ina226.setLevelChangedCallback(onBatteryLevelChanged);
+  ina226.setBatteryStateChangedCallback(onBatteryStateChanged);
   if (ina226.begin()) {
     mainArea.addLogLine("INA226 initialized");
   } else {
     mainArea.addLogLine("WARN: INA226 init failed");
-    mainScreen.postBatteryLevel(InaBatteryLevel::NoData);
+    mainScreen.postBatteryState(InaBatteryLevel::NoData, false);
   }
 
   // PPS синхронизация от GPS

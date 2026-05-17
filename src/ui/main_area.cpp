@@ -358,10 +358,10 @@ void MainArea::drawBatteryInfo() {
     }
 
     char line[32];
-    snprintf(line, sizeof(line), "Volt: %.2f V", ina226.getBusVoltage());
+    snprintf(line, sizeof(line), "Volt:  %.2f V", ina226.getBusVoltage());
     printRow(line);
 
-    snprintf(line, sizeof(line), "Curr: %+.3f A", ina226.getCurrent());
+    snprintf(line, sizeof(line), "Curr:  %+.3f A", ina226.getCurrent());
     printRow(line);
 
     snprintf(line, sizeof(line), "Power: %+.3f W", ina226.getPower());
@@ -369,9 +369,9 @@ void MainArea::drawBatteryInfo() {
 
     const int percent = ina226.batteryPercent();
     if (percent >= 0) {
-        snprintf(line, sizeof(line), "Batt: %d%%", percent);
+        snprintf(line, sizeof(line), "Batt:  %d%%", percent);
     } else {
-        snprintf(line, sizeof(line), "Batt: no data");
+        snprintf(line, sizeof(line), "Batt:  no data");
     }
     printRow(line);
 

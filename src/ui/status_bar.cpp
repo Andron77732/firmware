@@ -16,6 +16,8 @@ void StatusBar::init(TFT_eSPI& tft) {
     _wifiSignalLevel = 255;
     _gpsState = GPSState::OFF;
     _batteryLevel = InaBatteryLevel::NoData;
+    _batteryCharging = false;
+    _batteryChargeFrame = 0;
     _hasTime = false;
     _touchCapturedTarget = UiTouchTarget::None;
     _time = {};
@@ -184,6 +186,25 @@ void StatusBar::drawGpsValue(GPSState state) {
 }
 
 void StatusBar::drawBatteryValue(InaBatteryLevel level) {
+    if (_batteryCharging) {
+        const uint8_t* bitmap = ICON_BAT_LOW;
+        switch (_batteryChargeFrame % 3) {
+            case 0:
+                bitmap = ICON_BAT_LOW;
+                break;
+            case 1:
+                bitmap = ICON_BAT_MID;
+                break;
+            case 2:
+            default:
+                bitmap = ICON_BAT_FULL;
+                break;
+        }
+        drawIconBattery(bitmap, UI_STATUS_BAR_COLOR_ICON_BATTERY_CHARGING,
+                        UI_STATUS_BAR_COLOR_BACKGROUND);
+        return;
+    }
+
     const uint8_t* bitmap = ICON_BAT_EMPTY;
     uint16_t color = UI_STATUS_BAR_COLOR_ICON_INACTIVE;
 
@@ -253,14 +274,31 @@ void StatusBar::updateGPSIcon(GPSState state) {
     drawGpsValue(_gpsState);
 }
 
-void StatusBar::updateBatteryLevel(InaBatteryLevel level) {
+void StatusBar::updateBatteryIcon(InaBatteryLevel level, bool charging) {
     if (!_tft) return;
 
-    if (level == _batteryLevel) {
+    if (!charging && level == _batteryLevel && !_batteryCharging) {
+        return;
+    }
+
+    if (!charging) {
+        _batteryLevel = level;
+        _batteryCharging = false;
+        _batteryChargeFrame = 0;
+        drawBatteryValue(_batteryLevel);
+        return;
+    }
+
+    if (!_batteryCharging) {
+        _batteryLevel = level;
+        _batteryCharging = true;
+        _batteryChargeFrame = 0;
+        drawBatteryValue(_batteryLevel);
         return;
     }
 
     _batteryLevel = level;
+    _batteryChargeFrame = (_batteryChargeFrame + 1) % 3;
     drawBatteryValue(_batteryLevel);
 }
 

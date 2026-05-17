@@ -66,7 +66,7 @@ public:
      */
     void updateGPSIcon(GPSState state);
 
-    void updateBatteryLevel(InaBatteryLevel level);
+    void updateBatteryIcon(InaBatteryLevel level, bool charging);
 
     /**
      * @brief Обработчик touch-событий
@@ -81,6 +81,8 @@ private:
     uint8_t _wifiSignalLevel = 255; // 0-4 для уровней сигнала, 255 = не определен
     GPSState _gpsState = GPSState::OFF;
     InaBatteryLevel _batteryLevel = InaBatteryLevel::NoData;
+    bool _batteryCharging = false;
+    uint8_t _batteryChargeFrame = 0;
     bool _hasTime = false;
     UiTouchTarget _touchCapturedTarget = UiTouchTarget::None;
     tm _time = {};

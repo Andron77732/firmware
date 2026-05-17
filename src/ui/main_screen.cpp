@@ -53,8 +53,9 @@ void MainScreen::update() {
     if (snapshot.dirtyMask & DIRTY_SATS) {
         footer->updateSats(snapshot.sats);
     }
-    if (snapshot.dirtyMask & DIRTY_BATTERY_LEVEL) {
-        statusBar->updateBatteryLevel(snapshot.batteryLevel);
+    if (snapshot.dirtyMask & DIRTY_BATTERY) {
+        statusBar->updateBatteryIcon(snapshot.batteryLevel,
+                                     snapshot.batteryCharging);
     }
 }
 
@@ -104,11 +105,14 @@ void MainScreen::postSats(int8_t sats) {
     portEXIT_CRITICAL(&_pendingMux);
 }
 
-void MainScreen::postBatteryLevel(InaBatteryLevel level) {
+void MainScreen::postBatteryState(InaBatteryLevel level, bool charging) {
     portENTER_CRITICAL(&_pendingMux);
-    if (_pending.batteryLevel != level) {
+    if (_pending.batteryLevel != level ||
+        _pending.batteryCharging != charging ||
+        charging) {
         _pending.batteryLevel = level;
-        _pending.dirtyMask |= DIRTY_BATTERY_LEVEL;
+        _pending.batteryCharging = charging;
+        _pending.dirtyMask |= DIRTY_BATTERY;
     }
     portEXIT_CRITICAL(&_pendingMux);
 }
