@@ -251,17 +251,42 @@ void cmdStatus(JsonDocument& request, Stream& output) {
             break;
     }
     gps_obj["state"] = gps_state_str;
-    gps_obj["fix"] = gps.nmea().isValid();
-    gps_obj["satellites"] = gps.nmea().getNumSatellites();
+    gps_obj["fix"] = gps.nmea().isValid() && gps.nmeaFresh();
+    gps_obj["satellites"] = gps.nmeaFresh() ? gps.nmea().getNumSatellites() : -1;
     gps_obj["pps_signal"] = pps_is_locked();
+    int64_t now_us = esp_timer_get_time();
     int64_t gps_fix_us = gps.lastFixUs();
     if (gps_fix_us > 0) {
-        int64_t now_us = esp_timer_get_time();
         int64_t age_ms = (now_us - gps_fix_us) / 1000;
         if (age_ms < 0) {
             age_ms = 0;
         }
         gps_obj["fix_age_ms"] = age_ms;
+    }
+    int64_t nmea_us = 0;
+    if (gps.lastSentenceUs(nmea_us)) {
+        int64_t age_ms = (now_us - nmea_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        gps_obj["nmea_age_ms"] = age_ms;
+    }
+    int64_t utc_us = 0;
+    if (gps.lastUtcUpdateUs(utc_us)) {
+        int64_t age_ms = (now_us - utc_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        gps_obj["utc_age_ms"] = age_ms;
+    }
+    int64_t pps_us = 0;
+    uint32_t pps_count = 0;
+    if (pps_get_raw(pps_us, pps_count)) {
+        int64_t age_ms = (now_us - pps_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        gps_obj["pps_age_ms"] = age_ms;
     }
 
     JsonObject sync_obj = response["sync"].to<JsonObject>();

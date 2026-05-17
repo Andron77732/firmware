@@ -21,6 +21,9 @@ enum class GPSState : uint8_t {
  */
 class GPS {
 public:
+    static constexpr int64_t NMEA_STALE_US = 2500000LL;
+    static constexpr int64_t UTC_STALE_US = 2500000LL;
+
     /**
      * @brief Инициализация UART и парсера
      */
@@ -52,6 +55,28 @@ public:
      * @return true если есть валидная метка времени
      */
     bool lastUtcUpdateSentenceStartUs(int64_t &ts_us) const;
+
+    /**
+     * @brief Время последнего успешно обработанного NMEA-предложения
+     * @return true если есть валидная метка времени
+     */
+    bool lastSentenceUs(int64_t &ts_us) const;
+
+    /**
+     * @brief Время последнего обновления UTC из NMEA
+     * @return true если есть валидная метка времени
+     */
+    bool lastUtcUpdateUs(int64_t &ts_us) const;
+
+    /**
+     * @brief Проверка свежести NMEA потока
+     */
+    bool nmeaFresh(int64_t max_age_us = NMEA_STALE_US) const;
+
+    /**
+     * @brief Проверка свежести UTC данных из NMEA
+     */
+    bool utcFresh(int64_t max_age_us = UTC_STALE_US) const;
 
     /**
      * @brief Получить текущее состояние GPS
@@ -96,7 +121,9 @@ private:
 
     // Мягкий таймстампинг NMEA: время начала текущего предложения
     int64_t _current_sentence_start_us = 0;
+    int64_t _last_sentence_us = 0;
     int64_t _last_utc_update_sentence_start_us = 0;
+    int64_t _last_utc_update_us = 0;
     uint64_t _last_utc_signature = 0;
     bool _in_sentence = false;
 

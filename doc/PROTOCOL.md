@@ -263,7 +263,10 @@ V10:10:15#
 - `rtc.temperature_c` — температура датчика RTC
 - `gps.state` — состояние GPS: `"off"`, `"searching"`, `"active"`
 - `gps.fix_age_ms` — давность последнего фикса в мс
-- `gps.fix` — есть ли GPS фиксация
+- `gps.nmea_age_ms` — давность последнего обработанного NMEA-предложения в мс
+- `gps.utc_age_ms` — давность последнего обновления UTC из NMEA в мс
+- `gps.pps_age_ms` — давность последнего PPS фронта в мс
+- `gps.fix` — есть ли свежая GPS фиксация
 - `gps.satellites` — количество видимых спутников
 - `gps.pps_signal` — получен ли PPS сигнал от GPS
 - `sync.last_ms` — время последней синхронизации (мс)

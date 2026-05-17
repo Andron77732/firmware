@@ -129,6 +129,9 @@ static bool gps_time_to_unix(uint32_t &unix_sec) {
   if (!nmea.isValid())
     return false;
 
+  if (!gps.utcFresh(kNmeaFreshnessUs))
+    return false;
+
   uint16_t year   = nmea.getYear();
   uint8_t  month  = nmea.getMonth();
   uint8_t  day    = nmea.getDay();

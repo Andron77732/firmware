@@ -122,7 +122,14 @@ GPS/NTP или доверенного RTC anchor.
 Если GPS разрешён настройкой `sync.source`, код пытается получить текущую UTC
 секунду из MicroNMEA.
 
-Если UTC валиден:
+UTC принимается только если:
+
+- GPS готов;
+- NMEA валиден и свежий;
+- UTC update из NMEA свежий;
+- дата/время правдоподобны (год не раньше 2020).
+
+Если UTC принят:
 
 - `gps_time_valid=true`;
 - `last_nmea_utc_sec` обновляется для диагностики;
@@ -131,7 +138,7 @@ GPS/NTP или доверенного RTC anchor.
   - `s_last_nmea_esp_us` - timestamp начала NMEA-предложения, которое обновило
     UTC.
 
-Если GPS/NMEA невалиден, `s_have_nmea=false`.
+Если GPS/NMEA невалиден или UTC update устарел, `s_have_nmea=false`.
 
 ### 2. Проверка PPS lock
 

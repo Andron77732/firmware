@@ -29,12 +29,13 @@ void GPS::begin() {
 
 void GPS::update() {
     while (gpsSerial.available()) {
+        const int64_t now_us = esp_timer_get_time();
         char c = gpsSerial.read();
 
         // Мягкий таймстампинг: фиксируем старт предложения по '$'
         if (c == '$') {
             _in_sentence = true;
-            _current_sentence_start_us = esp_timer_get_time();
+            _current_sentence_start_us = now_us;
         }
 
         const int64_t sentence_start_us = _in_sentence ? _current_sentence_start_us : 0;
@@ -62,6 +63,12 @@ void GPS::update() {
         
         // Парсинг NMEA
         const bool processed_sentence = _nmea.process(c);
+        if (processed_sentence) {
+            _last_sentence_us = now_us;
+            if (_nmea.isValid()) {
+                _last_fix_us = now_us;
+            }
+        }
 
         uint64_t utc_after = 0;
         if (processed_sentence &&
@@ -71,11 +78,8 @@ void GPS::update() {
             utc_after != _last_utc_signature) {
             _last_utc_signature = utc_after;
             _last_utc_update_sentence_start_us = sentence_start_us;
+            _last_utc_update_us = now_us;
         }
-    }
-
-    if (_nmea.isValid()) {
-        _last_fix_us = esp_timer_get_time();
     }
 
     updateState_();
@@ -88,9 +92,33 @@ bool GPS::lastUtcUpdateSentenceStartUs(int64_t &ts_us) const {
     return true;
 }
 
+bool GPS::lastSentenceUs(int64_t &ts_us) const {
+    if (_last_sentence_us == 0) return false;
+    ts_us = _last_sentence_us;
+    return true;
+}
+
+bool GPS::lastUtcUpdateUs(int64_t &ts_us) const {
+    if (_last_utc_update_us == 0) return false;
+    ts_us = _last_utc_update_us;
+    return true;
+}
+
+bool GPS::nmeaFresh(int64_t max_age_us) const {
+    if (!_initialized || _last_sentence_us == 0) return false;
+    int64_t age_us = esp_timer_get_time() - _last_sentence_us;
+    return age_us >= 0 && age_us <= max_age_us;
+}
+
+bool GPS::utcFresh(int64_t max_age_us) const {
+    if (!_initialized || _last_utc_update_us == 0) return false;
+    int64_t age_us = esp_timer_get_time() - _last_utc_update_us;
+    return age_us >= 0 && age_us <= max_age_us;
+}
+
 GPSState GPS::getState() const {
     if (!_initialized) return GPSState::OFF;
-    return _nmea.isValid() ? GPSState::ACTIVE : GPSState::SEARCHING;
+    return (_nmea.isValid() && nmeaFresh()) ? GPSState::ACTIVE : GPSState::SEARCHING;
 }
 
 void GPS::setStateCallback(void (*callback)(GPSState state)) {
@@ -125,7 +153,7 @@ void GPS::notifySatsChanged_() {
 }
 
 int8_t GPS::currentSats_() const {
-    if (!_initialized || !_nmea.isValid()) {
+    if (!_initialized || !_nmea.isValid() || !nmeaFresh()) {
         return -1;
     }
 
