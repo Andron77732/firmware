@@ -8,7 +8,7 @@ static const char *TAG = "CommandParser";
 CommandParser::CommandParser(Stream &stream, const char *sourceName,
                              size_t bufferSize)
     : _stream(&stream), _sourceName(sourceName), _bufferSize(bufferSize),
-      _bufferPos(0) {
+      _bufferPos(0), _discarding(false) {
   _buffer = (char *)malloc(_bufferSize);
   if (!_buffer) {
     ESP_LOGE(TAG, "[%s] Failed to allocate buffer of size %u", _sourceName,
@@ -42,8 +42,30 @@ void CommandParser::update() {
     }
   }
 
+  if (_discarding) {
+    if (millis() - _frameStartMs > FRAME_TIMEOUT_MS) {
+      ESP_LOGW(TAG, "[%s] Discard timeout, resuming parser", _sourceName);
+      _discarding = false;
+      clearBuffer();
+    }
+    while (_stream->available() > 0) {
+      int c = _stream->read();
+      if (c < 0) {
+        break;
+      }
+      if (c == '\n') {
+        _discarding = false;
+        clearBuffer();
+        break;
+      }
+    }
+    if (_discarding) {
+      return;
+    }
+  }
+
   // Читаем доступные байты из потока
-  while (_stream->available() > 0 && _bufferPos < _bufferSize - 1) {
+  while (_stream->available() > 0) {
     int c = _stream->read();
     if (c < 0) {
       break;
@@ -58,10 +80,16 @@ void CommandParser::update() {
       _frameStartMs = millis();
     }
 
-    // Проверяем на переполнение буфера
     if (_bufferPos >= _bufferSize - 1) {
-      ESP_LOGW(TAG, "[%s] Buffer overflow, clearing buffer", _sourceName);
+      const bool terminatorSeen = (c == '\n');
+      ESP_LOGW(TAG, "[%s] Frame too large%s (limit=%u)",
+               _sourceName,
+               terminatorSeen ? "" : ", discarding until newline",
+               (unsigned)(_bufferSize - 1));
+      JsonVariant nullId;
+      sendError("", 104, "Frame too large", nullId, *_stream);
       clearBuffer();
+      _discarding = !terminatorSeen;
       return;
     }
 

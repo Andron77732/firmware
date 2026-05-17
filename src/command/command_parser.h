@@ -52,6 +52,7 @@ private:
     size_t _bufferPos;             // Текущая позиция в буфере
 
     uint32_t _frameStartMs = 0;     // Время начала приёма кадра
+    bool _discarding = false;       // Сбрасываем oversized кадр до \n
     static constexpr uint32_t FRAME_TIMEOUT_MS = 1000; // Таймаут
 };
 
