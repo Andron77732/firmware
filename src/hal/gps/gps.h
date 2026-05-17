@@ -10,6 +10,15 @@ enum class GPSState : uint8_t {
   ACTIVE = 2,
 };
 
+struct GPSSatelliteInfo {
+    char talker[3] = {0};
+    uint8_t prn = 0;
+    int8_t elevation_deg = -1;
+    int16_t azimuth_deg = -1;
+    int8_t snr_db = -1;
+    int64_t last_seen_us = 0;
+};
+
 /**
  * @brief Класс GPS NEO-M8N
  * 
@@ -23,6 +32,8 @@ class GPS {
 public:
     static constexpr int64_t NMEA_STALE_US = 2500000LL;
     static constexpr int64_t UTC_STALE_US = 2500000LL;
+    static constexpr int64_t SATELLITE_STALE_US = 15000000LL;
+    static constexpr uint8_t MAX_SATELLITES = 32;
 
     /**
      * @brief Инициализация UART и парсера
@@ -69,6 +80,12 @@ public:
     bool lastUtcUpdateUs(int64_t &ts_us) const;
 
     /**
+     * @brief Время последнего успешно обработанного GSV-предложения
+     * @return true если есть валидная метка времени
+     */
+    bool lastGsvUs(int64_t &ts_us) const;
+
+    /**
      * @brief Проверка свежести NMEA потока
      */
     bool nmeaFresh(int64_t max_age_us = NMEA_STALE_US) const;
@@ -88,6 +105,14 @@ public:
      * @return 0 если фикса еще не было
      */
     int64_t lastFixUs() const { return _last_fix_us; }
+
+    /**
+     * @brief Скопировать последние данные спутников из GSV.
+     * @return количество записей, скопированных в out
+     */
+    uint8_t satellites(GPSSatelliteInfo* out,
+                       uint8_t max_count,
+                       bool fresh_only = true) const;
 
     /**
      * @brief Установить callback для уведомления об изменении состояния GPS
@@ -127,12 +152,23 @@ private:
     uint64_t _last_utc_signature = 0;
     bool _in_sentence = false;
 
+    GPSSatelliteInfo _satellites[MAX_SATELLITES];
+    uint8_t _satellite_count = 0;
+    int64_t _last_gsv_us = 0;
+
     void notifyStateChanged_();
     void updateState_();
     void notifySatsChanged_();
     void updateSats_();
     int8_t currentSats_() const;
     bool readUtcSignature_(uint64_t &signature) const;
+    void parseGsvSentence_(const char* sentence, int64_t now_us);
+    void updateSatellite_(const char* talker,
+                          uint8_t prn,
+                          int8_t elevation_deg,
+                          int16_t azimuth_deg,
+                          int8_t snr_db,
+                          int64_t now_us);
 };
 
 // Глобальный объект GPS

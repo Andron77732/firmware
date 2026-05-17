@@ -2,6 +2,8 @@
 #include "config.h"
 #include "esp_log.h"
 #include <esp_timer.h>
+#include <stdlib.h>
+#include <string.h>
 
 static const char* TAG = "GPS";
 static const char* TAG_NMEA = "GPS][NMEA";  // Хак для вывода [GPS][NMEA]
@@ -17,6 +19,41 @@ static HardwareSerial gpsSerial(2);
 // Буфер для verbose вывода NMEA строки
 static char verboseLine[128];
 static uint8_t verboseIdx = 0;
+
+static bool readNmeaField_(const char*& cursor, char* out, size_t out_len) {
+    if (!cursor || *cursor == '\0' || *cursor == '*') {
+        return false;
+    }
+
+    size_t i = 0;
+    while (*cursor != '\0' && *cursor != ',' && *cursor != '*') {
+        if (i + 1 < out_len) {
+            out[i++] = *cursor;
+        }
+        ++cursor;
+    }
+    out[i] = '\0';
+
+    if (*cursor == ',') {
+        ++cursor;
+    }
+    return true;
+}
+
+static bool parseIntField_(const char* field, int& value) {
+    if (!field || *field == '\0') {
+        return false;
+    }
+
+    char* end = nullptr;
+    long parsed = strtol(field, &end, 10);
+    if (!end || *end != '\0') {
+        return false;
+    }
+
+    value = (int)parsed;
+    return true;
+}
 
 void GPS::begin(bool enabled) {
     if (_initialized) return;
@@ -61,6 +98,7 @@ void GPS::update() {
         if (c == '\n' || c == '\r') {
             if (verboseIdx > 0) {
                 verboseLine[verboseIdx] = '\0';
+                parseGsvSentence_(verboseLine, now_us);
                 ESP_LOGV(TAG_NMEA, "%s", verboseLine);
                 verboseIdx = 0;
             }
@@ -119,6 +157,12 @@ bool GPS::lastUtcUpdateUs(int64_t &ts_us) const {
     return true;
 }
 
+bool GPS::lastGsvUs(int64_t &ts_us) const {
+    if (_last_gsv_us == 0) return false;
+    ts_us = _last_gsv_us;
+    return true;
+}
+
 bool GPS::nmeaFresh(int64_t max_age_us) const {
     if (!_initialized || _last_sentence_us == 0) return false;
     int64_t age_us = esp_timer_get_time() - _last_sentence_us;
@@ -134,6 +178,32 @@ bool GPS::utcFresh(int64_t max_age_us) const {
 GPSState GPS::getState() const {
     if (!_initialized) return GPSState::OFF;
     return (_nmea.isValid() && nmeaFresh()) ? GPSState::ACTIVE : GPSState::SEARCHING;
+}
+
+uint8_t GPS::satellites(GPSSatelliteInfo* out,
+                        uint8_t max_count,
+                        bool fresh_only) const {
+    if (!out || max_count == 0) {
+        return 0;
+    }
+
+    const int64_t now_us = esp_timer_get_time();
+    uint8_t copied = 0;
+    for (uint8_t i = 0; i < _satellite_count && copied < max_count; ++i) {
+        const GPSSatelliteInfo& sat = _satellites[i];
+        if (sat.prn == 0) {
+            continue;
+        }
+        if (fresh_only) {
+            const int64_t age_us = now_us - sat.last_seen_us;
+            if (sat.last_seen_us == 0 || age_us < 0 ||
+                age_us > SATELLITE_STALE_US) {
+                continue;
+            }
+        }
+        out[copied++] = sat;
+    }
+    return copied;
 }
 
 void GPS::setStateCallback(void (*callback)(GPSState state)) {
@@ -206,6 +276,133 @@ bool GPS::readUtcSignature_(uint64_t &signature) const {
                 ((uint64_t)minute << 6) |
                 (uint64_t)second;
     return true;
+}
+
+void GPS::parseGsvSentence_(const char* sentence, int64_t now_us) {
+    if (!sentence || sentence[0] != '$' || strlen(sentence) < 7) {
+        return;
+    }
+
+    if (sentence[3] != 'G' || sentence[4] != 'S' || sentence[5] != 'V' ||
+        sentence[6] != ',') {
+        return;
+    }
+
+    const char* checksum = strchr(sentence, '*');
+    if (checksum && !MicroNMEA::testChecksum(sentence)) {
+        return;
+    }
+
+    char talker[3] = {sentence[1], sentence[2], '\0'};
+    const char* cursor = sentence + 7;
+    char field[8] = {0};
+    int total_messages = 0;
+    int message_number = 0;
+    int total_satellites = 0;
+
+    if (!readNmeaField_(cursor, field, sizeof(field)) ||
+        !parseIntField_(field, total_messages) ||
+        !readNmeaField_(cursor, field, sizeof(field)) ||
+        !parseIntField_(field, message_number) ||
+        !readNmeaField_(cursor, field, sizeof(field)) ||
+        !parseIntField_(field, total_satellites)) {
+        return;
+    }
+
+    if (total_messages <= 0 || message_number <= 0 ||
+        message_number > total_messages || total_satellites < 0) {
+        return;
+    }
+
+    _last_gsv_us = now_us;
+
+    while (*cursor != '\0' && *cursor != '*') {
+        int prn = 0;
+        int elevation = -1;
+        int azimuth = -1;
+        int snr = -1;
+
+        if (!readNmeaField_(cursor, field, sizeof(field)) ||
+            !parseIntField_(field, prn)) {
+            break;
+        }
+        if (!readNmeaField_(cursor, field, sizeof(field)) ||
+            !parseIntField_(field, elevation)) {
+            break;
+        }
+        if (!readNmeaField_(cursor, field, sizeof(field)) ||
+            !parseIntField_(field, azimuth)) {
+            break;
+        }
+        if (!readNmeaField_(cursor, field, sizeof(field))) {
+            break;
+        }
+        if (field[0] != '\0') {
+            if (!parseIntField_(field, snr)) {
+                break;
+            }
+        }
+
+        if (prn <= 0 || prn > 255 ||
+            elevation < 0 || elevation > 90 ||
+            azimuth < 0 || azimuth > 359 ||
+            snr > 99) {
+            continue;
+        }
+
+        updateSatellite_(talker,
+                         (uint8_t)prn,
+                         (int8_t)elevation,
+                         (int16_t)azimuth,
+                         (int8_t)snr,
+                         now_us);
+    }
+}
+
+void GPS::updateSatellite_(const char* talker,
+                           uint8_t prn,
+                           int8_t elevation_deg,
+                           int16_t azimuth_deg,
+                           int8_t snr_db,
+                           int64_t now_us) {
+    if (!talker || prn == 0) {
+        return;
+    }
+
+    uint8_t slot = MAX_SATELLITES;
+    for (uint8_t i = 0; i < _satellite_count; ++i) {
+        if (_satellites[i].prn == prn &&
+            _satellites[i].talker[0] == talker[0] &&
+            _satellites[i].talker[1] == talker[1]) {
+            slot = i;
+            break;
+        }
+    }
+
+    if (slot == MAX_SATELLITES) {
+        if (_satellite_count < MAX_SATELLITES) {
+            slot = _satellite_count++;
+        } else {
+            int64_t oldest_us = _satellites[0].last_seen_us;
+            slot = 0;
+            for (uint8_t i = 1; i < MAX_SATELLITES; ++i) {
+                if (_satellites[i].last_seen_us < oldest_us) {
+                    oldest_us = _satellites[i].last_seen_us;
+                    slot = i;
+                }
+            }
+        }
+    }
+
+    GPSSatelliteInfo& sat = _satellites[slot];
+    sat.talker[0] = talker[0];
+    sat.talker[1] = talker[1];
+    sat.talker[2] = '\0';
+    sat.prn = prn;
+    sat.elevation_deg = elevation_deg;
+    sat.azimuth_deg = azimuth_deg;
+    sat.snr_db = snr_db;
+    sat.last_seen_us = now_us;
 }
 
 void GPS::updateSats_() {
