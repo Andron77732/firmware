@@ -20,6 +20,7 @@ private:
   WiFiManager* _wifiManager = nullptr;
 
   MainAreaType resolveWorkingMainAreaType_() const;
+  void handleBatteryTap_();
   void handleStatusBarBackgroundTap_();
   void handleWiFiToggle_();
 };

@@ -1,8 +1,27 @@
 #include "main_area.h"
+#include "hal/ina226/ina226.h"
 #include "storage/settings.h"
 #include "esp_log.h"
 #include <string.h>
 static const char* TAG = "MainArea";
+
+static const char* batteryLevelText_(InaBatteryLevel level) {
+    switch (level) {
+        case InaBatteryLevel::Critical:
+            return "critical";
+        case InaBatteryLevel::Empty:
+            return "empty";
+        case InaBatteryLevel::Low:
+            return "low";
+        case InaBatteryLevel::Mid:
+            return "mid";
+        case InaBatteryLevel::Full:
+            return "full";
+        case InaBatteryLevel::NoData:
+        default:
+            return "no data";
+    }
+}
 
 void MainArea::init(TFT_eSPI& tft) {
     _tft = &tft;
@@ -117,6 +136,9 @@ void MainArea::draw() {
             break;
         case MainAreaType::FINISH:
             drawFinish();
+            break;
+        case MainAreaType::BATTERY:
+            drawBatteryInfo();
             break;
     }
 
@@ -297,6 +319,65 @@ void MainArea::drawFinishLines() {
         _canvas->print(".   ");
         _canvas->print(_finishLines[i]);
     }
+}
+
+void MainArea::drawBatteryInfo() {
+    if (!_canvas) return;
+
+    _canvas->setTextSize(UI_MAIN_AREA_POWER_TITLE_SIZE);
+    _canvas->setTextColor(TFT_CYAN, UI_MAIN_AREA_COLOR_BACKGROUND);
+    _canvas->setCursor(UI_MAIN_AREA_POWER_TITLE_X, canvasY(UI_MAIN_AREA_POWER_TITLE_Y));
+    _canvas->print("POWER");
+
+    _canvas->setTextSize(UI_MAIN_AREA_POWER_TEXT_SIZE);
+    _canvas->setTextColor(UI_MAIN_AREA_LOG_COLOR, UI_MAIN_AREA_COLOR_BACKGROUND);
+
+    uint16_t y = UI_MAIN_AREA_POWER_ROW_Y;
+    auto printRow = [&](const char* text) {
+        _canvas->setCursor(UI_MAIN_AREA_POWER_ROW_X, canvasY(y));
+        _canvas->print(text);
+        y += UI_MAIN_AREA_POWER_ROW_HEIGHT;
+    };
+
+    if (!ina226.isReady()) {
+        printRow("INA226: not ready");
+        return;
+    }
+
+    if (!ina226.hasValidSample()) {
+        printRow("INA226: no data");
+        const char* err = ina226.lastError();
+        if (err && err[0] != '\0') {
+            _canvas->setTextSize(UI_MAIN_AREA_LOG_TEXT_SIZE);
+            _canvas->setTextColor(UI_MAIN_AREA_LOG_COLOR_WARNING,
+                                  UI_MAIN_AREA_COLOR_BACKGROUND);
+            _canvas->setCursor(UI_MAIN_AREA_POWER_ROW_X, canvasY(y));
+            _canvas->print(err);
+        }
+        return;
+    }
+
+    char line[32];
+    snprintf(line, sizeof(line), "Volt: %.2f V", ina226.getBusVoltage());
+    printRow(line);
+
+    snprintf(line, sizeof(line), "Curr: %+.3f A", ina226.getCurrent());
+    printRow(line);
+
+    snprintf(line, sizeof(line), "Power: %+.3f W", ina226.getPower());
+    printRow(line);
+
+    const int percent = ina226.batteryPercent();
+    if (percent >= 0) {
+        snprintf(line, sizeof(line), "Batt: %d%%", percent);
+    } else {
+        snprintf(line, sizeof(line), "Batt: no data");
+    }
+    printRow(line);
+
+    snprintf(line, sizeof(line), "Level: %s",
+             batteryLevelText_(ina226.batteryLevel()));
+    printRow(line);
 }
 
 void MainArea::drawLogLines(const String* lines,

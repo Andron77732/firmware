@@ -14,7 +14,8 @@
 enum class MainAreaType {
     LOADING,  // Загрузка модуля
     START,    // Старт
-    FINISH    // Финиш
+    FINISH,   // Финиш
+    BATTERY   // Информация о питании
 };
 
 enum class StartCountdownMode {
@@ -153,6 +154,11 @@ private:
      * @brief Отрисовка режима финиш
      */
     void drawFinish();
+
+    /**
+     * @brief Отрисовка информации о питании
+     */
+    void drawBatteryInfo();
 
     /**
      * @brief Отрисовка списка отсечек финиша

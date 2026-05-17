@@ -140,6 +140,15 @@
 
 #define UI_MAIN_AREA_START_LIST_SPACING 6
 
+// Параметры отображения экрана питания
+#define UI_MAIN_AREA_POWER_TITLE_X      4
+#define UI_MAIN_AREA_POWER_TITLE_Y      8
+#define UI_MAIN_AREA_POWER_TITLE_SIZE   2
+#define UI_MAIN_AREA_POWER_ROW_X        4
+#define UI_MAIN_AREA_POWER_ROW_Y        40
+#define UI_MAIN_AREA_POWER_ROW_HEIGHT   24
+#define UI_MAIN_AREA_POWER_TEXT_SIZE    2
+
 // ============================================================================
 // Footer Settings
 // ============================================================================

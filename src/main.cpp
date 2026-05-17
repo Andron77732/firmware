@@ -44,6 +44,7 @@ MainArea mainArea;
 StatusBar statusBar;
 MainScreen mainScreen;
 TouchActionHandler touchActionHandler;
+uint32_t lastBatteryInfoRedrawMs = 0;
 } // namespace
 
 /**
@@ -88,6 +89,22 @@ void onBatteryLevelChanged(InaBatteryLevel level, int percent) {
   if (percent > 100) percent = 100;
   if (percent < 0) percent = 0;
   batteryService.setLevel(static_cast<uint8_t>(percent));
+}
+
+static void refreshBatteryInfoScreenIfVisible() {
+  if (mainArea.getType() != MainAreaType::BATTERY) {
+    lastBatteryInfoRedrawMs = 0;
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (lastBatteryInfoRedrawMs != 0 &&
+      now - lastBatteryInfoRedrawMs < 1000UL) {
+    return;
+  }
+
+  lastBatteryInfoRedrawMs = now;
+  mainArea.draw();
 }
 
 static bool routeTouchEvent(const TouchEvent &event) {
@@ -386,6 +403,7 @@ void loop() {
 
   // Обработка INA226 (DATA_READY через ISR flag)
   ina226.update();
+  refreshBatteryInfoScreenIfVisible();
 
   // Весь UI-рендер из одного контекста (loop task).
   mainScreen.update();
