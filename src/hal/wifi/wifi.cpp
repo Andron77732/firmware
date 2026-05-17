@@ -131,7 +131,6 @@ void WiFiManager::disconnect() {
 }
 
 bool WiFiManager::isConnected() {
-    ESP_LOGI(TAG, "WiFi status: %d, state: %d", WiFi.status(), (int)_state);
     return _state != WiFiState::UNINITIALIZED && WiFi.status() == WL_CONNECTED && _state == WiFiState::CONNECTED;
 }
 
@@ -260,7 +259,8 @@ void WiFiManager::setState(WiFiState newState) {
         WiFiState oldState = _state;
         _state = newState;
         
-        ESP_LOGD(TAG, "WiFi state changed: %d -> %d", (int)oldState, (int)newState);
+        ESP_LOGI(TAG, "WiFi state changed: %d -> %d (wifi_status=%d)",
+                 (int)oldState, (int)newState, WiFi.status());
         
         // Уведомляем callback
         if (_stateCallback) {
