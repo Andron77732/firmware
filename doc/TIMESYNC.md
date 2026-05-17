@@ -385,6 +385,10 @@ utc_us = anchor_utc_us + (esp_timestamp_us - anchor_esp_us)
 
 - для `GPS_PPS`: ISR jitter + остаточная PPS/NMEA неопределённость + мягкий
   штраф за возраст anchor;
+- для `GPS_PPS` оценка доступна только в состоянии `GPS_OK`
+  (`pps_locked=true` и `phase_aligned=true`); для `GPS_DEGRADED`
+  возвращается `-1`, потому что UTC секунда не подтверждена свежим
+  PPS/NMEA alignment;
 - для `RTC`: остаточный допуск SQW ISR/обработки loop/reanchor + мягкое
   ухудшение при старом SQW edge;
 - для `RTC` оценка недоступна (`-1`), если RTC не прошел проверку
