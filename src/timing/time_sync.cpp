@@ -182,13 +182,14 @@ static bool have_recent_gps_holdover_anchor() {
   return age_us >= 0 && age_us <= kGpsLossHoldoverMaxAgeUs;
 }
 
-// При временной потере PPS/SQW не сбрасываем sync сразу, если есть свежий
-// GPS holdover или уже построенный RTC anchor. Это сохраняет плавность часов.
-static void set_fallback_status_from_anchor() {
+// При временной потере PPS/SQW не сбрасываем sync сразу, если есть уже
+// построенный RTC anchor или разрешенный свежий GPS holdover. В RTC-only
+// режиме GPS holdover запрещен policy, даже если старый GPS anchor еще свежий.
+static void set_fallback_status_from_anchor(bool allow_gps_holdover = true) {
   if (have_rtc_time_anchor()) {
     s_status.source = TimeSource::RTC;
     s_status.synced = true;
-  } else if (have_recent_gps_holdover_anchor()) {
+  } else if (allow_gps_holdover && have_recent_gps_holdover_anchor()) {
     s_status.synced = true;
   } else {
     s_status.source = TimeSource::NONE;
@@ -659,7 +660,7 @@ void time_sync_update() {
     s_status.phase_aligned = false;
 
     if (!rtc.isReady()) {
-      set_fallback_status_from_anchor();
+      set_fallback_status_from_anchor(allow_gps);
       notify_state_change_if_needed();
       return;
     }
@@ -685,7 +686,7 @@ void time_sync_update() {
 
     // 3a) RTC есть, но SQW edge еще не видим: продолжаем holdover, если он есть.
     if (!have_edge) {
-      set_fallback_status_from_anchor();
+      set_fallback_status_from_anchor(allow_gps);
 
       if (!s_logged_no_sqw) {
         s_logged_no_sqw = true;
@@ -709,7 +710,7 @@ void time_sync_update() {
         ESP_LOGI(TAG, "RTC SQW warmup: signal present, waiting lock...");
       }
 
-      set_fallback_status_from_anchor();
+      set_fallback_status_from_anchor(allow_gps);
       notify_state_change_if_needed();
       return;
     }
@@ -783,7 +784,7 @@ void time_sync_update() {
                      (unsigned)s_rtc_fallback_ticks, (long long)age_us);
             s_logged_rtc_anchor_wait = true;
           }
-          set_fallback_status_from_anchor();
+          set_fallback_status_from_anchor(allow_gps);
           notify_state_change_if_needed();
           return;
         }
@@ -797,7 +798,7 @@ void time_sync_update() {
                        (unsigned long)kMinValidUnixSec);
               s_logged_rtc_anchor_wait = true;
             }
-            set_fallback_status_from_anchor();
+            set_fallback_status_from_anchor(allow_gps);
             notify_state_change_if_needed();
             return;
           }
@@ -855,7 +856,7 @@ void time_sync_update() {
                      (unsigned)s_rtc_fallback_ticks, (long long)age_us);
             s_logged_rtc_anchor_wait = true;
           }
-          set_fallback_status_from_anchor();
+          set_fallback_status_from_anchor(allow_gps);
           notify_state_change_if_needed();
           return;
         }
@@ -970,7 +971,7 @@ void time_sync_update() {
       return;
     }
 
-    set_fallback_status_from_anchor();
+    set_fallback_status_from_anchor(allow_gps);
     notify_state_change_if_needed();
     return;
   }
