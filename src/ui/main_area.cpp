@@ -52,6 +52,32 @@ static uint16_t gpsSnrColor_(int8_t snr_db) {
     return TFT_RED;
 }
 
+static char gpsConstellationPrefix_(const GPSSatelliteInfo& sat) {
+    if (sat.talker[0] != 'G') {
+        return '?';
+    }
+
+    switch (sat.talker[1]) {
+        case 'P':
+            return 'G'; // GPS
+        case 'L':
+            return 'R'; // GLONASS
+        case 'A':
+            return 'E'; // Galileo
+        case 'B':
+        case 'D':
+            return 'C'; // BeiDou/Compass
+        case 'Q':
+            return 'Q'; // QZSS
+        case 'S':
+            return 'S'; // SBAS
+        case 'N':
+            return 'N'; // Mixed GNSS, exact constellation is not explicit.
+        default:
+            return '?';
+    }
+}
+
 void MainArea::init(TFT_eSPI& tft) {
     _tft = &tft;
     _canvas = _tft;
@@ -455,8 +481,10 @@ void MainArea::drawGpsSkyplot() {
         _canvas->fillCircle(x, canvasY(y), radius, color);
         _canvas->drawCircle(x, canvasY(y), radius, TFT_WHITE);
 
-        char label[4];
-        snprintf(label, sizeof(label), "%u", (unsigned)sat.prn);
+        char label[5];
+        snprintf(label, sizeof(label), "%c%u",
+                 gpsConstellationPrefix_(sat),
+                 (unsigned)sat.prn);
         _canvas->setTextSize(1);
         _canvas->setTextColor(TFT_WHITE, UI_MAIN_AREA_COLOR_BACKGROUND);
         _canvas->setCursor(x + 5, canvasY(y - 4));
@@ -472,6 +500,7 @@ void MainArea::drawGpsSkyplot() {
     const int64_t now_us = esp_timer_get_time();
     long gsv_age_ms = -1;
     long nmea_age_ms = -1;
+    int used_sats = -1;
     if (gps.lastGsvUs(gsv_us)) {
         gsv_age_ms = (long)((now_us - gsv_us) / 1000);
         if (gsv_age_ms < 0) gsv_age_ms = 0;
@@ -480,9 +509,20 @@ void MainArea::drawGpsSkyplot() {
         nmea_age_ms = (long)((now_us - nmea_us) / 1000);
         if (nmea_age_ms < 0) nmea_age_ms = 0;
     }
+    if (gps.nmea().isValid() && gps.nmeaFresh()) {
+        used_sats = (int)gps.nmea().getNumSatellites();
+    }
 
-    snprintf(line, sizeof(line), "State:%s  sats:%u",
-             gpsStateText_(gps.getState()), (unsigned)sat_count);
+    if (used_sats >= 0) {
+        snprintf(line, sizeof(line), "State:%s view:%u used:%d",
+                 gpsStateText_(gps.getState()),
+                 (unsigned)sat_count,
+                 used_sats);
+    } else {
+        snprintf(line, sizeof(line), "State:%s view:%u used:--",
+                 gpsStateText_(gps.getState()),
+                 (unsigned)sat_count);
+    }
     _canvas->setCursor(UI_MAIN_AREA_GPS_INFO_X,
                        canvasY(UI_MAIN_AREA_GPS_INFO_Y));
     _canvas->print(line);
