@@ -1,6 +1,7 @@
 # TODO - ENTime Firmware
 
-Список задач для разработки проекта ENTime. Основной план проекта: [.cursor/prompts/plan-entime.prompt.md](.cursor/prompts/plan-entime.prompt.md)
+Список задач для разработки проекта ENTime. Актуальный план проекта:
+[.codex/prompts/plan-entime.prompt.md](.codex/prompts/plan-entime.prompt.md).
 
 ---
 

@@ -44,6 +44,7 @@
 
 - [PROTOCOL.md](doc/PROTOCOL.md) — формат событийных пакетов и JSON-команд
 - [SETTINGS.md](doc/SETTINGS.md) — структура настроек, валидация и дефолты
+- [TIMESYNC.md](doc/TIMESYNC.md) — алгоритм GPS/RTC синхронизации времени
 - [BOM.md](doc/BOM.md) — список компонентов
 - [TODO.md](TODO.md) — ближайшие задачи
 

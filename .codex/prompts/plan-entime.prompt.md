@@ -1,148 +1,189 @@
-# ENTime - Проект точного времени по внешнему прерыванию
+# ENTime - Project Plan
 
-## 📋 Описание
+Этот файл - актуальный рабочий план и краткая карта проекта. Детальные
+спецификации протокола, настроек и алгоритмов живут в `README.md`, `TODO.md` и
+`doc/*.md`.
 
-Устройство синхронизирует время по GPS (резервная копия RTC). По внешнему прерыванию выдаёт точное время **±1мс или лучше**.
+## Описание
 
-**Компоненты:** ESP2-S3-devkitc-1, GPS NEO-6M (UART), RTC DS3231 (I2C), INA219 (I2C), 3.2" TFT 240*320 ILI9341 (SPI), внешнее прерывание (GPIO)
+ENTime - прошивка для ESP32-S3 старт/финиш модулей точной фиксации событий.
+Устройство захватывает внешний GPIO interrupt, привязывает timestamp
+`esp_timer_get_time()` к UTC через GPS PPS/NMEA или RTC DS3231 SQW fallback и
+отправляет события по Serial/BLE.
 
----
+Целевая точность timestamp событий - миллисекундный класс или лучше при
+валидном GPS PPS/RTC SQW anchor.
 
-## 🏗️ Архитектура
+Текущая аппаратная база:
 
-**Точность достигается:**
-1. ISR захватывает `esp_timer_get_time()` при прерывании (микросекундная точность)
-2. Синхронизация по GPS PPS сигналу
-3. Интерполяция: GPS_time + timer_diff
-4. Резервная синхронизация по RTC DS3231
+- ESP32-S3 DevKitC-1;
+- GPS NEO-M8N с PPS;
+- RTC DS3231 по I2C + SQW 1 Hz;
+- INA226 по I2C для мониторинга питания;
+- TFT ILI9341 240x320 SPI с touch через TFT_eSPI;
+- внешний вход события GPIO15.
 
----
+## Архитектура точного времени
 
-## 📅 Фазы разработки
+Точность достигается не через чтение системных часов в момент события, а через
+общую шкалу `esp_timer`:
 
-### **Фаза 1: Базовая инфраструктура**
-- [x] PlatformIO setup, зависимости
-- [x] Инициализация NEO-6M (парсинг NMEA)
-- [x] Инициализация DS3231 (I2C)
-- [x] Инициализация BLE (GATT)
+1. Event ISR фиксирует `esp_timer_get_time()` при внешнем событии.
+2. PPS ISR или RTC SQW ISR фиксирует секундный фронт на той же шкале.
+3. GPS NMEA, RTC или доверенный holdover дают UTC номер секунды.
+4. Событие переводится формулой:
+
+```text
+utc_us = anchor_utc_us + (event_esp_us - anchor_esp_us)
+```
+
+Подробности: `doc/TIMESYNC.md`.
+
+## Статус фаз
+
+### Фаза 1: Базовая инфраструктура
+
+- [x] PlatformIO setup и зависимости
+- [x] GPS NEO-M8N UART + MicroNMEA
+- [x] RTC DS3231 I2C
+- [x] INA226 I2C
+- [x] BLE NUS + Battery + Device Info services
+- [x] WiFi STA HAL
 - [x] Логирование
 
-### **Фаза 2: Захват времени**
-- [x] GPIO прерывание конфиг
-- [x] **ISR: максимальный приоритет, NO FreeRTOS вызовов**
-- [x] Захват `esp_timer_get_time()` в первой строке ISR
-- [x] Размещение кода ISR в IRAM (минимум jitter)
-- [ ] Профилирование latency обработчика
-- [ ] Микротаймер ESP32 на 240 MHz
+### Фаза 2: Захват времени
 
-### **Фаза 3: Синхронизация**
-- [x] PPS обработка
-- [x] Синхронизация системного таймера
-- [ ] Коррекция RTC дрейфа
-- [ ] Дрейф-корректор
+- [x] GPIO interrupt config
+- [x] Event ISR без FreeRTOS вызовов
+- [x] Захват `esp_timer_get_time()` в ISR
+- [x] IRAM ISR path
+- [ ] Профилирование latency обработчика на устройстве
 
-### **Фаза 4: Надёжность**
-- [x] GPS → RTC переключение
-- [ ] Сохранение времени в NVS
-- [ ] Обработка ошибок
+### Фаза 3: Синхронизация
 
-### **Фаза 5: Коммуникация**
-- [ ] Serial (UART0) команды
-- [x] BLE (Nordic UART Service)
-- [ ] WiFi STA (клиент): включение/выключение, подключение к SSID
-- [ ] Парсер команд (JSON)
+- [x] GPS PPS обработка
+- [x] GPS NMEA freshness guards
+- [x] GPS PPS/NMEA alignment
+- [x] GPS holdover degraded mode
+- [x] RTC DS3231 SQW fallback
+- [x] RTC lostPower/timeValid guards
+- [x] RTC boot clock load для UI
+- [x] RTC sync по NTP
+- [x] RTC дисциплина от GPS PPS
+- [ ] Дальнейшая RTC drift/aging коррекция по полевым измерениям
 
-### **Фаза 6: Интерфейс**
-- [x] TFT ILI9341 драйвер
-- [ ] UI (время, статус)
-- [ ] Мониторинг синхронизации
+### Фаза 4: Надёжность
 
----
+- [x] GPS -> RTC fallback
+- [x] RTC-only source policy без GPS holdover
+- [x] Command parser oversized-frame discard
+- [x] Touch calibration persistence
+- [x] Settings write-if-changed для снижения износа NVS
+- [ ] Host-side unit tests для ключевой логики
+- [ ] Event ISR ring buffer и overflow diagnostics
 
-## 📁 Структура кода
+### Фаза 5: Коммуникация
 
-```
+- [x] Serial JSON commands
+- [x] BLE JSON commands через NUS
+- [x] BLE event packets
+- [x] JSON parser/router/handlers
+- [x] WiFi command
+- [x] `sync_ntp`, `sync_source`, `calibrate`, `touch_calibrate`
+- [ ] `gps` command policy/handler
+
+### Фаза 6: Интерфейс
+
+- [x] TFT ILI9341 UI
+- [x] Status bar: time, GPS, BLE, WiFi, battery
+- [x] START/FINISH main area
+- [x] Boot log screen
+- [x] Touch HAL + calibration wizard
+- [x] Touch WiFi toggle/status-bar actions
+- [ ] Screen lock UX
+
+## Структура кода
+
+```text
 src/
-├── main.cpp
-├── config.h
-├── command/              # Router + parser + handlers
+├── app/                  # прикладные сценарии: touch actions/calibration
+├── command/              # JSON parser, router, command handlers
 ├── hal/
-│   ├── ble/              # BLE + battery/device info
-│   ├── wifi/             # WiFi STA (client)
-│   ├── gps/              # NEO-6M driver
-│   ├── rtc/              # DS3231 driver
-│   ├── tft/              # ILI9341 driver
-│   └── power/            # INA219 driver
+│   ├── ble/              # BLE + NUS/Battery/DIS services
+│   ├── gps/              # NEO-M8N UART + MicroNMEA wrapper
+│   ├── ina226/           # power monitor
+│   ├── rtc/              # DS3231 wrapper
+│   ├── tft/              # TFT wrapper
+│   ├── touch/            # touch HAL
+│   └── wifi/             # WiFi STA manager
+├── runtime/              # build info
 ├── storage/              # Settings manager
-├── timing/               # Time sync + ISR
-└── ui/                   # UI components (status bar, footer, main area)
-
-test/
+├── timing/               # ISR, event timestamping, PPS/SQW/time sync
+└── ui/                   # status bar, footer, main area
 ```
 
----
+## План тестирования
 
-## ✅ План тестирования
+Host-side unit tests:
 
-**Unit (host-side):**
-- Парсер команд: корректный/битый JSON, неизвестные команды, граничные значения
-- Парсер NMEA: валидные/битые предложения, отсутствие PPS, разрывы по времени
-- Математика синхронизации: расчёт смещения, обработка jitter, GPS→RTC fallback
-- Логика RTC: lostPower, некорректное время, перевод часового пояса
-- Таймстемпы событий: последовательность START/FINISH и форматирование
-- Логика UI: соответствие иконок состояниям, формат времени (mock display)
-- Settings: валидация, дефолты, сценарии load/reset
+- command parser: valid JSON, invalid JSON, unknown commands, overflow frames;
+- settings: validation, defaults, partial updates, factory reset;
+- event timestamp formatting and timezone conversion;
+- time sync math: PPS/NMEA alignment, stale NMEA, RTC lostPower/timeValid,
+  source policy, degraded states.
 
-**Integration (device):**
-- Логирование latency PPS ISR под нагрузкой
-- Переключение RTC + GPS и восстановление
-- BLE уведомления состояния батареи/сервиса
-- WiFi connect/disconnect и уровни RSSI
+Device/integration tests:
 
----
+- event ISR latency under BLE/Serial/WiFi load;
+- GPS PPS loss/recovery and RTC fallback;
+- RTC SQW loss/warmup holdover;
+- BLE notifications and command responses;
+- WiFi connect/disconnect and RSSI status;
+- touch calibration and UI routing.
 
-## 🔧 Интерфейсы
+## Интерфейсы и пины
 
 | Интерфейс | Назначение | Пины |
-|-----------|-----------|------|
-| UART0 | Serial (логирование) | USB встроенный ESP32 |
-| UART2 | GPS NEO-6M | RX:4, TX:5, PPS:6 |
-| I2C | RTC DS3231 + INA219 | SDA:8, SCL:9, SQW:7 |
-| SPI | TFT ILI9341 | CS:10, DC:18, MOSI:11, MISO:13, SCK:12, RST:14, T_CS:17 |
-| GPIO | Ext interrupt | PIN:3 |
-| BLE | GATT | встроенный |
-| WiFi | STA (клиент) | встроенный |
+|-----------|------------|------|
+| UART0 | Serial logs + JSON commands | USB встроенный ESP32 |
+| UART2 | GPS NEO-M8N | RX=4, TX=5, PPS=6 |
+| I2C | RTC DS3231 + INA226 | SDA=8, SCL=9, SQW=7, INA226 ALERT=16 |
+| SPI | TFT ILI9341 + touch | CS=10, DC=18, MOSI=11, MISO=13, SCK=12, RST=14, T_CS=17 |
+| GPIO | External event interrupt | GPIO15 |
+| BLE | NUS + Battery + Device Info | встроенный |
+| WiFi | STA client | встроенный |
 
----
+Пины задаются в `src/config.h` и `platformio.ini`.
 
-## 📚 Зависимости
+## Зависимости
 
-```ini
-lib_deps =
-    adafruit/Adafruit DS3231 Library
-    bodmer/TFT_eSPI
-    h2zero/NimBLE-Arduino
-    stevemarple/MicroNMEA
-```
+См. `platformio.ini`:
 
----
+- `bodmer/TFT_eSPI`
+- `stevemarple/MicroNMEA`
+- `adafruit/RTClib`
+- `robtillaart/INA226`
+- `h2zero/NimBLE-Arduino`
+- `bblanchon/ArduinoJson`
 
-## 📡 Протокол команд (JSON)
+## JSON-команды
 
-**Запросы:**
-```json
-{"cmd": "time"}                                  // Текущее время
-{"cmd": "status"}                                // Статус синхронизации
-{"cmd": "gps", "enable": true}                   // Вкл/выкл GPS
-{"cmd": "wifi", "enable": true}                  // Вкл/выкл WiFi
-{"cmd": "wifi", "connect": {"ssid": "Network", "password": "pass"}}  // Подключение к WiFi
-{"cmd": "calibrate", "offset": 0.5}              // RTC offset compensation
-{"cmd": "save_config", "data": {...}}            // Сохранить конфиг
-{"cmd": "load_config"}                           // Загрузить конфиг
-{"cmd": "factory_reset"}                         // Сброс
-```
+Основная спецификация: `doc/PROTOCOL.md`.
 
-**Ответы:**
-```json
-{"time": 1703169600123456, "source": "gps", "accuracy_us": 50}
-```
+Реализованные основные команды:
+
+- `ping`
+- `time`
+- `status`
+- `wifi`
+- `calibrate`
+- `sync_source`
+- `sync_ntp`
+- `save_config`
+- `load_config`
+- `touch_calibrate`
+- `factory_reset`
+
+Документированная, но ещё не реализованная/не определённая до конца команда:
+
+- `gps`
