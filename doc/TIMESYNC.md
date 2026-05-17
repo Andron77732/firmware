@@ -87,7 +87,7 @@ locked SQW, код измеряет `PPS - SQW` и сохраняет `sqw_utc_o
   после потери PPS; timestamp событий продолжает строиться от GPS/PPS anchor;
 - `RTC_OK` - RTC SQW locked и anchor валиден;
 - `RTC_DEGRADED` - RTC есть, но SQW ещё не locked, при этом старый RTC anchor
-  может оставаться пригодным.
+  может оставаться пригодным в течение короткого holdover окна.
 
 Ключевой инвариант: `synced=true` означает, что `time_sync_esp_to_utc_us()`
 должен уметь построить UTC по текущему anchor.
@@ -277,19 +277,27 @@ RTC fallback используется, когда PPS не locked.
 
 Если RTC не готов, новый RTC anchor создать нельзя. Если GPS разрешён policy
 `sync.source` и перед потерей PPS был свежий GPS/PPS anchor, он временно
-остаётся рабочим holdover anchor; иначе состояние становится `NONE`. В
+остаётся рабочим holdover anchor. Если до этого был свежий RTC anchor, он тоже
+может временно удерживать синхронизацию. Иначе состояние становится `NONE`. В
 RTC-only режиме (`sync.source=2`) GPS holdover не используется.
 
 Если RTC готов, но SQW edge ещё не виден, код тоже не создаёт новый RTC anchor.
-При наличии разрешённого свежего GPS/PPS holdover anchor timestamp событий
-продолжает строиться от него; без такого anchor состояние становится `NONE`.
+Приоритет удержания: свежий старый RTC anchor, затем разрешённый свежий GPS/PPS
+holdover anchor. В первом случае состояние может быть `RTC_DEGRADED`, во втором
+timestamp событий продолжает строиться от GPS anchor. Без такого anchor
+состояние становится `NONE`.
+
+Старый RTC anchor без locked SQW удерживается не бесконечно: текущее окно
+holdover составляет 30 секунд от последнего обработанного SQW edge, а если edge
+никогда не обрабатывался - от времени создания RTC anchor.
 
 ### SQW warmup
 
 Если SQW signal есть, но lock ещё не набран:
 
 - код не создаёт новый anchor;
-- если старый RTC anchor валиден, состояние может быть `RTC_DEGRADED`;
+- если старый RTC anchor ещё попадает в holdover окно, состояние может быть
+  `RTC_DEGRADED`;
 - если RTC anchor ещё нет, но свежий GPS/PPS holdover anchor валиден и GPS
   разрешён policy, состояние остаётся синхронизированным в degraded режиме;
 - если anchor нет, состояние становится `NONE`.
@@ -403,8 +411,8 @@ PPS not locked + sync.source=RTC + no valid RTC anchor
 PPS not locked + RTC SQW locked
   => RTC_OK, anchor = RTC SQW edge + RTC UTC second
 
-PPS not locked + RTC SQW warmup + old RTC anchor exists
-  => RTC_DEGRADED, conversion may continue from old RTC anchor
+PPS not locked + RTC SQW warmup/loss + recent old RTC anchor exists
+  => RTC_DEGRADED, conversion may continue from old RTC anchor for up to 30s
 
 No usable GPS PPS or RTC anchor
   => NONE, event timestamp conversion fails

@@ -16,7 +16,7 @@ enum class TimeSyncState : uint8_t {
   GPS_DEGRADED = 2,    // PPS phase lost или короткий GPS holdover после PPS loss
 
   RTC_OK = 3,          // RTC + SQW стабилен
-  RTC_DEGRADED = 4     // RTC есть, но SQW нестабилен / неточен
+  RTC_DEGRADED = 4     // RTC anchor есть, но SQW сейчас не locked
 };
 
 using TimeSyncStateCallback = void (*)(TimeSyncState state);

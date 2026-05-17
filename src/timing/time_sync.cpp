@@ -41,6 +41,7 @@ static constexpr uint8_t kRtcFallbackWarmupTicks = 3;
 static constexpr int64_t kRtcFallbackLargeStepGuardUs = 100000;     // 100 ms
 static constexpr uint8_t kRtcFallbackLargeStepMaxSkips = 3;
 static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
+static constexpr int64_t kRtcLossHoldoverMaxAgeUs = 30000000;       // 30 s
 
 // GPS/PPS validation.
 static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
@@ -167,6 +168,17 @@ static bool have_rtc_time_anchor() {
          (s_status.anchor_esp_us != 0);
 }
 
+static bool have_recent_rtc_holdover_anchor() {
+  if (!have_rtc_time_anchor())
+    return false;
+
+  const int64_t reference_us = (s_last_sqw_edge_us != 0)
+      ? s_last_sqw_edge_us
+      : s_status.anchor_esp_us;
+  const int64_t age_us = esp_timer_get_time() - reference_us;
+  return age_us >= 0 && age_us <= kRtcLossHoldoverMaxAgeUs;
+}
+
 static bool rtc_time_is_trusted(uint32_t rtc_sec) {
   return rtc.isReady() &&
          !rtc.lostPower() &&
@@ -189,7 +201,7 @@ static bool have_recent_gps_holdover_anchor() {
 // построенный RTC anchor или разрешенный свежий GPS holdover. В RTC-only
 // режиме GPS holdover запрещен policy, даже если старый GPS anchor еще свежий.
 static void set_fallback_status_from_anchor(bool allow_gps_holdover = true) {
-  if (have_rtc_time_anchor()) {
+  if (have_recent_rtc_holdover_anchor()) {
     s_status.source = TimeSource::RTC;
     s_status.synced = true;
   } else if (allow_gps_holdover && have_recent_gps_holdover_anchor()) {
@@ -453,6 +465,12 @@ static bool align_pps_utc(int64_t pps_esp_us, uint32_t &pps_utc_sec_out, int64_t
 bool time_sync_esp_to_utc_us(int64_t esp_us, int64_t &utc_us_out) {
   if (s_status.source == TimeSource::NONE || s_status.anchor_esp_us == 0 || s_status.anchor_utc_us == 0)
     return false;
+
+  if (s_status.source == TimeSource::RTC &&
+      !rtc_sqw_is_locked() &&
+      !have_recent_rtc_holdover_anchor()) {
+    return false;
+  }
 
   utc_us_out = s_status.anchor_utc_us + (esp_us - s_status.anchor_esp_us);
   return true;
@@ -1163,7 +1181,10 @@ TimeSyncState time_sync_state() {
   }
 
   if (s_status.source == TimeSource::RTC) {
-    return rtc_sqw_is_locked() ? TimeSyncState::RTC_OK : TimeSyncState::RTC_DEGRADED;
+    if (rtc_sqw_is_locked())
+      return TimeSyncState::RTC_OK;
+    return have_recent_rtc_holdover_anchor() ? TimeSyncState::RTC_DEGRADED
+                                             : TimeSyncState::NONE;
   }
 
   if (s_status.source == TimeSource::GPS_PPS) {
