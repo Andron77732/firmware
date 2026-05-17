@@ -1,7 +1,10 @@
 #include "main_area.h"
+#include "hal/gps/gps.h"
 #include "hal/ina226/ina226.h"
 #include "storage/settings.h"
 #include "esp_log.h"
+#include <esp_timer.h>
+#include <math.h>
 #include <string.h>
 static const char* TAG = "MainArea";
 
@@ -21,6 +24,32 @@ static const char* batteryLevelText_(InaBatteryLevel level) {
         default:
             return "no data";
     }
+}
+
+static const char* gpsStateText_(GPSState state) {
+    switch (state) {
+        case GPSState::OFF:
+            return "OFF";
+        case GPSState::SEARCHING:
+            return "SEARCHING";
+        case GPSState::ACTIVE:
+            return "ACTIVE";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static uint16_t gpsSnrColor_(int8_t snr_db) {
+    if (snr_db < 0) {
+        return TFT_DARKGREY;
+    }
+    if (snr_db >= 35) {
+        return TFT_GREEN;
+    }
+    if (snr_db >= 25) {
+        return TFT_YELLOW;
+    }
+    return TFT_RED;
 }
 
 void MainArea::init(TFT_eSPI& tft) {
@@ -139,6 +168,9 @@ void MainArea::draw() {
             break;
         case MainAreaType::BATTERY:
             drawBatteryInfo();
+            break;
+        case MainAreaType::GPS:
+            drawGpsSkyplot();
             break;
     }
 
@@ -378,6 +410,100 @@ void MainArea::drawBatteryInfo() {
     snprintf(line, sizeof(line), "Level: %s",
              batteryLevelText_(ina226.batteryLevel()));
     printRow(line);
+}
+
+void MainArea::drawGpsSkyplot() {
+    if (!_canvas) return;
+
+    _canvas->setTextSize(UI_MAIN_AREA_GPS_TITLE_SIZE);
+    _canvas->setTextColor(TFT_CYAN, UI_MAIN_AREA_COLOR_BACKGROUND);
+    _canvas->setCursor(UI_MAIN_AREA_GPS_TITLE_X, canvasY(UI_MAIN_AREA_GPS_TITLE_Y));
+    _canvas->print("GPS");
+
+    const int16_t cx = UI_MAIN_AREA_GPS_CENTER_X;
+    const int16_t cy = UI_MAIN_AREA_GPS_CENTER_Y;
+    const int16_t r = UI_MAIN_AREA_GPS_RADIUS;
+
+    _canvas->drawCircle(cx, canvasY(cy), r, TFT_DARKGREY);
+    _canvas->drawCircle(cx, canvasY(cy), (r * 2) / 3, TFT_DARKGREY);
+    _canvas->drawCircle(cx, canvasY(cy), r / 3, TFT_DARKGREY);
+    _canvas->drawLine(cx - r, canvasY(cy), cx + r, canvasY(cy), TFT_DARKGREY);
+    _canvas->drawLine(cx, canvasY(cy - r), cx, canvasY(cy + r), TFT_DARKGREY);
+
+    _canvas->setTextSize(1);
+    _canvas->setTextColor(TFT_DARKGREY, UI_MAIN_AREA_COLOR_BACKGROUND);
+    _canvas->setCursor(cx - 3, canvasY(cy - r - 12));
+    _canvas->print("N");
+    _canvas->setCursor(cx - 3, canvasY(cy + r + 4));
+    _canvas->print("S");
+    _canvas->setCursor(cx + r + 4, canvasY(cy - 4));
+    _canvas->print("E");
+    _canvas->setCursor(cx - r - 10, canvasY(cy - 4));
+    _canvas->print("W");
+
+    GPSSatelliteInfo sats[GPS::MAX_SATELLITES];
+    const uint8_t sat_count = gps.satellites(sats, GPS::MAX_SATELLITES, true);
+    for (uint8_t i = 0; i < sat_count; ++i) {
+        const GPSSatelliteInfo& sat = sats[i];
+        const float az_rad = (float)sat.azimuth_deg * 3.14159265f / 180.0f;
+        const float radial = ((90.0f - (float)sat.elevation_deg) / 90.0f) * (float)r;
+        const int16_t x = cx + (int16_t)lroundf(sinf(az_rad) * radial);
+        const int16_t y = cy - (int16_t)lroundf(cosf(az_rad) * radial);
+        const uint16_t color = gpsSnrColor_(sat.snr_db);
+        const int16_t radius = sat.snr_db >= 35 ? 4 : 3;
+
+        _canvas->fillCircle(x, canvasY(y), radius, color);
+        _canvas->drawCircle(x, canvasY(y), radius, TFT_WHITE);
+
+        char label[4];
+        snprintf(label, sizeof(label), "%u", (unsigned)sat.prn);
+        _canvas->setTextSize(1);
+        _canvas->setTextColor(TFT_WHITE, UI_MAIN_AREA_COLOR_BACKGROUND);
+        _canvas->setCursor(x + 5, canvasY(y - 4));
+        _canvas->print(label);
+    }
+
+    _canvas->setTextSize(UI_MAIN_AREA_GPS_INFO_SIZE);
+    _canvas->setTextColor(UI_MAIN_AREA_LOG_COLOR, UI_MAIN_AREA_COLOR_BACKGROUND);
+
+    char line[48];
+    int64_t gsv_us = 0;
+    int64_t nmea_us = 0;
+    const int64_t now_us = esp_timer_get_time();
+    long gsv_age_ms = -1;
+    long nmea_age_ms = -1;
+    if (gps.lastGsvUs(gsv_us)) {
+        gsv_age_ms = (long)((now_us - gsv_us) / 1000);
+        if (gsv_age_ms < 0) gsv_age_ms = 0;
+    }
+    if (gps.lastSentenceUs(nmea_us)) {
+        nmea_age_ms = (long)((now_us - nmea_us) / 1000);
+        if (nmea_age_ms < 0) nmea_age_ms = 0;
+    }
+
+    snprintf(line, sizeof(line), "State:%s  sats:%u",
+             gpsStateText_(gps.getState()), (unsigned)sat_count);
+    _canvas->setCursor(UI_MAIN_AREA_GPS_INFO_X,
+                       canvasY(UI_MAIN_AREA_GPS_INFO_Y));
+    _canvas->print(line);
+
+    if (gsv_age_ms >= 0) {
+        snprintf(line, sizeof(line), "GSV:%ldms", gsv_age_ms);
+    } else {
+        snprintf(line, sizeof(line), "GSV:--");
+    }
+    _canvas->setCursor(UI_MAIN_AREA_GPS_INFO_X,
+                       canvasY(UI_MAIN_AREA_GPS_INFO_Y + 12));
+    _canvas->print(line);
+
+    if (nmea_age_ms >= 0) {
+        snprintf(line, sizeof(line), "NMEA:%ldms", nmea_age_ms);
+    } else {
+        snprintf(line, sizeof(line), "NMEA:--");
+    }
+    _canvas->setCursor(UI_MAIN_AREA_GPS_INFO_X + 86,
+                       canvasY(UI_MAIN_AREA_GPS_INFO_Y + 12));
+    _canvas->print(line);
 }
 
 void MainArea::drawLogLines(const String* lines,

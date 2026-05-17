@@ -150,6 +150,17 @@
 #define UI_MAIN_AREA_POWER_ROW_HEIGHT   24
 #define UI_MAIN_AREA_POWER_TEXT_SIZE    2
 
+// Параметры отображения GPS skyplot
+#define UI_MAIN_AREA_GPS_TITLE_X       4
+#define UI_MAIN_AREA_GPS_TITLE_Y       6
+#define UI_MAIN_AREA_GPS_TITLE_SIZE    2
+#define UI_MAIN_AREA_GPS_CENTER_X      (UI_MAIN_AREA_WIDTH / 2)
+#define UI_MAIN_AREA_GPS_CENTER_Y      126
+#define UI_MAIN_AREA_GPS_RADIUS        92
+#define UI_MAIN_AREA_GPS_INFO_X        4
+#define UI_MAIN_AREA_GPS_INFO_Y        236
+#define UI_MAIN_AREA_GPS_INFO_SIZE     1
+
 // ============================================================================
 // Footer Settings
 // ============================================================================

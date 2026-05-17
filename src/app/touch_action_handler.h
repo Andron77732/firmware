@@ -21,6 +21,7 @@ private:
 
   MainAreaType resolveWorkingMainAreaType_() const;
   void handleBatteryTap_();
+  void handleGpsTap_();
   void handleStatusBarBackgroundTap_();
   void handleWiFiToggle_();
 };

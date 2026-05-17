@@ -45,6 +45,7 @@ StatusBar statusBar;
 MainScreen mainScreen;
 TouchActionHandler touchActionHandler;
 uint32_t lastBatteryInfoRedrawMs = 0;
+uint32_t lastGpsSkyplotRedrawMs = 0;
 } // namespace
 
 /**
@@ -104,6 +105,22 @@ static void refreshBatteryInfoScreenIfVisible() {
   }
 
   lastBatteryInfoRedrawMs = now;
+  mainArea.draw();
+}
+
+static void refreshGpsSkyplotIfVisible() {
+  if (mainArea.getType() != MainAreaType::GPS) {
+    lastGpsSkyplotRedrawMs = 0;
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (lastGpsSkyplotRedrawMs != 0 &&
+      now - lastGpsSkyplotRedrawMs < 1000UL) {
+    return;
+  }
+
+  lastGpsSkyplotRedrawMs = now;
   mainArea.draw();
 }
 
@@ -404,6 +421,7 @@ void loop() {
   // Обработка INA226 (DATA_READY через ISR flag)
   ina226.update();
   refreshBatteryInfoScreenIfVisible();
+  refreshGpsSkyplotIfVisible();
 
   // Весь UI-рендер из одного контекста (loop task).
   mainScreen.update();

@@ -15,7 +15,8 @@ enum class MainAreaType {
     LOADING,  // Загрузка модуля
     START,    // Старт
     FINISH,   // Финиш
-    BATTERY   // Информация о питании
+    BATTERY,  // Информация о питании
+    GPS       // Карта спутников GPS
 };
 
 enum class StartCountdownMode {
@@ -159,6 +160,11 @@ private:
      * @brief Отрисовка информации о питании
      */
     void drawBatteryInfo();
+
+    /**
+     * @brief Отрисовка GPS skyplot
+     */
+    void drawGpsSkyplot();
 
     /**
      * @brief Отрисовка списка отсечек финиша

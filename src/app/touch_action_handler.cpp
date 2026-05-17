@@ -29,6 +29,11 @@ void TouchActionHandler::handleTouchEvent(const TouchEvent& event,
     return;
   }
 
+  if (target == UiTouchTarget::StatusBarGps) {
+    handleGpsTap_();
+    return;
+  }
+
   if (target == UiTouchTarget::StatusBarBackground) {
     handleStatusBarBackgroundTap_();
   }
@@ -48,6 +53,16 @@ void TouchActionHandler::handleBatteryTap_() {
   const MainAreaType nextType =
       currentType == MainAreaType::BATTERY ? resolveWorkingMainAreaType_()
                                            : MainAreaType::BATTERY;
+
+  _mainArea->setType(nextType);
+  _mainArea->draw();
+}
+
+void TouchActionHandler::handleGpsTap_() {
+  const MainAreaType currentType = _mainArea->getType();
+  const MainAreaType nextType =
+      currentType == MainAreaType::GPS ? resolveWorkingMainAreaType_()
+                                       : MainAreaType::GPS;
 
   _mainArea->setType(nextType);
   _mainArea->draw();
