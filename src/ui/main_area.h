@@ -98,8 +98,12 @@ private:
     MainAreaType _currentType = MainAreaType::LOADING;
     
     // Буфер для логов загрузки
-    String _logLines[UI_MAIN_AREA_MAX_LOG_LINES];
+    String _logLines[UI_MAIN_AREA_LOG_HISTORY_LINES];
     uint8_t _logLineCount = 0;
+    uint8_t _loadingScrollLines = 0;
+    int16_t _loadingDragLastY = 0;
+    int16_t _loadingDragAccumPx = 0;
+    bool _loadingDragActive = false;
 
     // Буфер для стартовых событий (сверху вниз, новые сверху)
     String _startLines[UI_MAIN_AREA_MAX_LOG_LINES];
@@ -121,10 +125,24 @@ private:
     uint8_t _countdownValue = 0;
     
     /**
-     * @brief Отрисовка режима загрузки (логи)
+     * @brief Проверка попадания точки в main area
      */
     bool containsPoint_(const TouchPoint& point) const;
+
+    /**
+     * @brief Отрисовка режима загрузки (логи)
+     */
     void drawLoading();
+
+    /**
+     * @brief Ограничить прокрутку LOADING-лога доступным диапазоном
+     */
+    void clampLoadingScroll_();
+
+    /**
+     * @brief Обработка drag-прокрутки LOADING-лога
+     */
+    bool handleLoadingTouch_(const TouchEvent& event);
     
     /**
      * @brief Отрисовка режима старт
@@ -153,7 +171,8 @@ private:
                       uint8_t lineCount,
                       uint16_t startY,
                       uint8_t maxVisibleLines,
-                      bool newestAtTop);
+                      bool newestAtTop,
+                      uint8_t scrollLines = 0);
 
     /**
      * @brief Добавить строку в список отсечек финиша

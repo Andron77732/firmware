@@ -9,6 +9,10 @@ void MainArea::init(TFT_eSPI& tft) {
     _canvas = _tft;
     _canvasYOffset = UI_MAIN_AREA_Y_POS;
     _logLineCount = 0;
+    _loadingScrollLines = 0;
+    _loadingDragLastY = 0;
+    _loadingDragAccumPx = 0;
+    _loadingDragActive = false;
     _startLineCount = 0;
     _startEventCounter = 0;
     _finishLineCount = 0;
@@ -38,17 +42,22 @@ bool MainArea::containsPoint_(const TouchPoint& point) const {
 
 void MainArea::setType(MainAreaType type) {
     _currentType = type;
+    if (_currentType != MainAreaType::LOADING) {
+        _loadingDragActive = false;
+        _loadingDragAccumPx = 0;
+    }
 }
 
 void MainArea::addLogLine(const String& line) {
     if (line.length() == 0) return;
+    const bool autoScroll = _loadingScrollLines == 0;
     
     // Если буфер заполнен, сдвигаем строки вверх
-    if (_logLineCount >= UI_MAIN_AREA_MAX_LOG_LINES) {
-        for (uint8_t i = 0; i < UI_MAIN_AREA_MAX_LOG_LINES - 1; i++) {
+    if (_logLineCount >= UI_MAIN_AREA_LOG_HISTORY_LINES) {
+        for (uint8_t i = 0; i < UI_MAIN_AREA_LOG_HISTORY_LINES - 1; i++) {
             _logLines[i] = _logLines[i + 1];
         }
-        _logLineCount = UI_MAIN_AREA_MAX_LOG_LINES - 1;
+        _logLineCount = UI_MAIN_AREA_LOG_HISTORY_LINES - 1;
     }
     
     // Добавляем новую строку (обрезаем если слишком длинная)
@@ -58,15 +67,23 @@ void MainArea::addLogLine(const String& line) {
         _logLines[_logLineCount] = line;
     }
     _logLineCount++;
+    if (autoScroll) {
+        _loadingScrollLines = 0;
+    } else {
+        clampLoadingScroll_();
+    }
     
     // Если тип LOADING, перерисовываем
     if (_currentType == MainAreaType::LOADING) {
-        drawLoading();
+        draw();
     }
 }
 
 void MainArea::clearLog() {
     _logLineCount = 0;
+    _loadingScrollLines = 0;
+    _loadingDragActive = false;
+    _loadingDragAccumPx = 0;
     if (_currentType == MainAreaType::LOADING) {
         draw();
     }
@@ -113,12 +130,14 @@ void MainArea::draw() {
 
 void MainArea::drawLoading() {
     if (!_canvas) return;
+    clampLoadingScroll_();
 
     drawLogLines(_logLines,
                  _logLineCount,
                  UI_MAIN_AREA_LOG_Y,
                  UI_MAIN_AREA_MAX_LOG_LINES,
-                 false);
+                 false,
+                 _loadingScrollLines);
 }
 
 void MainArea::displayEventTimestamp(const EventTimestampData& data) {
@@ -284,7 +303,8 @@ void MainArea::drawLogLines(const String* lines,
                             uint8_t lineCount,
                             uint16_t startY,
                             uint8_t maxVisibleLines,
-                            bool newestAtTop) {
+                            bool newestAtTop,
+                            uint8_t scrollLines) {
     if (!_canvas || lineCount == 0) return;
 
     _canvas->setTextSize(UI_MAIN_AREA_LOG_TEXT_SIZE);
@@ -294,7 +314,12 @@ void MainArea::drawLogLines(const String* lines,
     uint8_t endLine = lineCount;
 
     if (!newestAtTop && lineCount > maxVisibleLines) {
-        startLine = lineCount - maxVisibleLines;
+        uint8_t maxScroll = lineCount - maxVisibleLines;
+        if (scrollLines > maxScroll) {
+            scrollLines = maxScroll;
+        }
+        startLine = lineCount - maxVisibleLines - scrollLines;
+        endLine = startLine + maxVisibleLines;
     } else if (newestAtTop && lineCount > maxVisibleLines) {
         endLine = maxVisibleLines;
     }
@@ -433,6 +458,70 @@ void MainArea::drawStartLines(uint16_t startY, uint8_t maxVisibleLines) {
     }
 }
 
+void MainArea::clampLoadingScroll_() {
+    uint8_t maxScroll = 0;
+    if (_logLineCount > UI_MAIN_AREA_MAX_LOG_LINES) {
+        maxScroll = _logLineCount - UI_MAIN_AREA_MAX_LOG_LINES;
+    }
+    if (_loadingScrollLines > maxScroll) {
+        _loadingScrollLines = maxScroll;
+    }
+}
+
+bool MainArea::handleLoadingTouch_(const TouchEvent& event) {
+    switch (event.type) {
+        case TouchEventType::Press:
+            _loadingDragActive = true;
+            _loadingDragLastY = (int16_t)event.point.y;
+            _loadingDragAccumPx = 0;
+            return true;
+
+        case TouchEventType::Move: {
+            if (!_loadingDragActive) {
+                return false;
+            }
+
+            int16_t y = (int16_t)event.point.y;
+            int16_t dy = y - _loadingDragLastY;
+            _loadingDragLastY = y;
+            _loadingDragAccumPx += dy;
+
+            bool changed = false;
+            while (_loadingDragAccumPx >= (int16_t)UI_MAIN_AREA_LOG_LINE_HEIGHT) {
+                uint8_t maxScroll = 0;
+                if (_logLineCount > UI_MAIN_AREA_MAX_LOG_LINES) {
+                    maxScroll = _logLineCount - UI_MAIN_AREA_MAX_LOG_LINES;
+                }
+                if (_loadingScrollLines < maxScroll) {
+                    _loadingScrollLines++;
+                    changed = true;
+                }
+                _loadingDragAccumPx -= UI_MAIN_AREA_LOG_LINE_HEIGHT;
+            }
+            while (_loadingDragAccumPx <= -(int16_t)UI_MAIN_AREA_LOG_LINE_HEIGHT) {
+                if (_loadingScrollLines > 0) {
+                    _loadingScrollLines--;
+                    changed = true;
+                }
+                _loadingDragAccumPx += UI_MAIN_AREA_LOG_LINE_HEIGHT;
+            }
+
+            if (changed) {
+                draw();
+            }
+            return true;
+        }
+
+        case TouchEventType::Release:
+            _loadingDragActive = false;
+            _loadingDragAccumPx = 0;
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 bool MainArea::onTouchEvent(const TouchEvent& event, UiTouchTarget& target) {
     switch (event.type) {
         case TouchEventType::Press:
@@ -440,16 +529,30 @@ bool MainArea::onTouchEvent(const TouchEvent& event, UiTouchTarget& target) {
                 containsPoint_(event.point) ? UiTouchTarget::MainArea
                                             : UiTouchTarget::None;
             target = _touchCapturedTarget;
+            if (target != UiTouchTarget::None && _currentType == MainAreaType::LOADING) {
+                handleLoadingTouch_(event);
+            }
             return target != UiTouchTarget::None;
+
+        case TouchEventType::Move:
+            target = _touchCapturedTarget;
+            if (target != UiTouchTarget::None &&
+                _currentType == MainAreaType::LOADING) {
+                return handleLoadingTouch_(event);
+            }
+            target = UiTouchTarget::None;
+            return false;
 
         case TouchEventType::Release: {
             target = _touchCapturedTarget;
             const bool handled = target != UiTouchTarget::None;
+            if (handled && _currentType == MainAreaType::LOADING) {
+                handleLoadingTouch_(event);
+            }
             _touchCapturedTarget = UiTouchTarget::None;
             return handled;
         }
 
-        case TouchEventType::Move:
         default:
             target = UiTouchTarget::None;
             return false;

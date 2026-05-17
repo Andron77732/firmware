@@ -103,6 +103,7 @@
 #define UI_MAIN_AREA_LOG_LINE_HEIGHT       (UI_MAIN_AREA_LOG_TEXT_HEIGHT + UI_MAIN_AREA_LOG_LINE_SPACING)  // Полная высота строки с отступом
 #define UI_MAIN_AREA_LOG_AVAILABLE_HEIGHT  (UI_MAIN_AREA_HEIGHT - UI_MAIN_AREA_LOG_Y)  // Доступная высота для логов
 #define UI_MAIN_AREA_MAX_LOG_LINES         (UI_MAIN_AREA_LOG_AVAILABLE_HEIGHT / UI_MAIN_AREA_LOG_LINE_HEIGHT)  // Максимальное количество строк
+#define UI_MAIN_AREA_LOG_HISTORY_LINES     128  // Сколько строк LOADING-лога хранить для прокрутки
 #define UI_MAIN_AREA_LOG_AVAILABLE_WIDTH   (UI_MAIN_AREA_WIDTH - UI_MAIN_AREA_LOG_X - UI_MAIN_AREA_LOG_PADDING_RIGHT)  // Доступная ширина для логов
 #define UI_MAIN_AREA_LOG_LINE_LENGTH       ((UI_MAIN_AREA_LOG_AVAILABLE_WIDTH / UI_CHAR_WIDTH) + 1)  // Максимальная длина строки (+1 для '\0')
 
