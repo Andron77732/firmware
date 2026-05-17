@@ -13,7 +13,7 @@
 #define DEFAULT_DEVICE_NAME BLE_DEVICE_NAME
 #define DEFAULT_DEVICE_NUMBER 1
 #define DEFAULT_DEVICE_TYPE 1
-#define DEFAULT_DEVICE_TIMEZONE 3
+#define DEFAULT_DEVICE_TIMEZONE_OFFSET_MIN 180
 
 #define DEFAULT_SYNC_AUTO true
 #define DEFAULT_SYNC_SOURCE 0
@@ -46,7 +46,7 @@ struct DeviceSettings {
   String name = DEFAULT_DEVICE_NAME;    // 1-16 символов, ASCII
   uint8_t number = DEFAULT_DEVICE_NUMBER;    // 1-255
   uint8_t type = DEFAULT_DEVICE_TYPE;        // 1 = стартовый, 2 = финишный
-  int8_t timezone = DEFAULT_DEVICE_TIMEZONE; // -12 до 12
+  int16_t timezone_offset_min = DEFAULT_DEVICE_TIMEZONE_OFFSET_MIN; // -720 до 840
 };
 
 /**
@@ -216,7 +216,7 @@ private:
                            const char *def, bool secret = false);
   bool putBoolIfChanged_(const char *key, bool v, bool def);
   bool putUCharIfChanged_(const char *key, uint8_t v, uint8_t def);
-  bool putCharIfChanged_(const char *key, int8_t v, int8_t def);
+  bool putShortIfChanged_(const char *key, int16_t v, int16_t def);
   bool putUShortIfChanged_(const char *key, uint16_t v, uint16_t def);
   bool putFloatIfChanged_(const char *key, float v, float def,
                           float eps = 0.0001f);

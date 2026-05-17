@@ -33,8 +33,9 @@ EventTimestampData event_timestamp_process(int64_t esp_timestamp_us,
   ESP_LOGV(TAG, "EVENT UTC = %lld us", (long long)t_utc_us);
 
   // Вычисление локального времени в формате hh:mm:ss,mmm
-  int8_t timezone = settings.getDevice().timezone;
-  int64_t t_local_us = t_utc_us + ((int64_t)timezone * 3600LL * 1000000LL);
+  int16_t timezone_offset_min = settings.getDevice().timezone_offset_min;
+  int64_t t_local_us =
+      t_utc_us + ((int64_t)timezone_offset_min * 60LL * 1000000LL);
 
   // Сохраняем локальное время в структуре timeval
   data.local_time.tv_sec = (time_t)(t_local_us / 1000000LL);

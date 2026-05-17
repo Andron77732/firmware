@@ -85,9 +85,11 @@ bool SettingsManager::validateDevice(const DeviceSettings &device) const {
     return false;
   }
 
-  if (device.timezone < -12 || device.timezone > 12) {
-    ESP_LOGE(TAG, "Invalid device.timezone: must be -12 to 12, got %d",
-             device.timezone);
+  if (device.timezone_offset_min < -720 ||
+      device.timezone_offset_min > 840) {
+    ESP_LOGE(TAG,
+             "Invalid device.timezone_offset_min: must be -720 to 840, got %d",
+             device.timezone_offset_min);
     return false;
   }
 
@@ -156,7 +158,7 @@ void SettingsManager::setDefaults() {
   settings_.device.name = DEFAULT_DEVICE_NAME;
   settings_.device.number = DEFAULT_DEVICE_NUMBER;
   settings_.device.type = DEFAULT_DEVICE_TYPE;
-  settings_.device.timezone = DEFAULT_DEVICE_TIMEZONE;
+  settings_.device.timezone_offset_min = DEFAULT_DEVICE_TIMEZONE_OFFSET_MIN;
 
   settings_.sync.auto_sync = DEFAULT_SYNC_AUTO;
   settings_.sync.source = DEFAULT_SYNC_SOURCE;
@@ -226,14 +228,15 @@ bool SettingsManager::putUCharIfChanged_(const char *key, uint8_t v,
   return true;
 }
 
-bool SettingsManager::putCharIfChanged_(const char *key, int8_t v, int8_t def) {
-  int8_t cur = prefs_.getChar(key, def);
+bool SettingsManager::putShortIfChanged_(const char *key, int16_t v,
+                                         int16_t def) {
+  int16_t cur = prefs_.getShort(key, def);
   if (cur == v) {
     SETTINGS_LOG_NVS_SKIP(key);
     return false;
   }
 
-  prefs_.putChar(key, v);
+  prefs_.putShort(key, v);
   SETTINGS_LOG_NVS_FMT(key, "%d", v);
   return true;
 }
@@ -279,8 +282,9 @@ size_t SettingsManager::saveDevice() {
   if (putUCharIfChanged_("device.type", settings_.device.type,
                          DEFAULT_DEVICE_TYPE))
     count++;
-  if (putCharIfChanged_("device.timezone", settings_.device.timezone,
-                        DEFAULT_DEVICE_TIMEZONE))
+  if (putShortIfChanged_("device.tz_min",
+                         settings_.device.timezone_offset_min,
+                         DEFAULT_DEVICE_TIMEZONE_OFFSET_MIN))
     count++;
   return count;
 }
@@ -358,8 +362,8 @@ void SettingsManager::loadDevice() {
 
   settings_.device.type = prefs_.getUChar("device.type", DEFAULT_DEVICE_TYPE);
 
-  settings_.device.timezone =
-      prefs_.getChar("device.timezone", DEFAULT_DEVICE_TIMEZONE);
+  settings_.device.timezone_offset_min =
+      prefs_.getShort("device.tz_min", DEFAULT_DEVICE_TIMEZONE_OFFSET_MIN);
 }
 
 void SettingsManager::loadSync() {
@@ -586,7 +590,7 @@ JsonDocument SettingsManager::toJson() const {
   doc["device"]["name"] = settings_.device.name;
   doc["device"]["number"] = settings_.device.number;
   doc["device"]["type"] = settings_.device.type;
-  doc["device"]["timezone"] = settings_.device.timezone;
+  doc["device"]["timezone_offset_min"] = settings_.device.timezone_offset_min;
 
   // Sync settings
   doc["sync"]["auto"] = settings_.sync.auto_sync;
@@ -634,8 +638,9 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
     if (!doc["device"]["type"].isNull()) {
       device.type = doc["device"]["type"].as<uint8_t>();
     }
-    if (!doc["device"]["timezone"].isNull()) {
-      device.timezone = doc["device"]["timezone"].as<int8_t>();
+    if (!doc["device"]["timezone_offset_min"].isNull()) {
+      device.timezone_offset_min =
+          doc["device"]["timezone_offset_min"].as<int16_t>();
     }
 
     if (!validateDevice(device)) {

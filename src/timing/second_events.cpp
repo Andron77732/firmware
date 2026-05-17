@@ -19,8 +19,8 @@ void second_events_handle_tick(ModuleType module_type, StatusBar& statusBar,
   if (nowSec != lastTimeSec) {
     lastTimeSec = nowSec;
 
-    int8_t timezone = settings.getDevice().timezone;
-    time_t localSec = nowSec + (time_t)timezone * 3600;
+    int16_t timezone_offset_min = settings.getDevice().timezone_offset_min;
+    time_t localSec = nowSec + (time_t)timezone_offset_min * 60;
     struct tm tm{};
     gmtime_r(&localSec, &tm);
 

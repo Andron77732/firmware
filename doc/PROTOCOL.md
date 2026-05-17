@@ -498,7 +498,7 @@ V10:10:15#
       "name": "ENTime-Lab",
       "number": 1,
       "type": 1,
-      "timezone": 3
+      "timezone_offset_min": 180
     },
     "sync": {
       "auto": true,
@@ -562,7 +562,7 @@ V10:10:15#
       "name": "ENTime-Lab",
       "number": 1,
       "type": 1,
-      "timezone": 3
+      "timezone_offset_min": 180
     },
     "sync": {
       "auto": true,

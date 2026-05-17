@@ -19,7 +19,7 @@
       "name": "...",
       "number": ...,
       "type": ...,
-      "timezone": ...
+      "timezone_offset_min": ...
     },
     "sync": {
       "auto": ...,
@@ -95,22 +95,20 @@
   - `1` — устройство для старта измерения времени
   - `2` — устройство для финиша измерения времени
 
-#### `device.timezone`
-- **Путь в JSON:** `data.device.timezone`
+#### `device.timezone_offset_min`
+- **Путь в JSON:** `data.device.timezone_offset_min`
 - **Тип:** `integer` (signed)
-- **По умолчанию:** `3`
-- **Описание:** Смещение часового пояса относительно UTC в часах. Положительное значение — восточнее UTC, отрицательное — западнее UTC.
-- **Ограничения:**
-  - Диапазон: `-12` до `12` часов
-  - Только целые числа
+- **По умолчанию:** `180`
+- **Описание:** Смещение часового пояса относительно UTC в минутах. Положительное значение — восточнее UTC, отрицательное — западнее UTC.
+- **Ограничения:** Диапазон `-720..840` минут.
 - **Примеры:**
-  - `0` — UTC (Лондон, Гринвич)
-  - `1` — UTC+1 (Париж, Берлин)
-  - `3` — UTC+3 (Москва)
-  - `-5` — UTC-5 (Нью-Йорк)
+  - `0` — UTC
+  - `180` — UTC+3 (Москва)
+  - `330` — UTC+5:30
+  - `345` — UTC+5:45
+  - `570` — UTC+9:30
+  - `-300` — UTC-5
 - **Применение:** Применяется сразу, без перезагрузки
-
----
 
 ### Настройки синхронизации времени
 
@@ -254,7 +252,7 @@
 | `device.name` | `data.device.name` | string | `"ENTime"` | 1-16 символов, ASCII | Устройство |
 | `device.number` | `data.device.number` | integer | `1` | 1..255 | Устройство |
 | `device.type` | `data.device.type` | integer | `1` | 1/2 | Устройство |
-| `device.timezone` | `data.device.timezone` | integer | `3` | -12..12 часов | Устройство |
+| `device.timezone_offset_min` | `data.device.timezone_offset_min` | integer | `180` | -720..840 минут | Устройство |
 | `sync.auto` | `data.sync.auto` | boolean | `true` | true/false | Синхронизация |
 | `sync.source` | `data.sync.source` | integer | `0` | 0/1/2 | Синхронизация |
 | `sync.ntp1` | `data.sync.ntp1` | string | `"ru.pool.ntp.org"` | 1..64 ASCII, `-`/`.` | Синхронизация |
@@ -283,7 +281,7 @@
       "name": "ENTime-Lab",
       "number": 1,
       "type": 1,
-      "timezone": 3
+      "timezone_offset_min": 180
     },
     "sync": {
       "auto": true,
@@ -335,7 +333,7 @@
       "name": "ENTime-Lab",
       "number": 1,
       "type": 1,
-      "timezone": 3
+      "timezone_offset_min": 180
     },
     "sync": {
       "auto": true,
@@ -372,7 +370,7 @@
   "cmd": "save_config",
   "data": {
     "device": {
-      "timezone": 3
+      "timezone_offset_min": 330
     }
   }
 }
@@ -416,7 +414,7 @@
 | `data.device.name` | `"ENTime"` |
 | `data.device.number` | `1` |
 | `data.device.type` | `1` |
-| `data.device.timezone` | `3` |
+| `data.device.timezone_offset_min` | `180` |
 | `data.sync.auto` | `true` |
 | `data.sync.source` | `0` |
 | `data.sync.ntp1` | `"ru.pool.ntp.org"` |
