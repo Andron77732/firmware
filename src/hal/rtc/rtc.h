@@ -52,6 +52,14 @@ public:
      * @brief Получить время в Unix timestamp (секунды с 1970)
      */
     uint32_t unixTime();
+
+    /**
+     * @brief Проверить, можно ли доверять времени RTC как источнику timestamp
+     *
+     * isReady() означает только, что чип доступен по I2C. timeValid() дополнительно
+     * проверяет флаг потери питания и нижнюю границу допустимого Unix time.
+     */
+    bool timeValid(uint32_t minUnixSec);
     
     /**
      * @brief Установить время

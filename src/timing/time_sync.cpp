@@ -45,7 +45,7 @@ static constexpr int64_t kRtcFallbackInitialAnchorMaxAgeUs = 50000; // 50 ms
 // GPS/PPS validation.
 static constexpr int64_t kNmeaFreshnessUs = 1500000;                // 1.5 s
 static constexpr int64_t kGpsCandidateJumpGuardUs = 5000000;        // 5 s
-static constexpr uint32_t kMinValidUnixSec = 1577836800UL;          // 2020-01-01 00:00:00 UTC
+static constexpr uint32_t kMinValidUnixSec = MIN_VALID_UNIX_SEC;    // 2020-01-01 00:00:00 UTC
 static constexpr int64_t kPpsIntervalToleranceUs = 150000;          // 150 ms
 static constexpr int64_t kPpsIntervalRebaselineGapUs = 5000000;     // 5 s
 static constexpr int64_t kGpsLossHoldoverMaxAgeUs = 10000000;       // 10 s
@@ -162,6 +162,12 @@ static bool have_rtc_time_anchor() {
   return s_have_rtc_anchor &&
          (s_status.anchor_utc_us != 0) &&
          (s_status.anchor_esp_us != 0);
+}
+
+static bool rtc_time_is_trusted(uint32_t rtc_sec) {
+  return rtc.isReady() &&
+         !rtc.lostPower() &&
+         rtc_sec >= kMinValidUnixSec;
 }
 
 static bool have_recent_gps_holdover_anchor() {
@@ -451,7 +457,11 @@ bool time_sync_esp_to_utc_us(int64_t esp_us, int64_t &utc_us_out) {
 // Быстрый boot sync от RTC. Идеальный вариант - дождаться свежего SQW edge и
 // связать RTC секунду именно с ним. Если edge не пришел, ставим системное
 // время по rtc.unixTime() без фазовой гарантии, чтобы устройство имело хоть
-// какое-то валидное время до GPS/RTC fallback.
+// какие-то часы на UI до GPS/RTC fallback.
+//
+// Важно: системное время выставляем из RTC даже при lostPower(), но trusted
+// anchor для timestamp событий создаем только если RTC time действительно
+// доверенный.
 static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) {
   if (!rtc.isReady()) return false;
 
@@ -480,6 +490,14 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
     timeval tv{ (time_t)sec0, 0 };
     settimeofday(&tv, nullptr);
 
+    if (!rtc_time_is_trusted(sec0)) {
+      ESP_LOGW(TAG,
+               "Boot RTC clock loaded for UI only: rtc=%lu (lost_power=%d)",
+               (unsigned long)sec0,
+               (int)rtc.lostPower());
+      return false;
+    }
+
     int64_t now_us = esp_timer_get_time();
     set_anchor(TimeSource::RTC, (int64_t)sec0 * 1000000LL, now_us);
 
@@ -489,8 +507,9 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
     s_status.last_offset_us = 0;
     s_status.last_utc_second = sec0;
 
-    ESP_LOGW(TAG, "Boot RTC sync: SQW edge timeout, using rtc=%lu", (unsigned long)sec0);
-    return false;
+    ESP_LOGW(TAG, "Boot RTC trusted anchor: SQW edge timeout, using rtc=%lu",
+             (unsigned long)sec0);
+    return true;
   }
 
   // На фронте читаем секунду RTC. Предполагаем, что RTC unixTime() уже
@@ -500,6 +519,15 @@ static bool set_system_time_from_rtc_on_second_edge(uint32_t timeout_ms = 1500) 
   // Ставим системные часы ровно на границу секунды RTC.
   timeval tv{ (time_t)rtc_sec, 0 };
   settimeofday(&tv, nullptr);
+
+  if (!rtc_time_is_trusted(rtc_sec)) {
+    ESP_LOGW(TAG,
+             "Boot RTC clock loaded for UI only: rtc=%lu sqw_cnt=%lu (lost_power=%d)",
+             (unsigned long)rtc_sec,
+             (unsigned long)edge_count,
+             (int)rtc.lostPower());
+    return false;
+  }
 
   // Создаем RTC anchor и связываем его с конкретным SQW counter.
   set_anchor(TimeSource::RTC, (int64_t)rtc_sec * 1000000LL, edge_us);
@@ -557,13 +585,14 @@ void time_sync_begin() {
   s_rtc_fallback_ticks = 0;
   s_logged_rtc_anchor_wait = false;
 
-  // Boot phase: если GPS еще не готов, RTC может дать стартовое UTC время.
+  // Boot phase: если GPS еще не готов, RTC может дать стартовые часы для UI.
   // Основная точная синхронизация все равно будет построена позже от PPS/SQW.
-  if (rtc.isReady() && is_auto_sync_enabled()) {
-    bool aligned = set_system_time_from_rtc_on_second_edge(1500);
-    ESP_LOGI(TAG, "Boot time from RTC: %s", aligned ? "aligned to second" : "not aligned (timeout)");
-  } else if (rtc.isReady()) {
-    ESP_LOGI(TAG, "Auto sync disabled: boot time from RTC skipped");
+  // Это делаем даже при auto_sync=false: boot load не равен дальнейшей
+  // автодисциплине системного времени.
+  if (rtc.isReady()) {
+    bool trusted_anchor = set_system_time_from_rtc_on_second_edge(1500);
+    ESP_LOGI(TAG, "Boot time from RTC: %s",
+             trusted_anchor ? "trusted anchor" : "system clock only");
   }
 
   notify_state_change_if_needed();
@@ -760,6 +789,19 @@ void time_sync_update() {
         }
 
         if (need_reanchor && allow_reanchor_now) {
+          if (!rtc.timeValid(kMinValidUnixSec)) {
+            if (!s_logged_rtc_anchor_wait) {
+              ESP_LOGW(TAG,
+                       "RTC fallback: RTC time is not trusted (lost_power=%d, min_unix=%lu)",
+                       (int)rtc.lostPower(),
+                       (unsigned long)kMinValidUnixSec);
+              s_logged_rtc_anchor_wait = true;
+            }
+            set_fallback_status_from_anchor();
+            notify_state_change_if_needed();
+            return;
+          }
+
           int64_t rtc_utc_us = 0;
           const char *anchor_source = "system";
 

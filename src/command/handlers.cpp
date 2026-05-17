@@ -215,8 +215,11 @@ void cmdStatus(JsonDocument& request, Stream& output) {
 
     JsonObject rtc_obj = response["rtc"].to<JsonObject>();
     bool rtc_ready = rtc.isReady();
+    bool rtc_lost_power = rtc_ready ? rtc.lostPower() : false;
     rtc_obj["ready"] = rtc_ready;
-    rtc_obj["lost_power"] = rtc_ready ? rtc.lostPower() : false;
+    rtc_obj["lost_power"] = rtc_lost_power;
+    rtc_obj["time_valid"] =
+        rtc_ready && !rtc_lost_power && rtc.unixTime() >= MIN_VALID_UNIX_SEC;
     if (rtc_ready) {
         rtc_obj["temperature_c"] = rtc.getTemperature();
     }

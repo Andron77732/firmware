@@ -73,6 +73,12 @@ uint32_t RTC::unixTime() {
     return now().unixtime();
 }
 
+bool RTC::timeValid(uint32_t minUnixSec) {
+    if (!_initialized) return false;
+    if (_rtc.lostPower()) return false;
+    return _rtc.now().unixtime() >= minUnixSec;
+}
+
 void RTC::setTime(const DateTime& dt) {
     if (!_initialized) {
         ESP_LOGE(TAG, "Cannot set time: RTC not initialized");

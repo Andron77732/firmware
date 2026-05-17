@@ -80,6 +80,10 @@ static_assert(INA226_BAT_LOW_MAX_V < INA226_BAT_MID_MAX_V,
 #define SNTP_POLL_DELAY_MS      50
 #define SNTP_EDGE_POLL_DELAY_MS 1
 
+// --- Time validation ---
+// Минимальное доверенное UTC время: 2020-01-01 00:00:00.
+#define MIN_VALID_UNIX_SEC 1577836800UL
+
 // --- Event packets ---
 #define START_HEADER '$'
 #define FINISH_HEADER 'F'

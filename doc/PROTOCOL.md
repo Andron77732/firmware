@@ -258,6 +258,7 @@ V10:10:15#
 - `ble.clients` — количество активных BLE клиентов
 - `rtc.ready` — готов ли RTC
 - `rtc.lost_power` — потеря питания RTC
+- `rtc.time_valid` — можно ли доверять времени RTC как источнику timestamp
 - `rtc.last_sync_ms` — время с последней установки RTC (мс)
 - `rtc.temperature_c` — температура датчика RTC
 - `gps.state` — состояние GPS: `"off"`, `"searching"`, `"active"`

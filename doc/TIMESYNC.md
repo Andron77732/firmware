@@ -63,7 +63,8 @@ locked SQW, код измеряет `PPS - SQW` и сохраняет `sqw_utc_o
 Оно используется:
 
 - для оценки offset'а между target UTC и системными часами;
-- для `settimeofday()`, если `auto_sync=true`;
+- для `settimeofday()`, если `auto_sync=true` (boot-загрузка часов из RTC
+  является отдельным исключением);
 - как fallback для номера секунды PPS, когда PPS есть, но свежего NMEA нет и
   текущего точного anchor ещё нет.
 
@@ -96,19 +97,23 @@ locked SQW, код измеряет `PPS - SQW` и сохраняет `sqw_utc_o
 `time_sync_begin()` сбрасывает внутреннее состояние, счётчики PPS/SQW, NMEA
 кэш, guard flags и запускает ISR RTC SQW.
 
-Если RTC готов и `auto_sync=true`, код пытается выставить системное время от
-RTC на ближайшем SQW фронте:
+Если RTC готов, код при boot всегда пытается выставить системное время от RTC,
+даже при `auto_sync=false`. Это нужно, чтобы UI и код, читающий системные часы,
+видели хоть какие-то часы до GPS/NTP.
 
 1. ждёт свежий SQW edge;
 2. читает `rtc.unixTime()`;
 3. делает `settimeofday()` на границу секунды;
-4. создаёт RTC anchor: `anchor_utc_us = rtc_sec * 1e6`,
+4. если RTC time trusted (`!lostPower()` и Unix time >= 2020-01-01), создаёт
+   RTC anchor: `anchor_utc_us = rtc_sec * 1e6`,
    `anchor_esp_us = sqw_edge_us`.
 
 Если SQW edge не дождались, используется fallback: читается `rtc.unixTime()` и
-создаётся RTC anchor относительно текущего `esp_timer`. Это даёт хоть какое-то
-время на старте, но не является interrupt-aligned секундным anchor. При
-появлении SQW дальнейшая логика переякорит время по SQW.
+системные часы выставляются относительно текущего `esp_timer`. Trusted RTC
+anchor в этом режиме создаётся только если RTC time valid. Если RTC потерял
+питание или время явно старое, системные часы всё равно загружаются для UI, но
+`sync.state` остаётся `NONE`, и timestamp событий не считаются валидными до
+GPS/NTP или доверенного RTC anchor.
 
 ## Основной цикл `time_sync_update()`
 
@@ -393,10 +398,11 @@ No usable GPS PPS or RTC anchor
 
 ## Практический смысл `auto_sync`
 
-`auto_sync` управляет только записью в системные часы:
+`auto_sync` управляет дальнейшей дисциплиной системных часов после boot:
 
 - `true`: код вызывает `settimeofday()` и периодически дисциплинирует систему;
-- `false`: системные часы не трогаются.
+- `false`: системные часы не корректируются в рабочем цикле, но при boot всё
+  равно однократно загружаются из RTC, если RTC доступен.
 
 В обоих режимах подсистема должна продолжать поддерживать internal anchor для
 `time_sync_esp_to_utc_us()`. Это важно, потому что timestamp событий не должен
