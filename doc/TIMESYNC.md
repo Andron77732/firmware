@@ -307,12 +307,14 @@ holdover составляет 30 секунд от последнего обра
 При стабильном SQW код работает по новым SQW фронтам:
 
 1. берёт `sqw_edge_us` и `sqw_count`;
-2. берёт системное время через `gettimeofday()` и пересчитывает его назад к
-   `sqw_edge_us`;
-3. если известен `sqw_utc_offset_us`, снапит UTC на SQW edge к этой фазе;
-4. если системное время невалидно, использует `rtc.unixTime()` как холодный
-   fallback и также добавляет `sqw_utc_offset_us`, если он известен;
-5. дальше строит UTC секунды по счётчику SQW:
+2. перед reanchor проверяет доверенность RTC: `!lostPower()` и Unix time не
+   ниже минимального порога;
+3. если `auto_sync=true`, берёт системное время через `gettimeofday()` и
+   пересчитывает его назад к `sqw_edge_us`;
+4. если системное время не используется или невалидно, использует
+   `rtc.unixTime()` как холодный fallback;
+5. если известен `sqw_utc_offset_us`, переносит UTC на фазу SQW edge;
+6. дальше строит UTC секунды по счётчику SQW:
 
 ```text
 edge_utc_us = anchor_utc_us + (sqw_count - anchor_sqw_count) * 1e6
