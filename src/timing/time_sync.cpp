@@ -1213,6 +1213,9 @@ int64_t time_sync_estimate_accuracy_us() {
       if (!rtc_sqw_is_locked())
         return -1;
 
+      if (!rtc.timeValid(kMinValidUnixSec))
+        return -1;
+
       // RTC_OK: метка события строится по SQW edge и anchor. I2C чтение RTC
       // участвует только при редком reanchor, не на каждом событии.
       int64_t acc = kRtcBaseJitterUs;

@@ -375,7 +375,10 @@ utc_us = anchor_utc_us + (esp_timestamp_us - anchor_esp_us)
 
 - для `GPS_PPS`: ISR jitter + остаточная PPS/NMEA неопределённость + мягкий
   штраф за возраст anchor;
-- для `RTC`: базовый RTC/SQW jitter + мягкое ухудшение при старом SQW edge;
+- для `RTC`: остаточный допуск SQW ISR/обработки loop/reanchor + мягкое
+  ухудшение при старом SQW edge;
+- для `RTC` оценка недоступна (`-1`), если RTC не прошел проверку
+  `time_valid` (`lostPower` или время ниже минимального порога);
 - при `auto_sync=false` дополнительно учитывается `last_offset_us`, потому что
   системные часы могут отличаться от internal anchor.
 
