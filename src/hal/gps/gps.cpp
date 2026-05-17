@@ -16,9 +16,9 @@ GPS gps;
 // GPS Serial (UART2)
 static HardwareSerial gpsSerial(2);
 
-// Буфер для verbose вывода NMEA строки
-static char verboseLine[128];
-static uint8_t verboseIdx = 0;
+// Рабочий буфер полной NMEA строки для дополнительных парсеров и verbose лога.
+static char nmeaLineBuffer[128];
+static uint8_t nmeaLineIdx = 0;
 
 static bool readNmeaField_(const char*& cursor, char* out, size_t out_len) {
     if (!cursor || *cursor == '\0' || *cursor == '*') {
@@ -94,24 +94,24 @@ void GPS::update() {
         uint64_t utc_before = 0;
         const bool had_utc_before = readUtcSignature_(utc_before);
         
-        // Собираем строку для verbose лога
+        // Собираем полную строку для дополнительных NMEA парсеров и verbose лога.
         if (c == '\n' || c == '\r') {
-            if (verboseIdx > 0) {
-                verboseLine[verboseIdx] = '\0';
-                parseGsvSentence_(verboseLine, now_us);
-                ESP_LOGV(TAG_NMEA, "%s", verboseLine);
-                verboseIdx = 0;
+            if (nmeaLineIdx > 0) {
+                nmeaLineBuffer[nmeaLineIdx] = '\0';
+                parseGsvSentence_(nmeaLineBuffer, now_us);
+                ESP_LOGV(TAG_NMEA, "%s", nmeaLineBuffer);
+                nmeaLineIdx = 0;
             }
 
             if (_in_sentence) {
                 _current_sentence_start_us = 0;
                 _in_sentence = false;
             }
-        } else if (verboseIdx < sizeof(verboseLine) - 1) {
-            verboseLine[verboseIdx++] = c;
+        } else if (nmeaLineIdx < sizeof(nmeaLineBuffer) - 1) {
+            nmeaLineBuffer[nmeaLineIdx++] = c;
         } else {
             // Переполнение — сбрасываем
-            verboseIdx = 0;
+            nmeaLineIdx = 0;
         }
         
         // Парсинг NMEA
