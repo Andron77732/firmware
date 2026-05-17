@@ -97,8 +97,11 @@ V10:10:15#
 {
   "cmd": "status",
   "id": 2,
-  "gps_fix": true,
-  "gps_satellites": 12,
+  "gps": {
+    "fix": true,
+    "satellites_used": 8,
+    "satellites_view": 12
+  },
   "status": "ok"
 }
 ```
@@ -214,8 +217,13 @@ V10:10:15#
   "gps": {
     "state": "searching",
     "fix_age_ms": 120000,
+    "nmea_age_ms": 350,
+    "gsv_age_ms": 410,
+    "utc_age_ms": 900,
+    "pps_age_ms": 120,
     "fix": true,
-    "satellites": 12,
+    "satellites_used": 8,
+    "satellites_view": 12,
     "pps_signal": true,
     "enabled": true
   },
@@ -264,10 +272,12 @@ V10:10:15#
 - `gps.state` — состояние GPS: `"off"`, `"searching"`, `"active"`
 - `gps.fix_age_ms` — давность последнего фикса в мс
 - `gps.nmea_age_ms` — давность последнего обработанного NMEA-предложения в мс
+- `gps.gsv_age_ms` — давность последнего обработанного `$GPGSV`/`$GNGSV` в мс
 - `gps.utc_age_ms` — давность последнего обновления UTC из NMEA в мс
 - `gps.pps_age_ms` — давность последнего PPS фронта в мс
 - `gps.fix` — есть ли свежая GPS фиксация
-- `gps.satellites` — количество видимых спутников
+- `gps.satellites_used` — количество спутников, используемых fix/MicroNMEA
+- `gps.satellites_view` — количество свежих спутников из GSV skyplot
 - `gps.pps_signal` — получен ли PPS сигнал от GPS
 - `gps.enabled` — включен ли GPS в настройках при загрузке
 - `sync.last_ms` — время последней синхронизации (мс)
@@ -744,7 +754,7 @@ V10:10:15#
 {"event": "gps_lost", "timestamp": 1703169600123456}
 
 // Восстановление GPS
-{"event": "gps_acquired", "satellites": 12, "timestamp": 1703169600123456}
+{"event": "gps_acquired", "satellites_used": 8, "satellites_view": 12, "timestamp": 1703169600123456}
 
 // Ошибка RTC
 {"event": "rtc_error", "error_code": 201, "timestamp": 1703169600123456}

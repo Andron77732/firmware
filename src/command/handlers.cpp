@@ -252,8 +252,14 @@ void cmdStatus(JsonDocument& request, Stream& output) {
     }
     gps_obj["state"] = gps_state_str;
     gps_obj["enabled"] = settings.getGps().enabled;
-    gps_obj["fix"] = gps.nmea().isValid() && gps.nmeaFresh();
-    gps_obj["satellites"] = gps.nmeaFresh() ? gps.nmea().getNumSatellites() : -1;
+    const bool gps_fix = gps.nmea().isValid() && gps.nmeaFresh();
+    const int gps_satellites_used = gps_fix ? gps.nmea().getNumSatellites() : -1;
+    GPSSatelliteInfo gps_satellites_view[GPS::MAX_SATELLITES];
+    const uint8_t gps_satellites_view_count =
+        gps.satellites(gps_satellites_view, GPS::MAX_SATELLITES, true);
+    gps_obj["fix"] = gps_fix;
+    gps_obj["satellites_used"] = gps_satellites_used;
+    gps_obj["satellites_view"] = gps_satellites_view_count;
     gps_obj["pps_signal"] = pps_is_locked();
     int64_t now_us = esp_timer_get_time();
     int64_t gps_fix_us = gps.lastFixUs();
@@ -271,6 +277,14 @@ void cmdStatus(JsonDocument& request, Stream& output) {
             age_ms = 0;
         }
         gps_obj["nmea_age_ms"] = age_ms;
+    }
+    int64_t gsv_us = 0;
+    if (gps.lastGsvUs(gsv_us)) {
+        int64_t age_ms = (now_us - gsv_us) / 1000;
+        if (age_ms < 0) {
+            age_ms = 0;
+        }
+        gps_obj["gsv_age_ms"] = age_ms;
     }
     int64_t utc_us = 0;
     if (gps.lastUtcUpdateUs(utc_us)) {
