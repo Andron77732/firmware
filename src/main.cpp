@@ -207,9 +207,16 @@ void setup() {
   ESP_LOGI(TAG, "Event ISR initialized");
 
   // Инициализация GPS
-  mainArea.addLogLine("Initializing GPS...");
-  gps.begin();
-  mainArea.addLogLine("GPS initialized");
+  const GpsSettings &gpsSettings = settings.getGps();
+  if (gpsSettings.enabled) {
+    mainArea.addLogLine("Initializing GPS...");
+  } else {
+    mainArea.addLogLine("GPS disabled in settings");
+  }
+  gps.begin(gpsSettings.enabled);
+  if (gpsSettings.enabled) {
+    mainArea.addLogLine("GPS initialized");
+  }
   gps.setStateCallback(onGPSStateChanged);
   gps.setSatsCallback(onGPSSatsChanged);
   onGPSStateChanged(gps.getState());

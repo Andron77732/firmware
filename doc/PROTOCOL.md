@@ -53,7 +53,6 @@ V10:10:15#
 - [ping](#ping---проверка-связи)
 - [time](#time---получить-текущее-время)
 - [status](#status---получить-статус-устройства)
-- [gps](#gps---управление-gps-модулем)
 - [wifi](#wifi---управление-wifi)
 - [calibrate](#calibrate---калибровка-rtc)
 - [touch_calibrate](#touch_calibrate---калибровка-touch)
@@ -217,7 +216,8 @@ V10:10:15#
     "fix_age_ms": 120000,
     "fix": true,
     "satellites": 12,
-    "pps_signal": true
+    "pps_signal": true,
+    "enabled": true
   },
   "sync": {
     "last_ms": 5000,
@@ -269,6 +269,7 @@ V10:10:15#
 - `gps.fix` — есть ли свежая GPS фиксация
 - `gps.satellites` — количество видимых спутников
 - `gps.pps_signal` — получен ли PPS сигнал от GPS
+- `gps.enabled` — включен ли GPS в настройках при загрузке
 - `sync.last_ms` — время последней синхронизации (мс)
 - `sync.state` — состояние синхронизации: `"gps_ok"`, `"gps_degraded"`, `"rtc_ok"`, `"rtc_degraded"`, `"nosync"`
 - `sync.accuracy_us` — оценка точности синхронизации (мкс)
@@ -279,30 +280,6 @@ V10:10:15#
 - `storage.used_pct` — использование хранилища в %
 - `storage.ok` — статус хранилища (true если ok)
 - `power.battery_voltage` — напряжение питания (опционально)
-
----
-
-### `gps` - Управление GPS модулем
-
-**Запрос (включить):**
-```json
-{"cmd": "gps", "enable": true, "id": 3}
-```
-
-**Ответ:**
-```json
-{
-  "cmd": "gps",
-  "id": 3,
-  "state": "enabled",
-  "status": "ok"
-}
-```
-
-**Запрос (отключить):**
-```json
-{"cmd": "gps", "disable": true, "id": 4}
-```
 
 ---
 
@@ -535,6 +512,9 @@ V10:10:15#
       "ssid": "",
       "passwd": ""
     },
+    "gps": {
+      "enabled": true
+    },
     "touch": {
       "enabled": true,
       "cal_valid": false,
@@ -595,6 +575,9 @@ V10:10:15#
       "active": false,
       "ssid": "",
       "passwd": ""
+    },
+    "gps": {
+      "enabled": true
     },
     "touch": {
       "enabled": true,

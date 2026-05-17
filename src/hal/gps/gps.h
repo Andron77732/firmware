@@ -27,8 +27,8 @@ public:
     /**
      * @brief Инициализация UART и парсера
      */
-    void begin();
-    
+    void begin(bool enabled = true);
+
     /**
      * @brief Обработка входящих данных (вызывать в loop)
      */

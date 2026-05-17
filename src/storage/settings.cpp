@@ -138,6 +138,11 @@ bool SettingsManager::validateWifi(const WifiSettings &wifi) const {
   return true;
 }
 
+bool SettingsManager::validateGps(const GpsSettings &gps) const {
+  (void)gps;
+  return true;
+}
+
 bool SettingsManager::validateTouch(const TouchSettings &touch) const {
   (void)touch;
   return true;
@@ -162,6 +167,8 @@ void SettingsManager::setDefaults() {
   settings_.wifi.active = DEFAULT_WIFI_ACTIVE;
   settings_.wifi.ssid = DEFAULT_WIFI_SSID;
   settings_.wifi.passwd = DEFAULT_WIFI_PASSWD;
+
+  settings_.gps.enabled = DEFAULT_GPS_ENABLED;
 
   settings_.touch.enabled = DEFAULT_TOUCH_ENABLED;
   settings_.touch.calibration.valid = DEFAULT_TOUCH_CAL_VALID;
@@ -309,6 +316,14 @@ size_t SettingsManager::saveWifi() {
   return count;
 }
 
+size_t SettingsManager::saveGps() {
+  size_t count = 0;
+  if (putBoolIfChanged_("gps.enabled", settings_.gps.enabled,
+                        DEFAULT_GPS_ENABLED))
+    count++;
+  return count;
+}
+
 size_t SettingsManager::saveTouch() {
   size_t count = 0;
   if (putBoolIfChanged_("touch.enabled", settings_.touch.enabled,
@@ -363,6 +378,10 @@ void SettingsManager::loadWifi() {
   settings_.wifi.ssid = prefs_.getString("wifi.ssid", DEFAULT_WIFI_SSID);
 
   settings_.wifi.passwd = prefs_.getString("wifi.passwd", DEFAULT_WIFI_PASSWD);
+}
+
+void SettingsManager::loadGps() {
+  settings_.gps.enabled = prefs_.getBool("gps.enabled", DEFAULT_GPS_ENABLED);
 }
 
 void SettingsManager::loadTouch() {
@@ -424,10 +443,12 @@ bool SettingsManager::load() {
   loadDevice();
   loadSync();
   loadWifi();
+  loadGps();
   loadTouch();
   // Валидация загруженных настроек
   if (!validateDevice(settings_.device) || !validateSync(settings_.sync) ||
-      !validateWifi(settings_.wifi) || !validateTouch(settings_.touch)) {
+      !validateWifi(settings_.wifi) || !validateGps(settings_.gps) ||
+      !validateTouch(settings_.touch)) {
     ESP_LOGW(TAG, "Loaded settings failed validation, using defaults");
     setDefaults();
     return false;
@@ -445,7 +466,8 @@ int SettingsManager::save() {
 
   // Валидация перед сохранением
   if (!validateDevice(settings_.device) || !validateSync(settings_.sync) ||
-      !validateWifi(settings_.wifi) || !validateTouch(settings_.touch)) {
+      !validateWifi(settings_.wifi) || !validateGps(settings_.gps) ||
+      !validateTouch(settings_.touch)) {
     ESP_LOGE(TAG, "Settings validation failed, cannot save");
     return -1;
   }
@@ -454,6 +476,7 @@ int SettingsManager::save() {
   total += saveDevice();
   total += saveSync();
   total += saveWifi();
+  total += saveGps();
   total += saveTouch();
 
   ESP_LOGI(TAG, "Settings saved successfully (%zu keys)", total);
@@ -499,6 +522,14 @@ bool SettingsManager::setWifi(const WifiSettings &wifi) {
     return false;
   }
   settings_.wifi = wifi;
+  return true;
+}
+
+bool SettingsManager::setGps(const GpsSettings &gps) {
+  if (!validateGps(gps)) {
+    return false;
+  }
+  settings_.gps = gps;
   return true;
 }
 
@@ -571,6 +602,9 @@ JsonDocument SettingsManager::toJson() const {
   // Do not show wifi password
   doc["wifi"]["passwd"] = "";
 
+  // GPS settings
+  doc["gps"]["enabled"] = settings_.gps.enabled;
+
   // Touch settings
   doc["touch"]["enabled"] = settings_.touch.enabled;
   doc["touch"]["cal_valid"] = settings_.touch.calibration.valid;
@@ -587,6 +621,7 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
   DeviceSettings device = settings_.device;
   SyncSettings sync = settings_.sync;
   WifiSettings wifi = settings_.wifi;
+  GpsSettings gps = settings_.gps;
   TouchSettings touch = settings_.touch;
   // Device settings
   if (!doc["device"].isNull()) {
@@ -648,6 +683,17 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
     }
   }
 
+  // GPS settings
+  if (!doc["gps"].isNull()) {
+    if (!doc["gps"]["enabled"].isNull()) {
+      gps.enabled = doc["gps"]["enabled"].as<bool>();
+    }
+
+    if (!validateGps(gps)) {
+      return false;
+    }
+  }
+
   // Touch settings
   if (!doc["touch"].isNull()) {
     if (!doc["touch"]["enabled"].isNull()) {
@@ -694,6 +740,7 @@ bool SettingsManager::fromJson(const JsonDocument& doc) {
   settings_.device = device;
   settings_.sync = sync;
   settings_.wifi = wifi;
+  settings_.gps = gps;
   settings_.touch = touch;
 
   return true;

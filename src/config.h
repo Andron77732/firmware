@@ -25,6 +25,8 @@
 #define GPS_TX_PIN      5
 #define GPS_PPS_PIN     6
 #define GPS_BAUD        9600
+// GPS power switch control.
+#define GPS_POWER_PIN   38
 
 // --- RTC DS3231 + INA226 (I2C) ---
 // Общая I2C шина для RTC и мониторинга питания (INA226)

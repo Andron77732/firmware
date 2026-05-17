@@ -33,6 +33,9 @@
       "ssid": "...",
       "passwd": "..."
     },
+    "gps": {
+      "enabled": ...
+    },
     "touch": {
       "enabled": ...,
       "cal_valid": ...,
@@ -203,6 +206,18 @@
 
 ---
 
+### Настройки GPS
+
+#### `gps.enabled`
+- **Путь в JSON:** `data.gps.enabled`
+- **Тип:** `boolean`
+- **По умолчанию:** `true`
+- **Описание:** Включать GPS при загрузке. При `false` пин питания GPS `GPS_POWER_PIN` выставляется в `LOW`, а GPS UART/NMEA не инициализируется.
+- **Ограничения:** Только `true` или `false`
+- **Применение:** Требуется перезагрузка
+
+---
+
 ### Настройки Touch
 
 #### `touch.enabled`
@@ -248,6 +263,7 @@
 | `wifi.active` | `data.wifi.active` | boolean | `false` | true/false | WiFi |
 | `wifi.ssid` | `data.wifi.ssid` | string | `""` | до 32 символов | WiFi |
 | `wifi.passwd` | `data.wifi.passwd` | string | `""` | до 64 символов | WiFi |
+| `gps.enabled` | `data.gps.enabled` | boolean | `true` | true/false | GPS |
 | `touch.enabled` | `data.touch.enabled` | boolean | `true` | true/false | Touch |
 | `touch.cal_valid` | `data.touch.cal_valid` | boolean | `false` | true/false | Touch |
 | `touch.calibration` | `data.touch.calibration` | array[5] uint16 | `[0,0,0,0,0]` | ровно 5 чисел `0..65535` | Touch |
@@ -280,6 +296,9 @@
       "active": false,
       "ssid": "",
       "passwd": ""
+    },
+    "gps": {
+      "enabled": true
     },
     "touch": {
       "enabled": true,
@@ -329,6 +348,9 @@
       "active": false,
       "ssid": "",
       "passwd": ""
+    },
+    "gps": {
+      "enabled": true
     },
     "touch": {
       "enabled": true,
@@ -403,6 +425,7 @@
 | `data.wifi.active` | `false` |
 | `data.wifi.ssid` | `""` |
 | `data.wifi.passwd` | `""` |
+| `data.gps.enabled` | `true` |
 | `data.touch.enabled` | `true` |
 | `data.touch.cal_valid` | `false` |
 | `data.touch.calibration` | `[0, 0, 0, 0, 0]` |

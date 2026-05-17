@@ -90,7 +90,7 @@ utc_us = anchor_utc_us + (event_esp_us - anchor_esp_us)
 - [x] JSON parser/router/handlers
 - [x] WiFi command
 - [x] `sync_ntp`, `sync_source`, `calibrate`, `touch_calibrate`
-- [ ] `gps` command policy/handler
+- [x] `gps.enabled` boot-time setting
 
 ### Фаза 6: Интерфейс
 
@@ -183,7 +183,3 @@ Device/integration tests:
 - `load_config`
 - `touch_calibrate`
 - `factory_reset`
-
-Документированная, но ещё не реализованная/не определённая до конца команда:
-
-- `gps`

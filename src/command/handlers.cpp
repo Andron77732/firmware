@@ -251,6 +251,7 @@ void cmdStatus(JsonDocument& request, Stream& output) {
             break;
     }
     gps_obj["state"] = gps_state_str;
+    gps_obj["enabled"] = settings.getGps().enabled;
     gps_obj["fix"] = gps.nmea().isValid() && gps.nmeaFresh();
     gps_obj["satellites"] = gps.nmeaFresh() ? gps.nmea().getNumSatellites() : -1;
     gps_obj["pps_signal"] = pps_is_locked();
@@ -424,7 +425,8 @@ void cmdSaveConfig(JsonDocument& request, Stream& output) {
         prev_settings.device.type != new_settings.device.type ||
         prev_settings.wifi.active != new_settings.wifi.active ||
         prev_settings.wifi.ssid != new_settings.wifi.ssid ||
-        prev_settings.wifi.passwd != new_settings.wifi.passwd;
+        prev_settings.wifi.passwd != new_settings.wifi.passwd ||
+        prev_settings.gps.enabled != new_settings.gps.enabled;
 
     JsonDocument response;
 

@@ -25,6 +25,8 @@
 #define DEFAULT_WIFI_SSID ""
 #define DEFAULT_WIFI_PASSWD ""
 
+#define DEFAULT_GPS_ENABLED true
+
 #define DEFAULT_TOUCH_ENABLED true
 #define DEFAULT_TOUCH_CAL_VALID false
 #define DEFAULT_TOUCH_CAL0 0
@@ -68,6 +70,13 @@ struct WifiSettings {
 };
 
 /**
+ * @brief Настройки GPS
+ */
+struct GpsSettings {
+  bool enabled = DEFAULT_GPS_ENABLED;        // включать GPS при загрузке
+};
+
+/**
  * @brief Калибровка touch-панели
  */
 struct TouchCalibration {
@@ -91,6 +100,7 @@ struct Settings {
   DeviceSettings device;
   SyncSettings sync;
   WifiSettings wifi;
+  GpsSettings gps;
   TouchSettings touch;
 };
 
@@ -130,6 +140,7 @@ public:
   const DeviceSettings &getDevice() const { return settings_.device; }
   const SyncSettings &getSync() const { return settings_.sync; }
   const WifiSettings &getWifi() const { return settings_.wifi; }
+  const GpsSettings &getGps() const { return settings_.gps; }
   const TouchSettings &getTouch() const { return settings_.touch; }
   const Settings &getAll() const { return settings_; }
 
@@ -157,6 +168,14 @@ public:
    * ошибке
    */
   bool setWifi(const WifiSettings &wifi);
+
+  /**
+   * @brief Установить настройки GPS с валидацией
+   * @param gps Настройки GPS
+   * @return true если валидация прошла и настройки установлены, false при
+   * ошибке
+   */
+  bool setGps(const GpsSettings &gps);
 
   /**
    * @brief Установить настройки touch с валидацией
@@ -206,6 +225,7 @@ private:
   bool validateDevice(const DeviceSettings &device) const;
   bool validateSync(const SyncSettings &sync) const;
   bool validateWifi(const WifiSettings &wifi) const;
+  bool validateGps(const GpsSettings &gps) const;
   bool validateTouch(const TouchSettings &touch) const;
   // Вспомогательные функции валидации
   bool isValidAsciiName(const String &name) const;
@@ -217,10 +237,12 @@ private:
   size_t saveDevice();
   size_t saveSync();
   size_t saveWifi();
+  size_t saveGps();
   size_t saveTouch();
   void loadDevice();
   void loadSync();
   void loadWifi();
+  void loadGps();
   void loadTouch();
 
   // Установка значений по умолчанию

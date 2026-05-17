@@ -6,6 +6,8 @@
 static const char* TAG = "GPS";
 static const char* TAG_NMEA = "GPS][NMEA";  // Хак для вывода [GPS][NMEA]
 
+static_assert(GPS_POWER_PIN >= 0, "GPS_POWER_PIN must be configured");
+
 // Глобальный объект GPS
 GPS gps;
 
@@ -16,18 +18,31 @@ static HardwareSerial gpsSerial(2);
 static char verboseLine[128];
 static uint8_t verboseIdx = 0;
 
-void GPS::begin() {
+void GPS::begin(bool enabled) {
     if (_initialized) return;
-    
+
+    pinMode(GPS_POWER_PIN, OUTPUT);
+    digitalWrite(GPS_POWER_PIN, enabled ? HIGH : LOW);
+    ESP_LOGI(TAG, "Power %s", enabled ? "enabled" : "disabled");
+
+    if (!enabled) {
+        ESP_LOGI(TAG, "Disabled by settings");
+        return;
+    }
+
     gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
     ESP_LOGI(TAG, "Initialized (RX:%d, TX:%d, PPS:%d)", GPS_RX_PIN, GPS_TX_PIN, GPS_PPS_PIN);
-    
+
     _initialized = true;
     updateState_();
     updateSats_();
 }
 
 void GPS::update() {
+    if (!_initialized) {
+        return;
+    }
+
     while (gpsSerial.available()) {
         const int64_t now_us = esp_timer_get_time();
         char c = gpsSerial.read();
